@@ -1,0 +1,583 @@
+{
+  "items": [
+    {
+      "type": "p",
+      "text": "AI 作图功能点",
+      "images": []
+    },
+    {
+      "type": "p",
+      "text": "功能总览",
+      "images": []
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "功能",
+          "用户输入",
+          "目标输出",
+          "重点确认"
+        ],
+        [
+          "贴纸复刻",
+          "包装/贴纸参考图、附加提示词、贴纸区域框选",
+          "相似风格的 2D 平面贴纸",
+          "是否只要求风格/排版相似"
+        ],
+        [
+          "贴纸裂变",
+          "贴纸/包装参考图、裂变方向",
+          "多张不同排版/色系/风格贴纸",
+          "默认出 4 张还是 8 张"
+        ],
+        [
+          "贴纸原创",
+          "附加提示词，可选风格参考图",
+          "新的 2D 平面贴纸初稿",
+          "是否由系统自动补充卖点/风格"
+        ],
+        [
+          "去除产品",
+          "商品场景图、去除说明、可选区域框",
+          "无产品场景素材",
+          "是否只做简单矩形框"
+        ],
+        [
+          "替换产品",
+          "场景图、目标产品图、替换说明",
+          "替换为目标产品的场景图",
+          "目标产品图是否默认白底"
+        ],
+        [
+          "替换 Logo",
+          "原图、目标 Logo、替换说明",
+          "替换 Logo 后的图片",
+          "是否需要多 Logo 同时替换"
+        ],
+        [
+          "主图裂变",
+          "主图/场景参考图、裂变方向",
+          "多张主图初稿",
+          "是否重点支持前后对比和场景裂变"
+        ],
+        [
+          "创作新场景图",
+          "产品品类/场景描述，可选参考图",
+          "多张新场景图",
+          "是否严格支持“不要出现产品”"
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "text": "1. 贴纸复刻",
+      "images": []
+    },
+    {
+      "type": "p",
+      "text": "",
+      "images": [
+        {
+          "Id": "rId5",
+          "Target": "media/image1.png",
+          "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        }
+      ]
+    },
+    {
+      "type": "p",
+      "text": "用户上传包装图或贴纸参考图，系统复刻贴纸的色系、风格、排版和视觉结构，输出独立 2D 平面贴纸图。示例效果是：输入一张带包装的产品图，框选贴纸区域后，只输出类似原包装风格的平面贴纸，不输出罐子、瓶子或盒子。",
+      "images": []
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "项目",
+          "内容"
+        ],
+        [
+          "输入",
+          "多张参考图、图片用途标注、附加提示词、可选贴纸区域框选"
+        ],
+        [
+          "输出",
+          "独立 2D 平面贴纸图，默认白底 PNG，可选透明 PNG"
+        ],
+        [
+          "关键要求",
+          "复刻色系、风格、排版、色块关系；不生成产品实物；关键文字尽量准确，允许后期修"
+        ],
+        [
+          "需要确认",
+          "是否只要求“风格和排版相似”，不要求一比一像素级复刻？品牌默认按提示词处理，还是固定默认品牌？"
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "text": "2. 贴纸裂变",
+      "images": []
+    },
+    {
+      "type": "p",
+      "text": "",
+      "images": [
+        {
+          "Id": "rId6",
+          "Target": "media/image2.png",
+          "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        }
+      ]
+    },
+    {
+      "type": "p",
+      "text": "用户上传已有贴纸或包装参考图，系统生成多张同品类感的变体。示例效果是：同一张汽车修复贴纸，可以裂变出不同标题区、卖点区、图标区、背景纹理和色块比例的版本。",
+      "images": []
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "项目",
+          "内容"
+        ],
+        [
+          "输入",
+          "贴纸/包装参考图、图片用途标注、附加提示词、可选贴纸区域框选"
+        ],
+        [
+          "输出",
+          "多张独立 2D 平面贴纸图"
+        ],
+        [
+          "关键要求",
+          "支持排版裂变、色系裂变、风格裂变；可忽略原品牌；不输出产品包装 mockup"
+        ],
+        [
+          "需要确认",
+          "是否允许明显改变原排版，只保留品类感、色系和市场风格？默认输出 4 张还是 8 张？"
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "text": "3. 贴纸原创",
+      "images": []
+    },
+    {
+      "type": "p",
+      "text": "",
+      "images": [
+        {
+          "Id": "rId7",
+          "Target": "media/image3.png",
+          "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        }
+      ]
+    },
+    {
+      "type": "p",
+      "text": "用户不提供贴纸参考图时，通过附加提示词生成新的贴纸设计初稿。示例效果是：用户输入产品品类、品牌、卖点、容量、风格后，系统生成多张可贴到包装上的 2D 标签设计，而不是普通海报或 3D 产品图。",
+      "images": []
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "项目",
+          "内容"
+        ],
+        [
+          "输入",
+          "附加提示词，可选风格参考图/效果参考图"
+        ],
+        [
+          "输出",
+          "多张原创 2D 平面贴纸初稿"
+        ],
+        [
+          "关键要求",
+          "支持无参考图；不输出产品实物或包装容器；关键文字尽量准确，允许后期修"
+        ],
+        [
+          "需要确认",
+          "是否接受“设计方向/初稿”定位？是否需要系统根据品类自动补充卖点和视觉风格？"
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "text": "4. 去除产品",
+      "images": []
+    },
+    {
+      "type": "p",
+      "text": "",
+      "images": [
+        {
+          "Id": "rId8",
+          "Target": "media/image4.png",
+          "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        }
+      ]
+    },
+    {
+      "type": "p",
+      "text": "用户上传商品场景图，系统去掉图中的产品，保留可复用背景或场景素材。示例效果是：去掉厨房清洁场景中的产品瓶，只留下干净的油污场景，方便后续再放入自己的产品。",
+      "images": []
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "项目",
+          "内容"
+        ],
+        [
+          "输入",
+          "待处理原图、附加提示词、可选产品区域框选"
+        ],
+        [
+          "输出",
+          "不含原产品的场景图"
+        ],
+        [
+          "关键要求",
+          "去除产品并补全背景；结果可作为后续替换产品或主图裂变素材"
+        ],
+        [
+          "需要确认",
+          "是否只做简单矩形框，不做精细蒙版或复杂编辑器？复杂背景下是否接受结果作为美工初稿？"
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "text": "5. 替换产品",
+      "images": []
+    },
+    {
+      "type": "p",
+      "text": "",
+      "images": [
+        {
+          "Id": "rId9",
+          "Target": "media/image5.png",
+          "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        }
+      ]
+    },
+    {
+      "type": "p",
+      "text": "用户上传场景图和目标产品图，系统把原图中的产品替换为目标产品。示例效果是：把原图中手持的清洁剂瓶替换成用户上传的目标产品，并尽量保持手持姿势、透视、大小比例和光影。",
+      "images": []
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "项目",
+          "内容"
+        ],
+        [
+          "输入",
+          "待处理原图、目标产品图、附加提示词、可选替换区域框选"
+        ],
+        [
+          "输出",
+          "包含目标产品的场景图"
+        ],
+        [
+          "关键要求",
+          "目标产品要出现在图中；尽量保持透视、比例、光影自然"
+        ],
+        [
+          "需要确认",
+          "目标产品图是否默认以白底图为主？替换结果是否接受“尽量自然”的初稿定位？"
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "text": "6. 替换 Logo",
+      "images": []
+    },
+    {
+      "type": "p",
+      "text": "",
+      "images": [
+        {
+          "Id": "rId10",
+          "Target": "media/image6.png",
+          "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        }
+      ]
+    },
+    {
+      "type": "p",
+      "text": "用户上传图片和目标 Logo，系统替换图中的原 Logo 或品牌标识。示例效果是：把包装正面的原品牌标识替换成新 Logo，其他画面结构尽量不变，并尽量贴合原图材质和透视。",
+      "images": []
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "项目",
+          "内容"
+        ],
+        [
+          "输入",
+          "待处理原图、目标 Logo 图、附加提示词、可选 Logo 区域框选"
+        ],
+        [
+          "输出",
+          "替换 Logo 后的图片"
+        ],
+        [
+          "关键要求",
+          "只替换品牌标识；尽量保留原图透视、材质和光影"
+        ],
+        [
+          "需要确认",
+          "是否只处理明显品牌标识，不做复杂整套包装重绘？是否需要支持一张图里多个 Logo 同时替换？"
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "text": "7. 主图裂变",
+      "images": []
+    },
+    {
+      "type": "p",
+      "text": "",
+      "images": [
+        {
+          "Id": "rId11",
+          "Target": "media/image7.png",
+          "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        }
+      ]
+    },
+    {
+      "type": "p",
+      "text": "用户上传已有主图、场景图或效果参考图，系统生成不同风格、色系、构图或场景表达的主图初稿。示例效果是：同一个汽车划痕修复主题，可以裂变成红车划痕、黑车划痕、车门细节、保险杠细节、使用前后对比等不同主图方向。",
+      "images": []
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "项目",
+          "内容"
+        ],
+        [
+          "输入",
+          "主图/场景参考图、图片用途标注、附加提示词"
+        ],
+        [
+          "输出",
+          "多张主图或场景图初稿"
+        ],
+        [
+          "关键要求",
+          "支持不同风格、色系、场景、构图；可按提示词生成使用前后对比、卖点标签、Before/After 标识"
+        ],
+        [
+          "需要确认",
+          "默认是否允许出现产品，只有用户明确说不要产品时才禁止？是否重点支持“使用前后对比”和“不同具体场景裂变”？"
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "text": "8. 创作新场景图",
+      "images": []
+    },
+    {
+      "type": "p",
+      "text": "",
+      "images": [
+        {
+          "Id": "rId12",
+          "Target": "media/image8.png",
+          "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        }
+      ]
+    },
+    {
+      "type": "p",
+      "text": "用户只输入产品品类、场景要求或卖点，系统生成新的电商场景图或场景素材。示例效果是：输入油污清洁剂后，系统不是只生成油烟机，而是发散出灶台、空气炸锅、锅底、瓷砖、水槽等多个真实清洁场景。",
+      "images": []
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "项目",
+          "内容"
+        ],
+        [
+          "输入",
+          "产品品类/场景描述/卖点提示，可选风格参考图"
+        ],
+        [
+          "输出",
+          "多张新场景图"
+        ],
+        [
+          "关键要求",
+          "支持无参考图；可自动发散具体场景；可生成使用前后对比、细节图、真实生活场景"
+        ],
+        [
+          "需要确认",
+          "用户只输入品类时，是否需要系统自动发散多个具体场景？“不要出现产品”是否需要作为严格规则执行？"
+        ]
+      ]
+    },
+    {
+      "type": "p",
+      "text": "统一待确认问题",
+      "images": []
+    },
+    {
+      "type": "p",
+      "text": "以上 8 个功能是否就是本次要开发的完整功能范围？",
+      "images": []
+    },
+    {
+      "type": "p",
+      "text": "是否确认输入统一为“参考图数组 + 图片用途简单标注 + 附加提示词”？",
+      "images": []
+    },
+    {
+      "type": "p",
+      "text": "是否确认输出都是素材/初稿，不承诺直接商用成品？",
+      "images": []
+    },
+    {
+      "type": "p",
+      "text": "是否确认图片中文字只要求关键文字尽量准确，小字允许美工后期修？",
+      "images": []
+    },
+    {
+      "type": "p",
+      "text": "是否确认不做账号、数据库、历史任务、素材库、收藏评分、批量任务？",
+      "images": []
+    },
+    {
+      "type": "p",
+      "text": "是否确认只做简单矩形框选，不做复杂蒙版、画笔、图层编辑器？",
+      "images": []
+    },
+    {
+      "type": "p",
+      "text": "是否接受不同功能背后使用不同 AI 图像模型？",
+      "images": []
+    }
+  ],
+  "comments": [
+    {
+      "source": "word/comments.xml",
+      "id": "1",
+      "author": "钟荣鑫",
+      "text": "可选的入参有 logo 产品名称 色系(自然语言) 图片比例 (9:16 4:3 1:1)"
+    },
+    {
+      "source": "word/comments.xml",
+      "id": "2",
+      "author": "钟荣鑫",
+      "text": "是的 不用一比一像素级复刻 品牌是可选项 如果没有指定 则默认 wkau"
+    },
+    {
+      "source": "word/comments.xml",
+      "id": "3",
+      "author": "钟荣鑫",
+      "text": "色系(自然语言)可选项"
+    },
+    {
+      "source": "word/comments.xml",
+      "id": "4",
+      "author": "钟荣鑫",
+      "text": "允许明显改变排版  默认4张"
+    },
+    {
+      "source": "word/comments.xml",
+      "id": "5",
+      "author": "钟荣鑫",
+      "text": "改成选项"
+    },
+    {
+      "source": "word/comments.xml",
+      "id": "6",
+      "author": "钟荣鑫",
+      "text": "增加 色系(自然语言)"
+    },
+    {
+      "source": "word/comments.xml",
+      "id": "7",
+      "author": "钟荣鑫",
+      "text": "接受定位 可以自动补充"
+    },
+    {
+      "source": "word/comments.xml",
+      "id": "8",
+      "author": "钟荣鑫",
+      "text": "增加一些迎合海外用户的喜好 让ai分析 给两种测试用例 看下效果"
+    },
+    {
+      "source": "word/comments.xml",
+      "id": "9",
+      "author": "钟荣鑫",
+      "text": "提供 测试输入图"
+    },
+    {
+      "source": "word/comments.xml",
+      "id": "10",
+      "author": "钟荣鑫",
+      "text": "矩形框可选项"
+    },
+    {
+      "source": "word/comments.xml",
+      "id": "11",
+      "author": "钟荣鑫",
+      "text": "和替换产品可以共用一个场景"
+    },
+    {
+      "source": "word/comments.xml",
+      "id": "12",
+      "author": "钟荣鑫",
+      "text": "入参可选项 追加提示词  这个入参图片最好有产品 便于ai理解自由发挥裂变相关场景 如果没有产品 可以在追加提示词选项 输入产品"
+    },
+    {
+      "source": "word/comments.xml",
+      "id": "13",
+      "author": "钟荣鑫",
+      "text": "输出图片默认不允许出现产品 重点支持 使用前后对比 和不同具体场景列表 还有 色系裂变"
+    },
+    {
+      "source": "word/comments.xml",
+      "id": "14",
+      "author": "钟荣鑫",
+      "text": "需要再加一个场景 就是7的结果图 但是输入不是图片 而是提示词  来源两部分 一可能是主观提示词 一可能是豆包修饰过的提示词"
+    },
+    {
+      "source": "word/comments.xml",
+      "id": "15",
+      "author": "钟荣鑫",
+      "text": "素材生成图 不是商品主图 这里的出图 要有before after 文字  可以是上下对比 左右对比 甚至 四空格对比 形式"
+    }
+  ],
+  "images": [
+    "F:\\PycharmProjects\\Tickpic\\docs\\docx_extract\\media\\image1.png",
+    "F:\\PycharmProjects\\Tickpic\\docs\\docx_extract\\media\\image2.png",
+    "F:\\PycharmProjects\\Tickpic\\docs\\docx_extract\\media\\image3.png",
+    "F:\\PycharmProjects\\Tickpic\\docs\\docx_extract\\media\\image4.png",
+    "F:\\PycharmProjects\\Tickpic\\docs\\docx_extract\\media\\image5.png",
+    "F:\\PycharmProjects\\Tickpic\\docs\\docx_extract\\media\\image6.png",
+    "F:\\PycharmProjects\\Tickpic\\docs\\docx_extract\\media\\image7.png",
+    "F:\\PycharmProjects\\Tickpic\\docs\\docx_extract\\media\\image8.png"
+  ]
+}
