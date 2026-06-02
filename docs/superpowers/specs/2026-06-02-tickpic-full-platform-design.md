@@ -30,9 +30,17 @@
 - Worker 子进程（任务队列在 Main Process 执行）
 - macOS Keychain 集成（设置先用加密本地文件，接口预留升级）
 
-### 1.4 验证脚本定位
+### 1.4 `scripts/` 定位（仅参考）
 
-`scripts/sticker-replica-demo.ts`、`scripts/gpt-image-demo.ts` 及 `scripts/lib/` 为可行性验证产物。生产逻辑迁入 `src/main/services/` 后，演示脚本改为薄封装调用 Main 能力，或逐步由集成测试替代；**不得**在 `scripts/lib/` 继续堆叠生产逻辑。
+`scripts/` 目录下所有文件（含 `sticker-replica-demo.ts`、`gpt-image-demo.ts`、`scripts/lib/`）**仅作实现参考**，用于对照可行性验证时的调用方式与边界处理。
+
+| 规则 | 说明 |
+|------|------|
+| 不依赖 | `src/` 生产代码 **不得** `import` 或运行时引用 `scripts/` |
+| 不迁移 | 不把 `scripts/lib` 原样迁入或薄封装为 Main 模块 |
+| 不扩展 | 不在 `scripts/` 继续堆叠或维护生产逻辑 |
+| 唯一源码 | 全部生产实现写在 `src/`，以 `docs/` 与设计 spec 为准；可参考 `scripts/` 思路后**重新实现** |
+| 验证方式 | 以 `tests/` 单元/集成测试及 Electron Main 路径为准；可选保留 `scripts/` 供开发者手动对照，但不纳入正式交付与 CI 必跑项 |
 
 ---
 
@@ -237,18 +245,20 @@ interface FeatureHandler {
 
 增强 JSON 默认不展示给用户，写入 `prompt-enhancement.json`。
 
-### 6.4 从 scripts 迁移
+### 6.4 与 `scripts/` 参考代码的关系
 
-| 原路径（验证用） | 目标 |
-|------------------|------|
-| `scripts/lib/image-workflow/openai-workflow.ts` | 拆入 `model-clients` + `workflow-runner` |
-| `scripts/lib/image-workflow/prompt-templates.ts` | `prompt-templates.ts`（扩展 10 功能） |
+实现时可在 `src/` **对照** 下列参考文件的理解与 API 用法，但须按本 spec 与 `docs/` **独立编写**，不复制粘贴为生产依赖：
+
+| 参考路径（只读） | 在 `src/` 中的对应实现 |
+|------------------|------------------------|
+| `scripts/lib/image-workflow/openai-workflow.ts` | `model-clients/` + `workflow-runner.ts` |
+| `scripts/lib/image-workflow/prompt-templates.ts` | `prompt-templates.ts`（覆盖 10 功能） |
 | `scripts/lib/image-workflow/image-io.ts` | `image-io.ts` |
 | `scripts/lib/image-workflow/image-edit-prompt.ts` | `image-edit-prompt.ts` |
-| `scripts/lib/model-clients/openai-config.ts` | `openai-client.ts` / 配置解析 |
+| `scripts/lib/model-clients/openai-config.ts` | `openai-client.ts` |
 | `scripts/lib/shared/*` | `src/shared/*` |
 
-删除 `src/` 与 `scripts/lib/` 的重复副本，单一事实来源为 `src/`。
+若仓库中存在与 `scripts/lib` 重复的 `src/` 片段，实施时以 **`src/` 为唯一生产树** 整理合并，不保留对 `scripts/` 的引用。
 
 ---
 
@@ -380,7 +390,7 @@ webPreferences: {
 |------|------|
 | **Unit** | prompt 模板拼装、JSON schema 解析、feature 路由、validator、edit prompt 构建 |
 | **Integration** | mock Vision/Image 客户端跑通队列与产物目录；贴纸复刻回归 |
-| **Manual** | `npm run dev` 窗口启动；可选 `.env` 真机调用（与现 demo 等价） |
+| **Manual** | `npm run dev` 窗口启动；可选 `.env` 通过集成测试或后续 IPC 调试真机调用（不依赖 `scripts/`） |
 
 CI 最低门槛：`npx tsc --noEmit`、`npm test`。
 
@@ -393,11 +403,11 @@ CI 最低门槛：`npx tsc --noEmit`、`npm test`。
 3. `settings-store`、`logger`
 4. `model-clients` + `resolver`（OpenAI + Gemini）
 5. `artifact-store`、`task-queue`
-6. `image-workflow`：`workflow-runner` + 贴纸复刻 handler（迁移验证）
+6. `image-workflow`：`workflow-runner` + 贴纸复刻 handler（实现后可对照 `scripts/` 做行为验证）
 7. 其余 9 个 `FeatureHandler` + `prompt-templates`
 8. IPC handlers + Preload API
-9. 单元/集成测试；薄化或保留 `scripts/*` 为 smoke
-10. 更新 `AGENTS.md`「当前可运行入口」与 `package.json` scripts
+9. 单元/集成测试（不依赖 `scripts/` 作为 CI 入口）
+10. 更新 `AGENTS.md`：标明 `scripts/` 仅参考、`src/` 为正式入口与 `package.json` 的 `dev`/`build`/`test`
 
 ---
 
@@ -420,3 +430,4 @@ CI 最低门槛：`npx tsc --noEmit`、`npm test`。
 | Renderer 范围 | 仅启动窗口 | 用户指定 |
 | 设置存储 | 加密 JSON | 实现简单，Keychain 可后换 |
 | 功能组织 | FeatureHandler 注册表 | 10 功能可独立测试、边界清晰 |
+| `scripts/` | 仅参考，不依赖 | 避免验证脚本与生产代码耦合；正式能力只在 `src/` |
