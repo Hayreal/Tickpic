@@ -1,20 +1,20 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Tickpic
 
-# Run and deploy your AI Studio app
+Tickpic is a desktop-first Electron application for local creative workflows.
 
-This contains everything you need to run your app locally.
+## Development
 
-View your app in AI Studio: https://ai.studio/apps/661ed337-5625-42de-8b61-5b3bc234e18b
+1. Install dependencies with `pnpm install`
+2. Start renderer dev server with `pnpm dev`
+3. Start Electron shell with `pnpm dev:electron`
 
-## Run Locally
+## Desktop Build
 
-**Prerequisites:**  Node.js
+- `pnpm desktop`
+- `pnpm dist:win`
 
+## Architecture
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- `electron/` contains the desktop shell and local services
+- `src/` contains the renderer UI for the desktop app
+- local storage is managed by the Electron main process
