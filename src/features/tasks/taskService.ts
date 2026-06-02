@@ -38,5 +38,10 @@ export function createRendererTaskService(desktop: TaskPersistenceClient) {
       await desktop.updateTask(next);
       return next;
     },
+
+    async updateTask(task: TaskRecord) {
+      await desktop.updateTask(task);
+      return task;
+    },
   };
 }

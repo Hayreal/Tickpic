@@ -7,7 +7,6 @@ import Settings from './components/Settings';
 import Profile from './components/Profile';
 import type { ActiveTab } from './types';
 import type { TaskRecord } from './shared/domain/tasks';
-import { createPendingTask, completeTask } from './lib/taskState';
 import { createRendererTaskService } from './features/tasks/taskService';
 import { getDesktopShell } from './lib/desktopShell';
 import { toTaskItem } from './features/tasks/taskMappers';
@@ -44,20 +43,18 @@ export default function App() {
   // Persist task updates (children handle state transitions)
   const handleUpdateTask = useCallback(async (task: TaskRecord) => {
     setTasks((prev) => prev.map((t) => (t.taskId === task.taskId ? task : t)));
-    if (shell) {
-      await shell.updateTask(task);
-    }
-  }, [shell]);
+    await taskService.updateTask(task);
+  }, [taskService]);
 
-  // Fallback: simple task add for when desktop shell is not available
-  const handleAddTask = (featureName: string) => {
-    const task = createPendingTask({
+  // Fallback: simple task add (creates and immediately completes)
+  const handleAddTask = async (featureName: string) => {
+    const task = await taskService.createTask({
       category: activeTab,
       feature: featureName,
       batchId: `batch-${Date.now()}`,
       imports: [],
     });
-    const completed = completeTask(task, []);
+    const completed = await taskService.completeTask(task, []);
     setTasks((prev) => [completed, ...prev]);
   };
 
