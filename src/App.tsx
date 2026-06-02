@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import WindowFrame from './components/WindowFrame';
 import Sidebar from './components/Sidebar';
 import StickerGen from './components/StickerGen';
@@ -7,7 +7,8 @@ import Settings from './components/Settings';
 import Profile from './components/Profile';
 import type { ActiveTab } from './types';
 import type { TaskRecord } from './shared/domain/tasks';
-import { createPendingTask, startTask, completeTask, failTask } from './lib/taskState';
+import { createPendingTask, completeTask } from './lib/taskState';
+import { createRendererTaskService } from './features/tasks/taskService';
 import { getDesktopShell } from './lib/desktopShell';
 import { toTaskItem } from './features/tasks/taskMappers';
 
@@ -15,40 +16,38 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('sticker');
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
 
+  const shell = getDesktopShell();
+  const taskService = useMemo(
+    () => createRendererTaskService(shell ?? { createTask: async () => {}, updateTask: async () => {}, listTasks: async () => [] }),
+    [],
+  );
+
   // Load persisted tasks on mount
   useEffect(() => {
-    const shell = getDesktopShell();
     if (shell) {
       shell.listTasks().then(setTasks).catch(console.error);
     }
   }, []);
 
-  // Persist task creation via desktop shell
+  // Create task via service (persists through desktop client)
   const handleCreateTask = useCallback(async (input: {
     category: string;
     feature: string;
     batchId: string;
     imports: TaskRecord['imports'];
   }) => {
-    const task = createPendingTask(input);
+    const task = await taskService.createTask(input);
     setTasks((prev) => [task, ...prev]);
-
-    const shell = getDesktopShell();
-    if (shell) {
-      await shell.createTask(task);
-    }
     return task;
-  }, []);
+  }, [taskService]);
 
-  // Persist task updates via desktop shell
+  // Persist task updates (children handle state transitions)
   const handleUpdateTask = useCallback(async (task: TaskRecord) => {
     setTasks((prev) => prev.map((t) => (t.taskId === task.taskId ? task : t)));
-
-    const shell = getDesktopShell();
     if (shell) {
       await shell.updateTask(task);
     }
-  }, []);
+  }, [shell]);
 
   // Fallback: simple task add for when desktop shell is not available
   const handleAddTask = (featureName: string) => {
@@ -63,7 +62,6 @@ export default function App() {
   };
 
   const handleRefreshTasks = () => {
-    const shell = getDesktopShell();
     if (shell) {
       shell.listTasks().then(setTasks).catch(console.error);
     }
