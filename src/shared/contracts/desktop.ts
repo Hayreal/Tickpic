@@ -1,5 +1,5 @@
-import type { TaskRecord } from '../domain/tasks';
-import type { ImportBatch, StoredImageRecord } from '../domain/images';
+import type { TaskRecord } from '../domain/tasks.js';
+import type { ImportBatch, StoredImageRecord } from '../domain/images.js';
 
 export interface SaveImportBatchRequest {
   page: 'sticker' | 'product';

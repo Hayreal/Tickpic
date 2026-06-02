@@ -1,4 +1,4 @@
-import type { TaskStatus } from '../domain/tasks';
+import type { TaskStatus } from '../domain/tasks.js';
 
 export interface TaskItem {
   id: string;

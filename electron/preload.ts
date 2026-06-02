@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { DesktopBridgeApi } from '../src/shared/contracts/desktop';
+import type { DesktopBridgeApi } from '../src/shared/contracts/desktop.js';
 
 const desktopShell: DesktopBridgeApi = {
   platform: process.platform,

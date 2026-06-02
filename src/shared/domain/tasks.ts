@@ -1,4 +1,4 @@
-import type { StoredImageRecord } from './images';
+import type { StoredImageRecord } from './images.js';
 
 export type TaskStatus = 'Pending' | 'Running' | 'Completed' | 'Failed';
 

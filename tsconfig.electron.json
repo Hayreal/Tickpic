@@ -4,11 +4,11 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "dist-electron",
-    "rootDir": "electron",
+    "rootDir": ".",
     "noEmit": false,
     "allowImportingTsExtensions": false,
     "types": ["node"]
   },
-  "include": ["electron/**/*.ts"],
+  "include": ["electron/**/*.ts", "src/shared/**/*.ts"],
   "exclude": ["electron/**/*.test.ts"]
 }
