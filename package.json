@@ -1,0 +1,70 @@
+{
+  "name": "tickpic",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Tickpic desktop creative workspace built with React and Electron.",
+  "author": "Tickpic",
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite --port=3000 --host=0.0.0.0",
+    "dev:electron": "pnpm build:electron && ELECTRON_RENDERER_URL=http://127.0.0.1:3000 electron --no-sandbox dist-electron/main.js",
+    "desktop": "pnpm build && pnpm build:electron && electron --no-sandbox dist-electron/main.js",
+    "build": "vite build",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "dist:win": "pnpm build && pnpm build:electron && electron-builder --win nsis",
+    "preview": "vite preview",
+    "clean": "rm -rf dist dist-electron release server.js",
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@google/genai": "^2.4.0",
+    "@tailwindcss/vite": "^4.1.14",
+    "@vitejs/plugin-react": "^5.0.4",
+    "lucide-react": "^0.546.0",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "vite": "^6.2.3",
+    "express": "^4.21.2",
+    "dotenv": "^17.2.3",
+    "motion": "^12.23.24"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^22.14.0",
+    "autoprefixer": "^10.4.21",
+    "electron": "^37.0.1",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.25.0",
+    "jsdom": "^26.1.0",
+    "tailwindcss": "^4.1.14",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.3",
+    "vitest": "^3.2.4",
+    "@types/express": "^4.17.21"
+  },
+  "build": {
+    "appId": "com.tickpic.desktop",
+    "productName": "Tickpic",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "dist-electron/main.js"
+    },
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        "nsis"
+      ]
+    }
+  }
+}

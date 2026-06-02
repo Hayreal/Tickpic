@@ -1,0 +1,6 @@
+{
+  "name": "Tickpic",
+  "description": "高仿真专业质感桌面创意应用，融合了极美窗口外壳、贴纸出图、主图产品抠图处理、云服务器通信端点配置与动态任务运行列表面板。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

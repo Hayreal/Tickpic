@@ -1,0 +1,16 @@
+workflow: full
+phase: design
+build_mode: null
+isolation: null
+verify_mode: null
+base_ref: null
+design_doc: null
+plan: null
+verify_result: pending
+verification_report: null
+branch_status: pending
+created_at: 2026-06-02
+verified_at: null
+archived: false
+handoff_context: openspec/changes/electron-soft-ui-simplify-shell/.comet/handoff/design-context.json
+handoff_hash: 803040cd3ae1f7539cc7b5d9138bdb8feef990fe1bbbd19149006f7161bf4dec

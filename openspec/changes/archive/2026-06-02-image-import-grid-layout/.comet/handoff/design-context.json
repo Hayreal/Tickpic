@@ -1,0 +1,13 @@
+{
+  "change": "image-import-grid-layout",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "d3b66b1959a0c769245f16ccafbc708383afc0312910dc60d3c4d987284e3dcd",
+  "files": [
+    { "path": "openspec/changes/image-import-grid-layout/proposal.md", "sha256": "f8363ea6b1d61c188c05e79384095c3ccb2e4583147b3e81979d414660956747" },
+    { "path": "openspec/changes/image-import-grid-layout/design.md", "sha256": "75488df52747d87c0896c25e0f0a12246af630c3c3e3c546b613208aa71deb46" },
+    { "path": "openspec/changes/image-import-grid-layout/tasks.md", "sha256": "9087e65c77881119de291d3d847e7140f1c0e5c5e427b3770497a5a608552c59" }
+  ]
+}

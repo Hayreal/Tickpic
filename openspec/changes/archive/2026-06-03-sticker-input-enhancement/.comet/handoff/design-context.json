@@ -1,0 +1,13 @@
+{
+  "change": "sticker-input-enhancement",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "ba6bc39721da6c9198bf9dcb810d77029191987459312c27168a3932504c8dbe",
+  "files": [
+    { "path": "openspec/changes/sticker-input-enhancement/proposal.md", "sha256": "7361ffb3fcb5de10d162dc0e10cb70bd398348eaa14a67f0de4fb649ce1f1595" },
+    { "path": "openspec/changes/sticker-input-enhancement/design.md", "sha256": "e3c7eed2e6753d5ae5e6f9e40f72d51d2bb255aa28cac4db67a41968848e9b9a" },
+    { "path": "openspec/changes/sticker-input-enhancement/tasks.md", "sha256": "b6f9f2999cba04290e7c5366c6de10299e8d9049133ebfbab15e6bac53811e42" }
+  ]
+}

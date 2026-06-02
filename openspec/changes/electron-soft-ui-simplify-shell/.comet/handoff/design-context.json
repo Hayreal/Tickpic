@@ -1,0 +1,15 @@
+{
+  "change": "electron-soft-ui-simplify-shell",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "803040cd3ae1f7539cc7b5d9138bdb8feef990fe1bbbd19149006f7161bf4dec",
+  "files": [
+    { "path": "openspec/changes/electron-soft-ui-simplify-shell/proposal.md", "sha256": "421f0c7366425dfe75ac51e0f74e923f80a4e1d2ad8e5688d4d62df7c0c3246b" },
+    { "path": "openspec/changes/electron-soft-ui-simplify-shell/design.md", "sha256": "6e6d894ea9e1987d2d07d8dc31f446971b59140caa5d8bdddc5bd80015add409" },
+    { "path": "openspec/changes/electron-soft-ui-simplify-shell/tasks.md", "sha256": "decbbbffaf38f5ce84a3dd818c85dfd36015774a36521aa3d41863386030c88f" },
+    { "path": "openspec/changes/electron-soft-ui-simplify-shell/specs/desktop-shell-packaging/spec.md", "sha256": "8e70d7bafcf057c56b701ea9e05fcd33e54f34ce11e2ec8e88620f62ff1bf825" },
+    { "path": "openspec/changes/electron-soft-ui-simplify-shell/specs/workspace-surface-simplification/spec.md", "sha256": "648f8aa2b98ab8cc1701f4fddbc4c6f50607ce4ede1052aca86196129d2d5c3f" }
+  ]
+}
