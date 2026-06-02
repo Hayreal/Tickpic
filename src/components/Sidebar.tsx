@@ -1,7 +1,7 @@
 import type React from 'react';
 import { Layers, Package, Settings, Sparkles, User } from 'lucide-react';
 
-import { ActiveTab } from '../types';
+import type { ActiveTab } from '../shared/view/ui';
 
 interface SidebarProps {
   activeTab: ActiveTab;

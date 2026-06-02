@@ -1,6 +1,6 @@
 import React from 'react';
 import { Download } from 'lucide-react';
-import { ResultItem } from '../types';
+import type { ResultItem } from '../shared/view/ui';
 
 interface GenerationResultProps {
   mode: 'single' | 'multi';

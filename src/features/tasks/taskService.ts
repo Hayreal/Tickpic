@@ -1,6 +1,6 @@
 import type { TaskRecord } from '../../shared/domain/tasks';
 import type { StoredImageRecord } from '../../shared/domain/images';
-import { createPendingTask, startTask, completeTask, failTask } from '../../lib/taskState';
+import { createPendingTask, startTask, completeTask, failTask } from './taskState';
 
 export interface TaskPersistenceClient {
   createTask(record: TaskRecord): Promise<void>;

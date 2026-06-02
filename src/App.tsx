@@ -5,7 +5,7 @@ import StickerGen from './components/StickerGen';
 import ProductProcessing from './components/ProductProcessing';
 import Settings from './components/Settings';
 import Profile from './components/Profile';
-import type { ActiveTab } from './types';
+import type { ActiveTab } from './shared/view/ui';
 import { useDesktopClient } from './hooks/useDesktopClient';
 import { useDesktopTasks } from './hooks/useDesktopTasks';
 import { toTaskItem } from './features/tasks/taskMappers';

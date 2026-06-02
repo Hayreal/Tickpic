@@ -9,7 +9,9 @@ import {
   Maximize2,
   Cpu,
 } from 'lucide-react';
-import { StickerSubTab, ImportBatch, TaskRecord, StoredImageRecord } from '../types';
+import type { StickerSubTab } from '../shared/view/ui';
+import type { ImportBatch, StoredImageRecord } from '../shared/domain/images';
+import type { TaskRecord } from '../shared/domain/tasks';
 import type { RendererTaskService } from '../features/tasks/taskService';
 import ImageUploader from './ImageUploader';
 

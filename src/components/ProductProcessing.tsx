@@ -8,7 +8,9 @@ import {
   Sparkles,
   History,
 } from 'lucide-react';
-import { ProductSubTab, ImportBatch, TaskRecord, StoredImageRecord } from '../types';
+import type { ProductSubTab } from '../shared/view/ui';
+import type { ImportBatch, StoredImageRecord } from '../shared/domain/images';
+import type { TaskRecord } from '../shared/domain/tasks';
 import type { RendererTaskService } from '../features/tasks/taskService';
 import ImageUploader from './ImageUploader';
 import GenerationResult from './GenerationResult';

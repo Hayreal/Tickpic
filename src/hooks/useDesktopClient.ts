@@ -1,6 +1,10 @@
 import { useMemo } from 'react';
-import { getDesktopShell } from '../lib/desktopShell';
+import { createDesktopClient } from '../infrastructure/desktop/desktopClient';
+import { getDesktopBridge } from '../infrastructure/desktop/desktopBridge';
 
 export function useDesktopClient() {
-  return useMemo(() => getDesktopShell(), []);
+  return useMemo(() => {
+    const client = createDesktopClient(getDesktopBridge());
+    return client.isAvailable() ? client : undefined;
+  }, []);
 }

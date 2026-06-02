@@ -1,6 +1,6 @@
 import React, { useRef, useCallback } from 'react';
 import { Upload, X, Layers } from 'lucide-react';
-import { ImportBatch, StoredImageRecord } from '../types';
+import type { ImportBatch, StoredImageRecord } from '../shared/domain/images';
 import { collectImportFiles } from '../lib/importBatch';
 
 interface ImageUploaderProps {

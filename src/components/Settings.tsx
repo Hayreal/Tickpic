@@ -12,7 +12,7 @@ import {
   Settings as SettingsIcon,
   Info
 } from 'lucide-react';
-import { AppSettings } from '../types';
+import type { AppSettings } from '../shared/domain/settings';
 
 export default function Settings() {
   const [apiKey, setApiKey] = useState('sk-proj-....................');
