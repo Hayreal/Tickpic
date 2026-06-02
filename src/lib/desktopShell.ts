@@ -1,27 +1,8 @@
-import type { TaskRecord } from '../shared/domain/tasks';
-import type { ImportBatch, StoredImageRecord } from '../shared/domain/images';
-
-export interface DesktopShellApi {
-  platform: string;
-  saveImportBatch: (payload: {
-    page: 'sticker' | 'product';
-    feature: string;
-    files: File[];
-  }) => Promise<ImportBatch>;
-  createTask: (record: TaskRecord) => Promise<void>;
-  updateTask: (record: TaskRecord) => Promise<void>;
-  listTasks: () => Promise<TaskRecord[]>;
-  saveTaskOutputs: (payload: {
-    taskId: string;
-    page: 'sticker' | 'product';
-    feature: string;
-    outputs: { name: string; buffer: ArrayBuffer }[];
-  }) => Promise<StoredImageRecord[]>;
-}
+import type { DesktopBridgeApi } from '../shared/contracts/desktop';
 
 declare global {
   interface Window {
-    desktopShell?: DesktopShellApi;
+    desktopShell?: DesktopBridgeApi;
   }
 }
 
@@ -29,6 +10,6 @@ export function hasDesktopStorageApi(): boolean {
   return typeof window !== 'undefined' && Boolean(window.desktopShell?.saveImportBatch);
 }
 
-export function getDesktopShell(): DesktopShellApi | undefined {
+export function getDesktopShell(): DesktopBridgeApi | undefined {
   return typeof window !== 'undefined' ? window.desktopShell : undefined;
 }

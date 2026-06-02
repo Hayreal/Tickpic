@@ -22,7 +22,7 @@ interface ProfileProps {
 
 export default function Profile({ tasks, onRefresh }: ProfileProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Running' | 'Completed' | 'Failed'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Running' | 'Completed' | 'Failed'>('All');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -146,6 +146,7 @@ export default function Profile({ tasks, onRefresh }: ProfileProps) {
                 className="cursor-pointer bg-slate-950/80 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white pr-8 appearance-none focus:outline-none"
               >
                 <option value="All">全部状态</option>
+                <option value="Pending">待处理</option>
                 <option value="Running">运行中</option>
                 <option value="Completed">已完成</option>
                 <option value="Failed">失败</option>
@@ -192,6 +193,12 @@ export default function Profile({ tasks, onRefresh }: ProfileProps) {
                       {task.importCount ?? 0}/{task.outputCount ?? 0}
                     </td>
                     <td className="py-3 px-4">
+                      {task.status === 'Pending' && (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold uppercase tracking-wider font-mono">
+                          <Clock className="w-3 h-3 text-amber-400" />
+                          待处理
+                        </span>
+                      )}
                       {task.status === 'Running' && (
                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] bg-violet-500/10 text-[#a78bfa] border border-violet-500/20 font-bold uppercase tracking-wider font-mono">
                           <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-ping inline-block shrink-0" />
