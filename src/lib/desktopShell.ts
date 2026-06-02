@@ -1,4 +1,5 @@
-import type { ImportBatch, TaskRecord, StoredImageRecord } from '../types';
+import type { TaskRecord } from '../shared/domain/tasks';
+import type { ImportBatch, StoredImageRecord } from '../shared/domain/images';
 
 export interface DesktopShellApi {
   platform: string;

@@ -5,9 +5,11 @@ import StickerGen from './components/StickerGen';
 import ProductProcessing from './components/ProductProcessing';
 import Settings from './components/Settings';
 import Profile from './components/Profile';
-import { ActiveTab, TaskItem, TaskRecord } from './types';
+import type { ActiveTab } from './types';
+import type { TaskRecord } from './shared/domain/tasks';
 import { createPendingTask, startTask, completeTask, failTask } from './lib/taskState';
 import { getDesktopShell } from './lib/desktopShell';
+import { toTaskItem } from './features/tasks/taskMappers';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('sticker');
@@ -98,16 +100,7 @@ export default function App() {
 
           {activeTab === 'profile' && (
             <Profile
-              tasks={tasks.map((t) => ({
-                id: t.taskId,
-                category: t.category,
-                feature: t.feature,
-                status: t.status,
-                time: t.updatedAt,
-                batchId: t.batchId,
-                importCount: t.imports.length,
-                outputCount: t.outputs.length,
-              }))}
+              tasks={tasks.map(toTaskItem)}
               onRefresh={handleRefreshTasks}
             />
           )}

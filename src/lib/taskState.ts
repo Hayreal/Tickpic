@@ -1,4 +1,5 @@
-import type { TaskRecord, StoredImageRecord } from '../types';
+import type { TaskRecord } from '../shared/domain/tasks';
+import type { StoredImageRecord } from '../shared/domain/images';
 
 export function createPendingTask(input: {
   category: string;

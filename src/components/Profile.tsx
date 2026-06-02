@@ -13,7 +13,7 @@ import {
   Filter,
   Check
 } from 'lucide-react';
-import { TaskItem } from '../types';
+import type { TaskItem } from '../shared/view/tasks';
 
 interface ProfileProps {
   tasks: TaskItem[];
