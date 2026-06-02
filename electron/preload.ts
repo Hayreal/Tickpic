@@ -1,19 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { DesktopBridgeApi } from '../src/shared/contracts/desktop';
 
-contextBridge.exposeInMainWorld('desktopShell', {
+const desktopShell: DesktopBridgeApi = {
   platform: process.platform,
-  saveImportBatch: (payload: {
-    page: string;
-    feature: string;
-    files: { name: string; type: string; buffer: ArrayBuffer }[];
-  }) => ipcRenderer.invoke('storage:save-import-batch', payload),
-  saveTaskOutputs: (payload: {
-    taskId: string;
-    page: string;
-    feature: string;
-    outputs: { name: string; buffer: ArrayBuffer }[];
-  }) => ipcRenderer.invoke('storage:save-task-outputs', payload),
-  createTask: (record: unknown) => ipcRenderer.invoke('tasks:create', record),
-  updateTask: (record: unknown) => ipcRenderer.invoke('tasks:update', record),
+  saveImportBatch: (payload) => ipcRenderer.invoke('storage:save-import-batch', payload),
+  saveTaskOutputs: (payload) => ipcRenderer.invoke('storage:save-task-outputs', payload),
+  createTask: (record) => ipcRenderer.invoke('tasks:create', record),
+  updateTask: (record) => ipcRenderer.invoke('tasks:update', record),
   listTasks: () => ipcRenderer.invoke('tasks:list'),
-});
+};
+
+contextBridge.exposeInMainWorld('desktopShell', desktopShell);

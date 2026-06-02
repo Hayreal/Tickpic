@@ -1,15 +1,12 @@
-import type { DesktopBridgeApi } from '../shared/contracts/desktop';
-
-declare global {
-  interface Window {
-    desktopShell?: DesktopBridgeApi;
-  }
-}
+import { createDesktopClient } from '../infrastructure/desktop/desktopClient';
+import { getDesktopBridge } from '../infrastructure/desktop/desktopBridge';
 
 export function hasDesktopStorageApi(): boolean {
-  return typeof window !== 'undefined' && Boolean(window.desktopShell?.saveImportBatch);
+  const client = createDesktopClient(getDesktopBridge());
+  return client.isAvailable();
 }
 
-export function getDesktopShell(): DesktopBridgeApi | undefined {
-  return typeof window !== 'undefined' ? window.desktopShell : undefined;
+export function getDesktopShell() {
+  const client = createDesktopClient(getDesktopBridge());
+  return client.isAvailable() ? client : undefined;
 }
