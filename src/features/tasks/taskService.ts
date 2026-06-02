@@ -8,6 +8,8 @@ export interface TaskPersistenceClient {
   listTasks(): Promise<TaskRecord[]>;
 }
 
+export type RendererTaskService = ReturnType<typeof createRendererTaskService>;
+
 export function createRendererTaskService(desktop: TaskPersistenceClient) {
   return {
     async createTask(input: {

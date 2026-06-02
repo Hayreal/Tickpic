@@ -9,22 +9,15 @@ import {
   History,
 } from 'lucide-react';
 import { ProductSubTab, ImportBatch, TaskRecord, StoredImageRecord } from '../types';
-import { startTask, completeTask } from '../lib/taskState';
+import type { RendererTaskService } from '../features/tasks/taskService';
 import ImageUploader from './ImageUploader';
 import GenerationResult from './GenerationResult';
 
 interface ProductProcessingProps {
-  onAddTask: (feature: string) => void;
-  onCreateTask: (input: {
-    category: string;
-    feature: string;
-    batchId: string;
-    imports: StoredImageRecord[];
-  }) => Promise<TaskRecord>;
-  onUpdateTask: (task: TaskRecord) => Promise<void>;
+  taskService: RendererTaskService;
 }
 
-export default function ProductProcessing({ onAddTask, onCreateTask, onUpdateTask }: ProductProcessingProps) {
+export default function ProductProcessing({ taskService }: ProductProcessingProps) {
   const [subTab, setSubTab] = useState<ProductSubTab>('remove');
   
   // Simulated loading state for parameters
@@ -120,13 +113,13 @@ export default function ProductProcessing({ onAddTask, onCreateTask, onUpdateTas
 
     let task: TaskRecord | null = null;
     if (batch) {
-      task = await onCreateTask({
+      task = await taskService.createTask({
         category: 'product',
         feature: featureName,
         batchId: batch.batchId,
         imports: batch.images,
       });
-      await onUpdateTask(startTask(task));
+      await taskService.startTask(task);
     }
 
     setIsGenerating(true);
@@ -156,21 +149,17 @@ export default function ProductProcessing({ onAddTask, onCreateTask, onUpdateTas
         if (type === 'remove') {
           setRemoveResult(backgroundWoodTableSvg);
           setRemoveStatus('done');
-          onAddTask('去除产品');
           outputCount = 1;
         } else if (type === 'replace') {
           setReplaceResult(perfumeSvg);
           setReplaceStatus('done');
-          onAddTask('替换产品');
           outputCount = 1;
         } else if (type === 'logo') {
           setLogoStatus('done');
-          onAddTask('替换Logo');
           outputCount = 1;
         } else if (type === 'theme') {
           const results = [perfumeSvg, skincareCreamSvg, waterBottleSvg, headphoneSvg].slice(0, themeCount);
           setThemeResults(results);
-          onAddTask('主图裂变');
           outputCount = results.length;
         } else if (type === 'scene') {
           const results = [
@@ -178,7 +167,6 @@ export default function ProductProcessing({ onAddTask, onCreateTask, onUpdateTas
             { id: 2, img: bgNordicLivingRoomSvg, date: '2023-10-27 14:32', title: '完成' }
           ].slice(0, sceneCount);
           setSceneResults(results);
-          onAddTask('创作新场景');
           outputCount = results.length;
         }
 
@@ -191,7 +179,7 @@ export default function ProductProcessing({ onAddTask, onCreateTask, onUpdateTas
             mimeType: 'image/png',
             createdAt: new Date().toISOString(),
           }));
-          onUpdateTask(completeTask(task, outputRecords)).catch(console.error);
+          taskService.completeTask(task!, outputRecords).catch(console.error);
         }
       }
     }, 700);

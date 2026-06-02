@@ -10,21 +10,14 @@ import {
   Cpu,
 } from 'lucide-react';
 import { StickerSubTab, ImportBatch, TaskRecord, StoredImageRecord } from '../types';
-import { startTask, completeTask } from '../lib/taskState';
+import type { RendererTaskService } from '../features/tasks/taskService';
 import ImageUploader from './ImageUploader';
 
 interface StickerGenProps {
-  onAddTask: (feature: string) => void;
-  onCreateTask: (input: {
-    category: string;
-    feature: string;
-    batchId: string;
-    imports: StoredImageRecord[];
-  }) => Promise<TaskRecord>;
-  onUpdateTask: (task: TaskRecord) => Promise<void>;
+  taskService: RendererTaskService;
 }
 
-export default function StickerGen({ onAddTask, onCreateTask, onUpdateTask }: StickerGenProps) {
+export default function StickerGen({ taskService }: StickerGenProps) {
   const [subTab, setSubTab] = useState<StickerSubTab>('copy');
 
   // Universal state
@@ -120,13 +113,13 @@ export default function StickerGen({ onAddTask, onCreateTask, onUpdateTask }: St
     }
 
     if (batch) {
-      task = await onCreateTask({
+      task = await taskService.createTask({
         category: 'sticker',
         feature: featureName,
         batchId: batch.batchId,
         imports: batch.images,
       });
-      await onUpdateTask(startTask(task));
+      await taskService.startTask(task);
     }
 
     setIsGenerating(true);
@@ -169,15 +162,12 @@ export default function StickerGen({ onAddTask, onCreateTask, onUpdateTask }: St
         if (type === 'copy') {
           resultSvgs = [catStickerSvg, fluidStickerSvg, metallicCubeSvg, violetFlowerSvg];
           setCopyResults(resultSvgs);
-          onAddTask('贴纸复刻');
         } else if (type === 'variation') {
           resultSvgs = [catStickerSvg, fluidStickerSvg, metallicCubeSvg, violetFlowerSvg].slice(0, variationCount);
           setVariationResults(resultSvgs);
-          onAddTask('贴纸裂变');
         } else if (type === 'original') {
           resultSvgs = [fluidStickerSvg, catStickerSvg, violetFlowerSvg, metallicCubeSvg].slice(0, originalCount);
           setOriginalResults(resultSvgs);
-          onAddTask('贴纸原创');
         }
 
         if (task) {
@@ -189,7 +179,7 @@ export default function StickerGen({ onAddTask, onCreateTask, onUpdateTask }: St
             mimeType: 'image/png',
             createdAt: new Date().toISOString(),
           }));
-          onUpdateTask(completeTask(task, outputRecords)).catch(console.error);
+          taskService.completeTask(task!, outputRecords).catch(console.error);
         }
       }
     }, 700);
