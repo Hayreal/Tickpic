@@ -11,6 +11,7 @@ import {
 import type { ProductSubTab } from '../shared/view/ui';
 import type { ImportBatch, StoredImageRecord } from '../shared/domain/images';
 import type { TaskRecord } from '../shared/domain/tasks';
+import { buildReplaceLogoPrompt } from '../shared/domain/productPrompts';
 import type { RendererTaskService } from '../features/tasks/taskService';
 import ImageUploader from './ImageUploader';
 import GenerationResult from './GenerationResult';
@@ -112,6 +113,7 @@ export default function ProductProcessing({ taskService }: ProductProcessingProp
 
     const batch = batchMap[type];
     const featureName = featureMap[type];
+    const currentLogoPrompt = type === 'logo' ? buildReplaceLogoPrompt(logoDesc) : '';
 
     let task: TaskRecord | null = null;
     if (batch) {
@@ -157,6 +159,7 @@ export default function ProductProcessing({ taskService }: ProductProcessingProp
           setReplaceStatus('done');
           outputCount = 1;
         } else if (type === 'logo') {
+          console.info('Replace logo prompt:', currentLogoPrompt);
           setLogoStatus('done');
           outputCount = 1;
         } else if (type === 'theme') {
@@ -339,7 +342,7 @@ export default function ProductProcessing({ taskService }: ProductProcessingProp
                   <textarea 
                     value={logoDesc}
                     onChange={(e) => setLogoDesc(e.target.value)}
-                    placeholder="例如：保持原有的透视和光影，将新Logo放在左上角..."
+                    placeholder="例如：只替换左上角品牌标识，保持原有透视和光影"
                     className="w-full h-20 bg-slate-950/80 rounded-xl border border-slate-800 focus:border-violet-500 focus:outline-none p-3 text-xs text-white placeholder-slate-600 resize-none transition-colors"
                   />
                 </div>

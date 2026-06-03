@@ -4,17 +4,22 @@ import * as path from "node:path";
 
 import { buildImageEditPrompt } from "./lib/image-workflow/image-edit-prompt";
 import { readImageAsDataUrl, readPngDimensions } from "./lib/image-workflow/image-io";
-import { editStickerImage, generatePromptEnhancement } from "./lib/image-workflow/openai-workflow";
+import {
+  buildFinalPromptUserMessage,
+  editStickerImage,
+  generateFinalPrompt,
+} from "./lib/image-workflow/openai-workflow";
 import { resolveOpenAIBaseURL } from "./lib/model-clients/openai-config";
 import {
-  buildPromptEnhancementInstructions,
+  buildFinalPromptInstructions,
   loadPromptTemplates,
 } from "./lib/image-workflow/prompt-templates";
-import type { ArtifactPaths, CliOptions } from "./lib/shared/image-workflow-types";
+import type { CliOptions, OutputPaths } from "./lib/shared/image-workflow-types";
 
 export {
   buildImageEditPrompt,
-  buildPromptEnhancementInstructions,
+  buildFinalPromptUserMessage,
+  buildFinalPromptInstructions,
   loadPromptTemplates,
 };
 
@@ -24,15 +29,14 @@ const DEFAULT_OUTPUT_DIR = "artifacts/output";
 const DEFAULT_VISION_MODEL = process.env.VISION_MODEL ?? "gpt-5.4-mini";
 const DEFAULT_IMAGE_MODEL = process.env.IMAGE_MODEL ?? "gpt-image-2";
 const DEFAULT_IMAGE_SIZE = process.env.IMAGE_SIZE ?? "1536x1024";
-const DEFAULT_USER_PROMPT =
-  "If the reference image is a full product packshot, extract only the front sticker or label design as the reference target. Ignore the jar, lid, container silhouette, shadows, reflections, measurement lines, and dimension annotations outside the sticker. Preserve the original visual hierarchy, core title wording, honeycomb texture cues, black-background commercial feel, and highlight colors.";
+const DEFAULT_STICKER_REPLICATION_PROMPT = "提取当前产品上面的贴纸";
 
 function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
     imageModel: DEFAULT_IMAGE_MODEL,
     imageSize: DEFAULT_IMAGE_SIZE,
     inputPath: DEFAULT_INPUT_PATH,
-    userPrompt: DEFAULT_USER_PROMPT,
+    userPrompt: buildStickerReplicationUserPrompt(),
     visionModel: DEFAULT_VISION_MODEL,
   };
 
@@ -44,7 +48,7 @@ function parseArgs(argv: string[]): CliOptions {
     } else if (arg === "--output") {
       options.outputPath = readRequiredValue(argv, ++index, "--output");
     } else if (arg === "--prompt") {
-      options.userPrompt = readRequiredValue(argv, ++index, "--prompt");
+      options.userPrompt = buildStickerReplicationUserPrompt(readRequiredValue(argv, ++index, "--prompt"));
     } else if (arg === "--vision-model") {
       options.visionModel = readRequiredValue(argv, ++index, "--vision-model");
     } else if (arg === "--image-model") {
@@ -79,11 +83,20 @@ function printUsage(): void {
 选项:
   --input <path>          参考贴纸或包装图路径
   --output <path>         输出 PNG 路径，默认为 artifacts/output/<timestamp>-sticker-replication.png
-  --prompt <text>         附加贴纸复刻说明
+  --prompt <text>         附加贴纸复刻说明，会拼接在默认“${DEFAULT_STICKER_REPLICATION_PROMPT}”之后
   --vision-model <name>   视觉/文本模型，默认为 ${DEFAULT_VISION_MODEL}
   --image-model <name>    图像模型，默认为 ${DEFAULT_IMAGE_MODEL}
   --size <WxH>            输出尺寸，默认为 ${DEFAULT_IMAGE_SIZE}
   --help                  显示此帮助信息`);
+}
+
+export function buildStickerReplicationUserPrompt(additionalPrompt?: string): string {
+  const trimmedAdditionalPrompt = additionalPrompt?.trim();
+  if (!trimmedAdditionalPrompt) {
+    return DEFAULT_STICKER_REPLICATION_PROMPT;
+  }
+
+  return `${DEFAULT_STICKER_REPLICATION_PROMPT}。附加要求：${trimmedAdditionalPrompt}`;
 }
 
 function ensureApiKey(): string {
@@ -110,13 +123,12 @@ function resolveOutputPath(explicitOutputPath?: string): string {
   return path.resolve(DEFAULT_OUTPUT_DIR, `${timestamp}-sticker-replication.png`);
 }
 
-function resolveArtifactPaths(outputPath: string): ArtifactPaths {
+export function resolveStickerReplicationOutputPaths(outputPath: string): OutputPaths {
   const parsed = path.parse(outputPath);
   return {
-    enhancementPath: path.join(parsed.dir, `${parsed.name}.prompt-enhancement.json`),
-    imageResponsePath: path.join(parsed.dir, `${parsed.name}.image-response.json`),
-    promptPath: path.join(parsed.dir, `${parsed.name}.prompt.txt`),
-    requestPath: path.join(parsed.dir, `${parsed.name}.request.json`),
+    imagePath: outputPath,
+    imageInstructionPath: path.join(parsed.dir, `${parsed.name}-image-instruction.txt`),
+    jsonPath: path.join(parsed.dir, `${parsed.name}.json`),
   };
 }
 
@@ -130,10 +142,10 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
   const apiKey = ensureApiKey();
 
   const outputPath = resolveOutputPath(options.outputPath);
-  const artifactPaths = resolveArtifactPaths(outputPath);
+  const outputPaths = resolveStickerReplicationOutputPaths(outputPath);
   const inputPath = path.resolve(options.inputPath);
 
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  fs.mkdirSync(path.dirname(outputPaths.imagePath), { recursive: true });
 
   const client = new OpenAI({
     apiKey,
@@ -144,66 +156,39 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
   console.log(`图像模型: ${options.imageModel}`);
   console.log(`请求图像尺寸: ${options.imageSize}`);
   console.log(`输入: ${inputPath}`);
-  console.log(`输出: ${outputPath}`);
-  console.log(`提示词增强: ${artifactPaths.enhancementPath}`);
-  console.log(`最终提示词: ${artifactPaths.promptPath}`);
-  console.log(`图像模型响应: ${artifactPaths.imageResponsePath}`);
-  console.log(`请求记录: ${artifactPaths.requestPath}`);
+  console.log(`输出图片: ${outputPaths.imagePath}`);
+  console.log(`图片执行指令: ${outputPaths.imageInstructionPath}`);
+  console.log(`输出 JSON: ${outputPaths.jsonPath}`);
 
-  console.log("正在生成结构化提示词增强...");
+  console.log("正在生成图片执行指令...");
   const templates = loadPromptTemplates();
-  const enhancement = await generatePromptEnhancement(
+  const finalPrompt = await generateFinalPrompt(
     client,
     options,
     readImageAsDataUrl(inputPath),
     templates,
   );
-  const imageEditPrompt = buildImageEditPrompt(enhancement);
-
-  writeJson(artifactPaths.enhancementPath, enhancement);
-  fs.writeFileSync(artifactPaths.promptPath, `${imageEditPrompt}\n`, "utf8");
-  writeJson(artifactPaths.requestPath, {
-    feature: "sticker-replication",
-    status: "generating",
-    executionMode: "image-edit",
-    inputPath,
-    outputPath,
-    artifacts: {
-      promptEnhancement: artifactPaths.enhancementPath,
-      prompt: artifactPaths.promptPath,
-      imageResponse: artifactPaths.imageResponsePath,
-    },
-    models: {
-      vision: options.visionModel,
-      edit: options.imageModel,
-    },
-    requestedImageSize: options.imageSize,
-    userPrompt: options.userPrompt,
-  });
+  const imageEditPrompt = buildImageEditPrompt(finalPrompt);
 
   console.log("正在将参考图编辑为独立贴纸...");
-  const imageBuffer = await editStickerImage(
+  const editResult = await editStickerImage(
     client,
     inputPath,
     options.imageModel,
     options.imageSize,
     imageEditPrompt,
-    artifactPaths.imageResponsePath,
   );
-  const actualOutputSize = readPngDimensions(imageBuffer);
+  const actualOutputSize = readPngDimensions(editResult.imageBuffer);
 
-  fs.writeFileSync(outputPath, imageBuffer);
-  writeJson(artifactPaths.requestPath, {
+  fs.writeFileSync(outputPaths.imagePath, editResult.imageBuffer);
+  fs.writeFileSync(outputPaths.imageInstructionPath, `${imageEditPrompt}\n`, "utf8");
+  writeJson(outputPaths.jsonPath, {
     feature: "sticker-replication",
     status: "completed",
     executionMode: "image-edit",
     inputPath,
-    outputPath,
-    artifacts: {
-      promptEnhancement: artifactPaths.enhancementPath,
-      prompt: artifactPaths.promptPath,
-      imageResponse: artifactPaths.imageResponsePath,
-    },
+    outputImagePath: outputPaths.imagePath,
+    imageInstructionPath: outputPaths.imageInstructionPath,
     models: {
       vision: options.visionModel,
       edit: options.imageModel,
@@ -211,10 +196,14 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
     requestedImageSize: options.imageSize,
     actualOutputSize,
     userPrompt: options.userPrompt,
+    finalPrompt: imageEditPrompt,
+    imageResponse: editResult.sanitizedResponse,
   });
 
   console.log(`实际输出尺寸: ${actualOutputSize ? `${actualOutputSize.width}x${actualOutputSize.height}` : "unknown"}`);
-  console.log(`已保存图像: ${outputPath}`);
+  console.log(`已保存图片执行指令: ${outputPaths.imageInstructionPath}`);
+  console.log(`已保存图像: ${outputPaths.imagePath}`);
+  console.log(`已保存 JSON: ${outputPaths.jsonPath}`);
 }
 
 const isEntryPoint =

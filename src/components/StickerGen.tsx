@@ -12,6 +12,7 @@ import {
 import type { StickerSubTab } from '../shared/view/ui';
 import type { ImportBatch, StoredImageRecord } from '../shared/domain/images';
 import type { TaskRecord } from '../shared/domain/tasks';
+import { buildStickerVariationPrompt } from '../shared/domain/stickerPrompts';
 import type { RendererTaskService } from '../features/tasks/taskService';
 import ImageUploader from './ImageUploader';
 
@@ -140,6 +141,14 @@ export default function StickerGen({ taskService }: StickerGenProps) {
         ].filter(Boolean).join(', ');
     }
 
+    const currentVariationPrompt =
+      type === 'variation'
+        ? buildStickerVariationPrompt({
+            colorScheme: variationColorScheme,
+            userPrompt: variationPrompt,
+          })
+        : '';
+
     const stages = [
       { text: '🔍 正在解析输入构图特征...', weight: 20 },
       { text: '⚙️ 正在校准 AI 大模型参数权重路径...', weight: 45 },
@@ -165,6 +174,7 @@ export default function StickerGen({ taskService }: StickerGenProps) {
           resultSvgs = [catStickerSvg, fluidStickerSvg, metallicCubeSvg, violetFlowerSvg];
           setCopyResults(resultSvgs);
         } else if (type === 'variation') {
+          console.info('Sticker variation prompt:', currentVariationPrompt);
           resultSvgs = [catStickerSvg, fluidStickerSvg, metallicCubeSvg, violetFlowerSvg].slice(0, variationCount);
           setVariationResults(resultSvgs);
         } else if (type === 'original') {

@@ -5,11 +5,14 @@
   "description": "Tickpic desktop creative workspace built with React and Electron.",
   "author": "Tickpic",
   "type": "module",
-  "main": "dist-electron/main.js",
+  "main": "dist-electron/electron/main.js",
+  "config": {
+    "electron_mirror": "https://npmmirror.com/mirrors/electron/"
+  },
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
-    "dev:electron": "pnpm build:electron && ELECTRON_RENDERER_URL=http://127.0.0.1:3000 electron --no-sandbox dist-electron/main.js",
-    "desktop": "pnpm build && pnpm build:electron && electron --no-sandbox dist-electron/main.js",
+    "dev:electron": "pnpm build:electron && ELECTRON_RENDERER_URL=http://127.0.0.1:3000 electron --no-sandbox dist-electron/electron/main.js",
+    "desktop": "pnpm build && pnpm build:electron && electron --no-sandbox dist-electron/electron/main.js",
     "build": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
     "dist:win": "pnpm build && pnpm build:electron && electron-builder --win nsis",
@@ -58,7 +61,7 @@
       "package.json"
     ],
     "extraMetadata": {
-      "main": "dist-electron/main.js"
+      "main": "dist-electron/electron/main.js"
     },
     "win": {
       "signAndEditExecutable": false,
@@ -66,5 +69,14 @@
         "nsis"
       ]
     }
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@google/genai",
+      "electron",
+      "electron-winstaller",
+      "esbuild",
+      "protobufjs"
+    ]
   }
 }

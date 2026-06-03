@@ -60,7 +60,7 @@ Tickpic/
 │       ├── ipc-contracts.ts      # IPC 请求、响应、事件契约
 │       ├── schemas.ts            # 跨进程安全校验 schema
 │       ├── image-workflow-types.ts
-│       └── prompt-enhancement-schema.ts
+│       └── image-instruction-types.ts
 ├── scripts/                      # 演示、迁移、构建辅助脚本
 ├── tests/
 │   ├── unit/
@@ -90,14 +90,18 @@ Tickpic/
 
 所有图片生成、编辑、裂变功能都必须使用两阶段流程：
 
-1. 图像理解/提示词增强阶段：生成结构化 JSON 控图描述。
-2. 图片生成/编辑阶段：使用 JSON 中的 `finalPrompt` 和相关图片执行出图。
+1. 图片执行指令生成阶段：把 `feature`、`source/reference` 图片、`prompt`、`regions`、`productName`、`logoText`、`colorScheme`、`aspectRatio`、阶段模型等结构化参数交给图像理解/指令生成模型，直接输出 `finalPrompt`。
+2. 图片生成/编辑阶段：使用 `finalPrompt` 和相关执行图片出图；必要的禁止事项应已经写入这条执行指令。
 
-不得为了方便绕过提示词增强阶段。结构化 JSON 必须作为任务产物保存，方便复现和排查。
+不得为了方便绕过图片执行指令生成阶段。执行指令必须作为任务产物保存，方便复现和排查。一阶段不要求模型输出 JSON，也不要求输出冗长分析报告。
+
+编辑类任务的一阶段输出应简洁、高效，默认 1-3 句。图像生成类任务可以添加更多视觉细节，用于补足主体、场景、构图、光影、风格、文字和比例等出图信息。
+
+纯提示词主图/素材图允许用户输入参考图或风格图，但这些图片只用于第一阶段生成图片执行指令，不得把该功能误路由为第二阶段图片编辑任务。
 
 模型选择按阶段决定：
 
-- `modelOverrides.vision`：图像理解和提示词增强。
+- `modelOverrides.vision`：图像理解和图片执行指令生成。
 - `modelOverrides.generation`：纯生成任务。
 - `modelOverrides.edit`：图片编辑和裂变任务。
 
@@ -151,7 +155,7 @@ IPC 规则：
 - 设置存储必须有校验和版本迁移；API Key 和凭证必须安全存储，不得进入日志。
 - 文件读写必须限定在用户授权路径内，写入前规范化路径并防止路径穿越。
 - 日志必须脱敏 API Key、Authorization header、base64 图片和未清洗的模型响应。
-- 生成产物必须可复现：`request.json`、`prompt-enhancement.json`、最终 prompt、清洗后的响应、输出图片、warnings、任务状态。
+- 生成产物必须可复现：`request.json`、`image-instruction.txt`、清洗后的响应、输出图片、warnings、任务状态。
 - 打包时不得包含 `.env`、`artifacts/`、测试 fixture、本地输出或开发专用文件。
 - 自动更新、签名、公证、安装器只在明确进入分发阶段时添加。
 
