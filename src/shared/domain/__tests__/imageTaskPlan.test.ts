@@ -84,6 +84,20 @@ describe('imageTaskPlan', () => {
     expect(plan.openaiImageSize).toBe('1024x1536');
   });
 
+  it('passes auto sizing through to execution params', () => {
+    const plan = buildImageTaskPlan({
+      feature: 'replace_logo',
+      aspectRatio: 'auto',
+      images: [
+        { role: 'source', path: '/authorized/input/scene.png' },
+        { role: 'logo', path: '/authorized/input/logo.png' },
+      ],
+    }, config);
+
+    expect(plan.outputAspectRatio).toBe('auto');
+    expect(plan.openaiImageSize).toBe('auto');
+  });
+
   it('rejects selected models without a configured protocol mapping', () => {
     expect(() => buildImageTaskPlan({
       feature: 'sticker_original',

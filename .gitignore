@@ -10,3 +10,9 @@ coverage/
 !.env.example
 artifacts/
 out/
+tests/output
+openspec
+.cursor
+.agents
+.idea
+

@@ -10,5 +10,5 @@
     "types": ["node"]
   },
   "include": ["electron/**/*.ts", "src/shared/**/*.ts"],
-  "exclude": ["electron/**/*.test.ts"]
+  "exclude": ["electron/**/*.test.ts", "src/**/*.test.ts"]
 }

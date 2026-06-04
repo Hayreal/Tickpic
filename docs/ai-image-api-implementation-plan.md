@@ -60,7 +60,7 @@ API Key 不在 Renderer 业务代码中直接使用。用户填写的 n1n API Ke
 | prompt | 否 | 用户追加提示词 |
 | images | 否 | 参考图、原图、产品图、Logo 图、风格图等 |
 | regions | 否 | 可选矩形框选区域 |
-| count | 否 | 出图数量，由批次数控制 |
+| count | 否 | 单次任务出图数量，默认 1；需要多张时通过任务队列多次提交 |
 | productName | 否 | 产品名称 |
 | logoText | 否 | Logo 或品牌文字说明 |
 | colorScheme | 否 | 自然语言色系 |
@@ -198,7 +198,7 @@ API Key 不在 Renderer 业务代码中直接使用。用户填写的 n1n API Ke
 Create an independent 2D flat sticker design based on the sticker area in the source image. Keep a similar commercial label layout, clean visual hierarchy, and product-category feeling. Replace the brand text with wkau and include capacity text 6PIECES. Make the overall design cleaner and fresher. Output only the flat sticker artwork. Do not generate bottles, jars, boxes, packaging mockups, real product containers, or background scenes.
 ```
 
-图片执行指令不直接展示给用户，作为图片模型的上游输入和本地排查产物保存。用户提示词与功能边界冲突时，执行指令必须保留功能边界并移除冲突要求。
+图片执行指令不直接展示给用户，作为图片模型的上游输入和本地排查产物保存。用户提示词与功能边界冲突时，执行指令必须保留功能边界并移除冲突要求。所有场景面向海外用户，输出图片中不得出现中文可见文字；中文参数在一阶段转换为英文 in-image copy。
 
 ## 8. 文件保存规则
 
@@ -219,9 +219,10 @@ Create an independent 2D flat sticker design based on the sticker area in the so
 - `request.json` 保存原始请求摘要、图片角色、区域、模型覆盖和脱敏后的配置摘要。
 - `image-instruction.txt` 保存一阶段生成的图片执行指令。
 - 图片文件保存最终出图。
+- 出图数量默认每次任务 1 张；需要批量结果时通过任务队列多次提交，而不是单次请求放大 `count`。
 - 同名 `.json` 保存本次任务的输入、模型、用户原始提示词、图片执行指令、输出尺寸和脱敏后的模型响应摘要。
 - 默认不额外保存未清洗的完整模型响应文件。
-- 出图数量由任务批次数控制，文件数量随 `count` 参数变化。
+- 每个已完成任务通常对应 1 张输出图片及同名 `.json` 摘要。
 
 ## 9. 结果返回
 

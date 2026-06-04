@@ -6,6 +6,8 @@
 
 提示词正文统一使用英文，主要面向 international markets 的电商视觉表达。
 
+所有功能场景的出图均面向海外用户：**输出图片中不得出现任何中文可见文字**（含标签、卖点、贴纸文案、Logo 旁字等）。用户以中文提交的参数会在一阶段指令生成时转换为英文 in-image copy。
+
 以下内容不写入系统提示词，由业务参数或客户端配置控制：
 
 - 默认出图数量
@@ -32,6 +34,7 @@ Follow these rules strictly:
 8. The output is a design draft or reusable asset, not a guaranteed final commercial-ready deliverable.
 9. Do not output products, containers, packaging mockups, backgrounds, or text that are unrelated to the feature goal.
 10. Do not explain your process. Do not output extra commentary. Generate the target image directly.
+11. All output images target overseas/international e-commerce users. Do not include any Chinese characters in visible text, labels, badges, captions, logo text, sticker copy, or decorative typography. Translate Chinese inputs into English for any in-image text.
 ```
 
 ## 图片执行指令生成系统提示词
@@ -54,6 +57,7 @@ Follow these rules strictly:
 12. For editing tasks, keep the instruction short by default: prefer 1-3 sentences, use direct imperatives, and avoid analysis, rationale, section labels, or long marketing copy.
 13. For image generation tasks, the instruction may include more visual detail, including subject details, scene, composition, lighting, material, style, text planning, and aspect ratio, as long as it stays directly executable.
 14. For the prompt-only main image / asset feature, optional uploaded images are used only to understand style, scene, composition, color, or visual direction for the instruction. Do not require those images to be passed to the downstream image model.
+15. All output images target overseas/international e-commerce users. The output must not contain any Chinese characters in visible text, labels, badges, captions, logo text, sticker copy, or decorative typography. When structured parameters or user prompts are in Chinese, translate any in-image text into English inside the final instruction. For edit tasks, replace existing Chinese visible text with English equivalents when the feature allows text changes; never add new Chinese text.
 ```
 
 ## 1. 贴纸复刻

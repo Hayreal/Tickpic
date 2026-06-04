@@ -20,6 +20,9 @@ export function createModelGatewayFromSettings(settings: AppSettings) {
     })),
     gemini: createGeminiProtocolClient(new GoogleGenAI({
       apiKey,
+      httpOptions: {
+        baseUrl: normalizeGeminiBaseUrl(settings.baseUrl),
+      },
     })),
   });
 }
@@ -27,4 +30,11 @@ export function createModelGatewayFromSettings(settings: AppSettings) {
 export function normalizeOpenAIBaseUrl(baseUrl: string) {
   const trimmed = baseUrl.trim().replace(/\/+$/, '');
   return /\/v\d+$/i.test(trimmed) ? trimmed : `${trimmed}/v1`;
+}
+
+export function normalizeGeminiBaseUrl(baseUrl: string) {
+  return baseUrl
+    .trim()
+    .replace(/\/+$/, '')
+    .replace(/\/v\d+(?:(?:alpha|beta)\d*)?$/i, '');
 }

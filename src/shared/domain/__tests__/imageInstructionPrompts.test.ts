@@ -16,4 +16,12 @@ describe('imageInstructionPrompts', () => {
     expect(prompt).toContain('You are performing the "Prompt-Only Main Image / Asset Generation" task.');
     expect(prompt).toContain('Do not require those images to be passed to the downstream image model.');
   });
+
+  it('requires overseas output with no Chinese visible text in images', () => {
+    const prompt = buildImageInstructionSystemPrompt('sticker_replica');
+
+    expect(prompt).toContain('overseas/international e-commerce users');
+    expect(prompt).toContain('must not contain any Chinese characters');
+    expect(prompt).toContain('translate any in-image text into English');
+  });
 });

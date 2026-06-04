@@ -1,18 +1,26 @@
 export type ImageAspectOrientation = 'square' | 'landscape' | 'portrait';
-export type OpenAIImageSize = '1024x1024' | '1536x1024' | '1024x1536';
+export type OpenAIImageSize = '1024x1024' | '1536x1024' | '1024x1536' | 'auto';
 
 export interface NormalizedImageAspectRatio {
   aspectRatio: string;
-  orientation: ImageAspectOrientation;
+  orientation?: ImageAspectOrientation;
   openaiSize: OpenAIImageSize;
 }
 
 export function normalizeImageAspectRatio(value: string | undefined): NormalizedImageAspectRatio | undefined {
-  if (!value?.trim()) {
+  const trimmed = value?.trim();
+  if (!trimmed) {
     return undefined;
   }
 
-  const match = value.trim().match(/^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)$/);
+  if (trimmed.toLowerCase() === 'auto') {
+    return {
+      aspectRatio: 'auto',
+      openaiSize: 'auto',
+    };
+  }
+
+  const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)$/);
   if (!match) {
     throw new Error('aspectRatio must be in "width:height" format');
   }

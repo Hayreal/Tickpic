@@ -103,6 +103,72 @@ describe('protocolClients', () => {
     expect(Buffer.from(result.images[0].buffer).toString()).toBe('generated');
   });
 
+  it('passes size auto to OpenAI image edit when aspectRatio is auto', async () => {
+    const openai = {
+      responses: { create: vi.fn() },
+      images: {
+        generate: vi.fn(),
+        edit: vi.fn().mockResolvedValue({
+          data: [{ b64_json: Buffer.from('edited-auto').toString('base64') }],
+        }),
+      },
+    };
+    const client = createOpenAIProtocolClient(openai);
+
+    await client.executeImage({
+      ...createExecutionInput(imagePath),
+      size: 'auto',
+      aspectRatio: 'auto',
+    });
+
+    expect(openai.images.edit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        size: 'auto',
+      }),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      }),
+    );
+  });
+
+  it('passes aspectRatio auto to Gemini image execution', async () => {
+    const gemini = {
+      models: {
+        generateContent: vi.fn().mockResolvedValue({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    inlineData: {
+                      mimeType: 'image/png',
+                      data: Buffer.from('gemini auto').toString('base64'),
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      },
+    };
+    const client = createGeminiProtocolClient(gemini);
+
+    await client.executeImage({
+      ...createExecutionInput(imagePath),
+      aspectRatio: 'auto',
+      size: 'auto',
+    });
+
+    expect(gemini.models.generateContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          aspectRatio: 'auto',
+        }),
+      }),
+    );
+  });
+
   it('uses OpenAI image edit when execution has image inputs', async () => {
     const openai = {
       responses: { create: vi.fn() },

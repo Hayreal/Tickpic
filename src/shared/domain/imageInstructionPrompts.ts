@@ -16,7 +16,8 @@ Follow these rules strictly:
 11. Include necessary negative instructions directly in the instruction, such as what not to generate or what not to change.
 12. For editing tasks, keep the instruction short by default: prefer 1-3 sentences, use direct imperatives, and avoid analysis, rationale, section labels, or long marketing copy.
 13. For image generation tasks, the instruction may include more visual detail, including subject details, scene, composition, lighting, material, style, text planning, and aspect ratio, as long as it stays directly executable.
-14. For the prompt-only main image / asset feature, optional uploaded images are used only to understand style, scene, composition, color, or visual direction for the instruction. Do not require those images to be passed to the downstream image model.`;
+14. For the prompt-only main image / asset feature, optional uploaded images are used only to understand style, scene, composition, color, or visual direction for the instruction. Do not require those images to be passed to the downstream image model.
+15. All output images target overseas/international e-commerce users. The output must not contain any Chinese characters in visible text, labels, badges, captions, logo text, sticker copy, or decorative typography. When structured parameters or user prompts are in Chinese, translate any in-image text into English inside the final instruction. For edit tasks, replace existing Chinese visible text with English equivalents when the feature allows text changes; never add new Chinese text.`;
 
 const FEATURE_PROMPTS: Record<ImageFeature, string> = {
   sticker_replica: `You are performing the "Sticker Replication" task.

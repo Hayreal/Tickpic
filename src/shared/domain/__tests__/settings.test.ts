@@ -26,7 +26,7 @@ describe('settings domain', () => {
         'gpt-image-2': 'openai',
         'gpt-5.4-mini': 'openai',
       },
-      defaultCount: 4,
+      defaultCount: 1,
       maxCount: 8,
       maxConcurrentTasks: 5,
     });

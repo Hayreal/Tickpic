@@ -23,6 +23,17 @@ describe('imageAspectRatio', () => {
     });
   });
 
+  it('maps auto to API auto sizing for OpenAI and Gemini edit flows', () => {
+    expect(normalizeImageAspectRatio('auto')).toEqual({
+      aspectRatio: 'auto',
+      openaiSize: 'auto',
+    });
+    expect(normalizeImageAspectRatio(' AUTO ')).toEqual({
+      aspectRatio: 'auto',
+      openaiSize: 'auto',
+    });
+  });
+
   it('rejects invalid ratio strings', () => {
     expect(() => normalizeImageAspectRatio('wide')).toThrow('aspectRatio must be in "width:height" format');
     expect(() => normalizeImageAspectRatio('1:0')).toThrow('aspectRatio values must be greater than zero');

@@ -15,6 +15,7 @@
     "desktop": "pnpm build && pnpm build:electron && electron --no-sandbox dist-electron/electron/main.js",
     "build": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
+    "smoke:image-task": "node --env-file=.env --import tsx scripts/smoke-image-task.ts",
     "dist:win": "pnpm build && pnpm build:electron && electron-builder --win nsis",
     "preview": "vite preview",
     "clean": "rm -rf dist dist-electron release server.js",
