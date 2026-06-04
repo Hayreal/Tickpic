@@ -4,7 +4,7 @@ import React from 'react';
 
 const mockListTasks = vi.fn();
 
-vi.mock('./hooks/useDesktopClient', () => ({
+vi.mock('../hooks/useDesktopClient', () => ({
   useDesktopClient: () => ({
     listTasks: (...args: unknown[]) => mockListTasks(...args),
     createTask: vi.fn(),
@@ -14,7 +14,7 @@ vi.mock('./hooks/useDesktopClient', () => ({
 
 const mockRefresh = vi.fn();
 let currentTasks: unknown[] = [];
-vi.mock('./hooks/useDesktopTasks', () => ({
+vi.mock('../hooks/useDesktopTasks', () => ({
   useDesktopTasks: () => ({
     tasks: currentTasks,
     taskService: {
@@ -28,18 +28,18 @@ vi.mock('./hooks/useDesktopTasks', () => ({
   }),
 }));
 
-vi.mock('./components/StickerGen', () => ({
+vi.mock('../components/StickerGen', () => ({
   default: () => <div data-testid="sticker-gen">StickerGen</div>,
 }));
-vi.mock('./components/ProductProcessing', () => ({
+vi.mock('../components/ProductProcessing', () => ({
   default: () => <div data-testid="product-processing">ProductProcessing</div>,
 }));
-vi.mock('./components/Settings', () => ({
+vi.mock('../components/Settings', () => ({
   default: () => <div data-testid="settings">Settings</div>,
 }));
 
 const profileTasksSpy = vi.fn();
-vi.mock('./components/Profile', () => ({
+vi.mock('../components/Profile', () => ({
   default: ({ tasks, onRefresh }: { tasks: { feature: string }[]; onRefresh: () => void }) => {
     profileTasksSpy(tasks);
     return (
@@ -52,7 +52,7 @@ vi.mock('./components/Profile', () => ({
   },
 }));
 
-import App from './App';
+import App from '../App';
 
 describe('App shell', () => {
   beforeEach(() => {

@@ -1,5 +1,33 @@
 import type { TaskRecord } from '../domain/tasks.js';
 import type { ImportBatch, StoredImageRecord } from '../domain/images.js';
+import type {
+  ImageTaskRecord,
+  ImageTaskRequest,
+  ImageTaskSubmitResult,
+} from '../domain/imageFeatureApi.js';
+import type { AppSettings, RendererAppSettings } from '../domain/settings.js';
+
+export const IPC_CHANNELS = {
+  storage: {
+    saveImportBatch: 'storage:save-import-batch',
+    saveTaskOutputs: 'storage:save-task-outputs',
+  },
+  tasks: {
+    list: 'tasks:list',
+    create: 'tasks:create',
+    update: 'tasks:update',
+  },
+  settings: {
+    get: 'settings:get',
+    save: 'settings:save',
+  },
+  imageTask: {
+    submit: 'image-task:submit',
+    cancel: 'image-task:cancel',
+    get: 'image-task:get',
+    status: 'image-task:status',
+  },
+} as const;
 
 export interface SaveImportBatchRequest {
   page: 'sticker' | 'product';
@@ -14,6 +42,18 @@ export interface SaveTaskOutputsRequest {
   outputs: { name: string; buffer: ArrayBuffer }[];
 }
 
+export interface ImageTaskBridgeApi {
+  submit(request: ImageTaskRequest): Promise<ImageTaskSubmitResult>;
+  cancel(taskId: string): Promise<ImageTaskRecord>;
+  get(taskId: string): Promise<ImageTaskRecord | undefined>;
+  onStatus(listener: (task: ImageTaskRecord) => void): () => void;
+}
+
+export interface SettingsBridgeApi {
+  get(): Promise<RendererAppSettings>;
+  save(settings: AppSettings): Promise<void>;
+}
+
 export interface DesktopBridgeApi {
   platform: string;
   saveImportBatch(request: SaveImportBatchRequest): Promise<ImportBatch>;
@@ -21,4 +61,6 @@ export interface DesktopBridgeApi {
   createTask(record: TaskRecord): Promise<void>;
   updateTask(record: TaskRecord): Promise<void>;
   listTasks(): Promise<TaskRecord[]>;
+  settings: SettingsBridgeApi;
+  imageTask: ImageTaskBridgeApi;
 }

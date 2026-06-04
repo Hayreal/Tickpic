@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import WindowFrame from './WindowFrame';
+import WindowFrame from '../WindowFrame';
 
 describe('WindowFrame', () => {
   it('does not render the simulated titlebar metadata', () => {

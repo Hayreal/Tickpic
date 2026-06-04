@@ -1,0 +1,16 @@
+{
+  "feature": "sticker_replica",
+  "prompt": "参考原贴纸的红黑白工业风，品牌保持 wkau，主标题改成 BELT SILENCER PRO，底部容量改成 NET 120ML，整体更干净、更像电商可用的独立二维平面贴纸，不要包装效果图。",
+  "productName": "Belt Silencer Pro",
+  "logoText": "wkau",
+  "capacity": "NET 120ML",
+  "colorScheme": "红黑白工业风",
+  "aspectRatio": "1:1",
+  "images": [
+    {
+      "role": "source",
+      "path": "tests/fixtures/images/img_4.png",
+      "mimeType": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "feature": "sticker_replica",
+  "images": [
+    {
+      "role": "source",
+      "path": "tests/fixtures/images/贴纸复刻&裂变/img_2.png"
+    },
+    {
+      "role": "reference",
+      "path": "tests/fixtures/images/贴纸复刻&裂变/img_3.png"
+    }
+  ]
+}

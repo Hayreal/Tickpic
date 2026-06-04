@@ -1,9 +1,10 @@
 import { ipcMain } from 'electron';
+import { IPC_CHANNELS } from '../../../../src/shared/contracts/desktop.js';
 import { saveImportBatch } from './importStorage.js';
 import { saveTaskOutputs } from './outputStorage.js';
 
 export function registerImportStorageIpc(importsDir: string) {
-  ipcMain.handle('storage:save-import-batch', (_event, payload: {
+  ipcMain.handle(IPC_CHANNELS.storage.saveImportBatch, (_event, payload: {
     page: string;
     feature: string;
     files: { name: string; type: string; buffer: ArrayBuffer }[];
@@ -13,7 +14,7 @@ export function registerImportStorageIpc(importsDir: string) {
 }
 
 export function registerOutputStorageIpc(outputsDir: string) {
-  ipcMain.handle('storage:save-task-outputs', (_event, payload: {
+  ipcMain.handle(IPC_CHANNELS.storage.saveTaskOutputs, (_event, payload: {
     taskId: string;
     page: string;
     feature: string;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPendingTask } from './taskState';
+import { createPendingTask } from '../taskState';
 
 describe('createPendingTask', () => {
   it('creates a pending task from an import batch only when generation starts', () => {

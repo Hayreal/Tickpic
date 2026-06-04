@@ -14,5 +14,33 @@ export function createDesktopClient(bridge: DesktopBridgeApi | undefined) {
       if (!bridge) throw new Error('Desktop bridge unavailable');
       return bridge.saveTaskOutputs(request);
     },
+    settings: {
+      get: () => {
+        if (!bridge) throw new Error('Desktop bridge unavailable');
+        return bridge.settings.get();
+      },
+      save: (settings) => {
+        if (!bridge) throw new Error('Desktop bridge unavailable');
+        return bridge.settings.save(settings);
+      },
+    },
+    imageTask: {
+      submit: (request) => {
+        if (!bridge) throw new Error('Desktop bridge unavailable');
+        return bridge.imageTask.submit(request);
+      },
+      cancel: (taskId) => {
+        if (!bridge) throw new Error('Desktop bridge unavailable');
+        return bridge.imageTask.cancel(taskId);
+      },
+      get: (taskId) => {
+        if (!bridge) throw new Error('Desktop bridge unavailable');
+        return bridge.imageTask.get(taskId);
+      },
+      onStatus: (listener) => {
+        if (!bridge) return () => undefined;
+        return bridge.imageTask.onStatus(listener);
+      },
+    },
   };
 }

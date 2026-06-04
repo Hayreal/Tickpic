@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import Sidebar from './Sidebar';
+import Sidebar from '../Sidebar';
 
 describe('Sidebar', () => {
   it('does not render GPU or disk writing footer copy', () => {

@@ -1,0 +1,14 @@
+{
+  "feature": "main_image_asset_variation",
+  "prompt": "参考当前锅具清洁 before/after 主图的表达方式，生成同类电商主图素材",
+  "productName": "Metal Polishing",
+  "aspectRatio": "auto",
+  "showProduct": false,
+  "images": [
+    {
+      "role": "source",
+      "path": "tests/fixtures/images/img_9.png",
+      "mimeType": "image/png"
+    }
+  ]
+}

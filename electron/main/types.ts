@@ -4,4 +4,5 @@ export interface StoragePaths {
   outputsDir: string;
   tasksDir: string;
   tasksFile: string;
+  settingsFile: string;
 }

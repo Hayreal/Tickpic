@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collectImportFiles } from './importBatch';
+import { collectImportFiles } from '../importBatch';
 
 function makeImageFile(name: string, type = 'image/png') {
   return new File(['img'], name, { type });

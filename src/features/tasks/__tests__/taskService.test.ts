@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { toTaskItem } from './taskMappers';
-import { createRendererTaskService } from './taskService';
-import type { TaskRecord } from '../../shared/domain/tasks';
+import { toTaskItem } from '../taskMappers';
+import { createRendererTaskService } from '../taskService';
+import type { TaskRecord } from '../../../shared/domain/tasks';
 
 describe('toTaskItem', () => {
   it('maps a task record into a profile view model', () => {

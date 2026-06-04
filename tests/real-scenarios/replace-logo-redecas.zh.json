@@ -1,0 +1,19 @@
+{
+  "feature": "replace_logo",
+  "prompt": "把产品瓶身上明显的品牌 Logo 替换成新 Logo，保持原来的位置、比例、透视和瓶身贴合效果，不要改动产品其他文案和背景。",
+  "logoText": "wkau",
+  "colorScheme": "黑白 Logo",
+  "aspectRatio": "auto",
+  "images": [
+    {
+      "role": "source",
+      "path": "tests/fixtures/images/img_6.png",
+      "mimeType": "image/png"
+    },
+    {
+      "role": "logo",
+      "path": "tests/fixtures/images/img.png",
+      "mimeType": "image/png"
+    }
+  ]
+}
