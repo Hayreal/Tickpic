@@ -86,7 +86,7 @@ export default function ProductProcessing() {
     } else if (type === 'theme' && themeRefBatch) {
       images.push({ role: 'source', path: themeRefBatch.images[0].filePath });
     } else if (type === 'scene' && sceneRefBatch) {
-      images.push({ role: 'reference', path: sceneRefBatch.images[0].filePath });
+      images.push({ role: 'style', path: sceneRefBatch.images[0].filePath });
     }
 
     const request: ImageTaskRequest = {
