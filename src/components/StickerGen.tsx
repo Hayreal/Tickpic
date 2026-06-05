@@ -10,29 +10,25 @@ import {
   Cpu,
 } from 'lucide-react';
 import type { StickerSubTab } from '../shared/view/ui';
-import type { ImportBatch, StoredImageRecord } from '../shared/domain/images';
-import type { TaskRecord } from '../shared/domain/tasks';
-import { buildStickerVariationPrompt } from '../shared/domain/stickerPrompts';
-import type { RendererTaskService } from '../features/tasks/taskService';
+import type { ImportBatch } from '../shared/domain/images';
+import { useImageTask } from '../hooks/useImageTask';
+import type { ImageTaskRequest, ImageFeature } from '../shared/domain/imageFeatureApi';
 import ImageUploader from './ImageUploader';
 
-interface StickerGenProps {
-  taskService: RendererTaskService;
-}
+const FEATURE_MAP: Record<StickerSubTab, ImageFeature> = {
+  copy: 'sticker_replica',
+  variation: 'sticker_variation',
+  original: 'sticker_original',
+};
 
-export default function StickerGen({ taskService }: StickerGenProps) {
+export default function StickerGen() {
   const [subTab, setSubTab] = useState<StickerSubTab>('copy');
-
-  // Universal state
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [genProgressText, setGenProgressText] = useState('');
-  const [genProgress, setGenProgress] = useState(0);
+  const { submit, activeTask, isSubmitting, error, reset } = useImageTask();
 
   // STICKER COPY (Tab 1) state
   const [copyBatch, setCopyBatch] = useState<ImportBatch | null>(null);
   const [copyOutputFormat, setCopyOutputFormat] = useState<'white' | 'transparent'>('white');
   const [copyCount, setCopyCount] = useState<number>(4);
-  const [copyResults, setCopyResults] = useState<string[]>([]);
   
   // Copy Tab - New State
   const [copyLogo, setCopyLogo] = useState<ImportBatch | null>(null);
@@ -44,7 +40,6 @@ export default function StickerGen({ taskService }: StickerGenProps) {
   const [variationBatch, setVariationBatch] = useState<ImportBatch | null>(null);
   const [variationPrompt, setVariationPrompt] = useState('');
   const [variationCount, setVariationCount] = useState<number>(4);
-  const [variationResults, setVariationResults] = useState<string[]>([]);
   
   // Variation Tab - New State
   const [variationColorScheme, setVariationColorScheme] = useState('');
@@ -52,7 +47,6 @@ export default function StickerGen({ taskService }: StickerGenProps) {
   // STICKER ORIGINAL (Tab 3) state
   const [originalBatch, setOriginalBatch] = useState<ImportBatch | null>(null);
   const [originalCount, setOriginalCount] = useState<number>(4);
-  const [originalResults, setOriginalResults] = useState<string[]>([]);
   
   // Original Tab - New Structured State
   const [originalCategory, setOriginalCategory] = useState('');
@@ -61,15 +55,6 @@ export default function StickerGen({ taskService }: StickerGenProps) {
   const [originalVolume, setOriginalVolume] = useState('');
   const [originalStyle, setOriginalStyle] = useState('');
   const [originalColorScheme, setOriginalColorScheme] = useState('');
-
-  // Image assets used for preset simulation (SVG drawing strings or gorgeous graphics)
-  const catStickerSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%"><rect width="400" height="400" fill="%2314121a" rx="16"/><circle cx="200" cy="210" r="130" fill="%231a1824" stroke="%23302c48" stroke-width="4"/><ellipse cx="200" cy="200" rx="95" ry="115" fill="%23221e33"/><path d="M120,120 L160,190 L110,210 Z" fill="%23e879f9" stroke="%23f43f5e" stroke-width="4" stroke-linejoin="round"/><path d="M280,120 L240,190 L290,210 Z" fill="%23e879f9" stroke="%23f43f5e" stroke-width="4" stroke-linejoin="round"/><circle cx="160" cy="190" r="30" fill="%2306b6d4"/><circle cx="240" cy="190" r="30" fill="%2306b6d4"/><polygon points="200,240 185,220 215,220" fill="%23f43f5e"/><path d="M185,255 Q200,270 215,255" stroke="%23ec4899" stroke-width="4" fill="none" stroke-linecap="round"/><rect x="110" y="170" width="180" height="40" rx="20" fill="%23ec4899" fill-opacity="0.85" stroke="%2322d3ee" stroke-width="4"/><line x1="120" y1="190" x2="280" y2="190" stroke="%23f43f5e" stroke-width="4"/><text x="145" y="360" font-family="monospace" font-size="15" fill="%23a78bfa" font-weight="bold">MEOW REPLICANT</text></svg>`;
-  
-  const fluidStickerSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%"><rect width="400" height="400" fill="%2314121a" rx="16"/><defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23d946ef"/><stop offset="50%" stop-color="%238b5cf6"/><stop offset="100%" stop-color="%2306b6d4"/></linearGradient></defs><path d="M100,200 C100,100 300,100 300,200 C300,300 200,350 150,300 C100,250 100,230 100,200 Z" fill="url(%23grad)" opacity="0.9" stroke="white" stroke-width="1.5"/><circle cx="200" cy="180" r="45" fill="%23171520" opacity="0.6"/><circle cx="240" cy="220" r="25" fill="%23171520" opacity="0.5"/></svg>`;
-
-  const metallicCubeSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%"><rect width="400" height="400" fill="%2314121a" rx="16"/><g transform="translate(100,100)"><polygon points="100,30 200,85 100,140 0,85" fill="%232e2a47" stroke="%23c084fc" stroke-width="4" stroke-linejoin="round"/><polygon points="0,85 100,140 100,240 0,185" fill="%231e1a30" stroke="%23c084fc" stroke-width="4" stroke-linejoin="round"/><polygon points="100,140 200,85 200,185 100,240" fill="%23151122" stroke="%23c084fc" stroke-width="4" stroke-linejoin="round"/><line x1="100" y1="140" x2="100" y2="30" stroke="%2338bdf8" stroke-width="2" stroke-dasharray="4"/><circle cx="100" cy="140" r="12" fill="%2338bdf8" opacity="0.8"/></g></svg>`;
-
-  const violetFlowerSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%"><rect width="400" height="400" fill="%2314121a" rx="16"/><circle cx="200" cy="200" r="100" fill="%236b21a8" opacity="0.3"/><path d="M200,100 Q150,150 200,200 Q250,150 200,100 Z" fill="%23a855f7" stroke="white" stroke-width="1.5"/><path d="M200,200 Q150,250 200,300 Q250,250 200,200 Z" fill="%23a855f7" stroke="white" stroke-width="1.5"/><path d="M100,200 Q150,150 200,200 Q150,250 100,200 Z" fill="%23a855f7" stroke="white" stroke-width="1.5"/><path d="M200,200 Q250,150 300,200 Q250,250 200,200 Z" fill="%23a855f7" stroke="white" stroke-width="1.5"/><circle cx="200" cy="200" r="30" fill="%23f43f5e" stroke="%23fbbf24" stroke-width="3"/></svg>`;
 
   // Generation sequence run
   const runGeneration = async (type: StickerSubTab) => {
@@ -81,120 +66,49 @@ export default function StickerGen({ taskService }: StickerGenProps) {
       alert('请先上传一张参考贴纸！');
       return;
     }
-    // Check if at least one structured input is provided for original
     if (type === 'original' && !originalCategory && !originalBrand && !originalSellingPoint) {
       alert('请输入产品类别、品牌或卖点！');
       return;
     }
 
-    let batch = type === 'copy' ? copyBatch : type === 'variation' ? variationBatch : originalBatch;
-    const featureName = type === 'copy' ? '贴纸复刻' : type === 'variation' ? '贴纸裂变' : '贴纸原创';
+    const batch = type === 'copy' ? copyBatch : type === 'variation' ? variationBatch : originalBatch;
 
-    let task: TaskRecord | null = null;
-    // For Original tab, we might not have a batch if no reference image was uploaded
-    if (type === 'original' && !batch) {
-       // Create a dummy batch or handle task creation differently if needed
-       // For now, let's assume we can proceed without a batch for original if we generate one on the fly or the backend handles it
-       // But since onCreateTask expects a batch, let's simulate a minimal batch or skip if that's allowed?
-       // Actually, let's check if we really need a batch. Original allows optional image.
-       // If no image, we might need to adjust onCreateTask or provide a placeholder.
-       // For safety, let's allow proceeding but we might need to mock a batch if backend strictly requires it.
-       // Let's look at the original logic: `if (batch)` was used.
-       // If batch is null (no image uploaded), task creation was skipped.
-       // Let's maintain that behavior but maybe we WANT to create a task even without an image?
-       // The requirement says "Original Tab - Add State Variables and Update UI/Logic".
-       // Let's try to create the task even without a batch, or create a dummy batch.
-       // Let's assume we can pass an empty imports array if we have a dummy batchId.
-       // Or we can just skip task creation if no batch, but that might lose history.
-       // Let's create a dummy batch if batch is null for original tab.
-       if (!batch) {
-           batch = {
-               batchId: `orig-${Date.now()}`,
-               images: []
-           };
-       }
+    const images: ImageTaskRequest['images'] = [];
+    if (batch && batch.images.length > 0) {
+      images.push({ role: 'source', path: batch.images[0].filePath });
+    }
+    if (type === 'copy' && copyLogo && copyLogo.images.length > 0) {
+      images.push({ role: 'logo', path: copyLogo.images[0].filePath });
     }
 
-    if (batch) {
-      task = await taskService.createTask({
-        category: 'sticker',
-        feature: featureName,
-        batchId: batch.batchId,
-        imports: batch.images,
-      });
-      await taskService.startTask(task);
+    const request: ImageTaskRequest = {
+      feature: FEATURE_MAP[type],
+      images,
+      count: type === 'copy' ? copyCount : type === 'variation' ? variationCount : originalCount,
+      ...(type === 'copy' && {
+        productName: copyProductName || undefined,
+        colorScheme: copyColorScheme || undefined,
+        aspectRatio: copyAspectRatio,
+      }),
+      ...(type === 'variation' && {
+        colorScheme: variationColorScheme || undefined,
+        prompt: variationPrompt || undefined,
+      }),
+      ...(type === 'original' && {
+        productName: originalBrand || undefined,
+        productCategory: originalCategory || undefined,
+        sellingPoints: originalSellingPoint ? [originalSellingPoint] : undefined,
+        capacity: originalVolume || undefined,
+        colorScheme: originalColorScheme || undefined,
+        prompt: originalStyle ? `Style: ${originalStyle}` : undefined,
+      }),
+    };
+
+    try {
+      await submit(request);
+    } catch (err) {
+      console.error('Task submission failed:', err);
     }
-
-    setIsGenerating(true);
-    setGenProgress(0);
-
-    // Construct prompt for original tab
-    let currentOriginalPrompt = '';
-    if (type === 'original') {
-        currentOriginalPrompt = [
-            originalCategory && `Category: ${originalCategory}`,
-            originalBrand && `Brand: ${originalBrand}`,
-            originalSellingPoint && `Selling Point: ${originalSellingPoint}`,
-            originalVolume && `Volume: ${originalVolume}`,
-            originalStyle && `Style: ${originalStyle}`,
-            originalColorScheme && `Colors: ${originalColorScheme}`
-        ].filter(Boolean).join(', ');
-    }
-
-    const currentVariationPrompt =
-      type === 'variation'
-        ? buildStickerVariationPrompt({
-            colorScheme: variationColorScheme,
-            userPrompt: variationPrompt,
-          })
-        : '';
-
-    const stages = [
-      { text: '🔍 正在解析输入构图特征...', weight: 20 },
-      { text: '⚙️ 正在校准 AI 大模型参数权重路径...', weight: 45 },
-      { text: '🎨 GPU 算力就绪，开始高保真画面渲染...', weight: 75 },
-      { text: '✨ 进行边缘对比优化与透明图层计算...', weight: 95 },
-      { text: '✅ 贴纸生成完毕！将结果写入工作区', weight: 100 }
-    ];
-
-    let currentStageIndex = 0;
-    
-    const interval = setInterval(() => {
-      const stage = stages[currentStageIndex];
-      if (stage) {
-        setGenProgressText(stage.text);
-        setGenProgress(stage.weight);
-        currentStageIndex++;
-      } else {
-        clearInterval(interval);
-        setIsGenerating(false);
-        // Dispatch completed results depending on tab
-        let resultSvgs: string[] = [];
-        if (type === 'copy') {
-          resultSvgs = [catStickerSvg, fluidStickerSvg, metallicCubeSvg, violetFlowerSvg];
-          setCopyResults(resultSvgs);
-        } else if (type === 'variation') {
-          console.info('Sticker variation prompt:', currentVariationPrompt);
-          resultSvgs = [catStickerSvg, fluidStickerSvg, metallicCubeSvg, violetFlowerSvg].slice(0, variationCount);
-          setVariationResults(resultSvgs);
-        } else if (type === 'original') {
-          resultSvgs = [fluidStickerSvg, catStickerSvg, violetFlowerSvg, metallicCubeSvg].slice(0, originalCount);
-          setOriginalResults(resultSvgs);
-        }
-
-        if (task) {
-          const outputRecords: StoredImageRecord[] = resultSvgs.map((_, i) => ({
-            id: `output-${Date.now()}-${i}`,
-            fileName: `output-${i}.png`,
-            filePath: `outputs/${task!.taskId}/output-${i}.png`,
-            fileSize: 0,
-            mimeType: 'image/png',
-            createdAt: new Date().toISOString(),
-          }));
-          taskService.completeTask(task!, outputRecords).catch(console.error);
-        }
-      }
-    }, 700);
   };
 
   return (
@@ -494,15 +408,15 @@ export default function StickerGen({ taskService }: StickerGenProps) {
             <button
               id={`submit-sticker-${subTab}`}
               onClick={() => runGeneration(subTab)}
-              disabled={isGenerating}
+              disabled={isSubmitting}
               className={`cursor-pointer w-full py-3.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 shadow-lg ${
-                isGenerating 
+                isSubmitting 
                   ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50' 
                   : 'bg-[#7c3aed] text-white hover:bg-[#8b5cf6] active:scale-[0.98] shadow-violet-950/20'
               }`}
             >
-              <Sparkles className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
-              {isGenerating ? '正在执行创意生成...' : subTab === 'copy' ? '冗奈生成' : '开始生成'}
+              <Sparkles className={`w-4 h-4 ${isSubmitting ? 'animate-spin' : ''}`} />
+              {isSubmitting ? '正在执行创意生成...' : subTab === 'copy' ? '冗奈生成' : '开始生成'}
             </button>
           </div>
 
@@ -518,7 +432,7 @@ export default function StickerGen({ taskService }: StickerGenProps) {
                 <div className="flex flex-col">
                   <h3 className="text-sm font-semibold text-white">生成结果</h3>
                   <p className="text-[11px] text-slate-500 font-sans mt-0.5">
-                    {copyResults.length > 0 ? '4 / 4 completed' : '0 / 4 completed'}
+                    {activeTask?.status === 'completed' ? `${activeTask.images.length} / ${activeTask.images.length} completed` : '0 / 4 completed'}
                   </p>
                 </div>
               </div>
@@ -528,13 +442,15 @@ export default function StickerGen({ taskService }: StickerGenProps) {
               <div className="flex items-center justify-between mb-4 animate-fadeIn" id="variation-preview-header">
                 <div className="flex items-center gap-3">
                   <h3 className="text-sm font-bold text-white flex items-center gap-1.5 text-[15px]">
-                    生成结果 ({variationResults.length || 4})
+                    生成结果 ({activeTask?.status === 'completed' ? activeTask.images.length : 4})
                   </h3>
-                  <span className="text-[10px] font-mono bg-slate-900 border border-slate-800 text-slate-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider mt-0.5">
-                    Batch #7284
-                  </span>
+                  {activeTask?.taskId && (
+                    <span className="text-[10px] font-mono bg-slate-900 border border-slate-800 text-slate-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider mt-0.5">
+                      {activeTask.taskId.slice(0, 8)}
+                    </span>
+                  )}
                 </div>
-                {variationResults.length > 0 && (
+                {activeTask?.status === 'completed' && activeTask.images.length > 0 && (
                   <button className="cursor-pointer text-[11px] bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-white font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors">
                     <Download className="w-3.5 h-3.5 text-violet-400" />
                     Download All
@@ -553,29 +469,35 @@ export default function StickerGen({ taskService }: StickerGenProps) {
               </div>
             )}
 
-            {/* Simulated progress indicators when loading is active */}
-            {isGenerating && (
+            {/* Progress indicators when task is active */}
+            {(isSubmitting || (activeTask && (activeTask.status === 'queued' || activeTask.status === 'running'))) && (
               <div className="mb-6 p-4 rounded-xl bg-slate-950/80 border border-violet-500/10 shadow-sm animate-pulse" id="generation-progress-box">
                 <div className="flex items-center justify-between text-xs text-white mb-2 font-mono">
                   <span className="font-sans flex items-center gap-2">
                     <Cpu className="w-3.5 h-3.5 text-violet-400 animate-spin" />
-                    {genProgressText}
+                    {activeTask?.status === 'running' ? 'AI 模型正在生成...' : activeTask?.status === 'queued' ? '任务排队中...' : '正在提交任务...'}
                   </span>
-                  <span className="text-[#a78bfa]">{genProgress}%</span>
                 </div>
                 <div className="w-full bg-slate-900 rounded-full h-1 overflow-hidden">
-                  <div className="bg-gradient-to-r from-violet-600 to-indigo-500 h-1 transition-all duration-300" style={{ width: `${genProgress}%` }} />
+                  <div className="bg-gradient-to-r from-violet-600 to-indigo-500 h-1 transition-all duration-300 animate-pulse" style={{ width: activeTask?.status === 'running' ? '60%' : activeTask?.status === 'queued' ? '20%' : '10%' }} />
                 </div>
+              </div>
+            )}
+
+            {/* Error display */}
+            {error && (
+              <div className="mb-6 p-4 rounded-xl bg-red-950/40 border border-red-500/20 text-red-300 text-xs">
+                {error}
               </div>
             )}
 
             {/* Results Grid container rendering actual structures */}
             {subTab === 'copy' && (
               <div className="grid grid-cols-2 lg:grid-cols-2 gap-4" id="copy-result-grid">
-                {copyResults.length > 0 ? (
-                  copyResults.map((resultSvg, idx) => (
+                {activeTask?.status === 'completed' && activeTask.images.length > 0 ? (
+                  activeTask.images.map((imagePath, idx) => (
                     <div key={idx} className="aspect-square bg-[#100f13] border border-slate-900 hover:border-slate-800 rounded-xl overflow-hidden shadow-inner flex items-center justify-center relative p-3">
-                      <img src={resultSvg} className="max-w-full max-h-full object-contain rounded-lg" alt="Generated Sticker" />
+                      <img src={imagePath} className="max-w-full max-h-full object-contain rounded-lg" alt="Generated Sticker" />
                       <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 hover:opacity-100 transition-opacity bg-slate-950/80 p-1.5 rounded-lg border border-slate-800">
                         <button className="text-white hover:text-violet-400"><Download className="w-3.5 h-3.5" /></button>
                       </div>
@@ -597,16 +519,27 @@ export default function StickerGen({ taskService }: StickerGenProps) {
             {subTab === 'variation' && (
               <div className="space-y-4" id="variation-preview-results">
                 <div className="grid grid-cols-2 gap-4">
-                  {(variationResults.length > 0 ? variationResults : [catStickerSvg, fluidStickerSvg, metallicCubeSvg, violetFlowerSvg]).map((resultSvg, idx) => (
+                  {(activeTask?.status === 'completed' && activeTask.images.length > 0 ? activeTask.images : Array.from({ length: 4 }).map(() => '')).map((imagePath, idx) => (
                     <div key={idx} className="aspect-square bg-[#100f12] border border-slate-900 hover:border-slate-800 rounded-xl overflow-hidden p-3 flex items-center justify-center relative group">
-                      <img src={resultSvg} className="max-w-full max-h-full object-contain rounded-lg shadow-sm" alt="Sticker result" />
-                      <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-slate-950/80 border border-slate-800 font-mono text-[9px] text-violet-400 font-medium">
-                        TSK-{7280 + idx}
-                      </div>
-                      <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-3">
-                        <button className="cursor-pointer bg-violet-600 hover:bg-violet-500 rounded p-2 text-white shadow"><Download className="w-4 h-4" /></button>
-                        <button className="cursor-pointer bg-slate-800 hover:bg-slate-700 rounded p-2 text-slate-300 border border-slate-700"><Maximize2 className="w-4 h-4" /></button>
-                      </div>
+                      {imagePath ? (
+                        <>
+                          <img src={imagePath} className="max-w-full max-h-full object-contain rounded-lg shadow-sm" alt="Sticker result" />
+                          <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-slate-950/80 border border-slate-800 font-mono text-[9px] text-violet-400 font-medium">
+                            {activeTask?.taskId ? activeTask.taskId.slice(0, 8) : `IMG-${idx + 1}`}
+                          </div>
+                          <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-3">
+                            <button className="cursor-pointer bg-violet-600 hover:bg-violet-500 rounded p-2 text-white shadow"><Download className="w-4 h-4" /></button>
+                            <button className="cursor-pointer bg-slate-800 hover:bg-slate-700 rounded p-2 text-slate-300 border border-slate-700"><Maximize2 className="w-4 h-4" /></button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center gap-2.5 text-slate-600">
+                          <div className="w-10 h-10 rounded-full bg-slate-950/30 flex items-center justify-center border border-slate-900">
+                            <Clock className="w-4 h-4 text-slate-700" />
+                          </div>
+                          <span className="text-xs text-slate-500 tracking-wide">等待生成</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -628,11 +561,11 @@ export default function StickerGen({ taskService }: StickerGenProps) {
 
             {subTab === 'original' && (
               <div className="flex flex-col items-center justify-center min-h-[300px] py-12 px-4 bg-slate-950/10 rounded-xl border border-slate-900/40" id="original-preview-blank">
-                {originalResults.length > 0 ? (
+                {activeTask?.status === 'completed' && activeTask.images.length > 0 ? (
                   <div className="grid grid-cols-2 gap-4 w-full">
-                    {originalResults.map((resultSvg, idx) => (
+                    {activeTask.images.map((imagePath, idx) => (
                       <div key={idx} className="aspect-square bg-[#100f13] border border-slate-900 hover:border-slate-800 rounded-xl overflow-hidden p-3 flex items-center justify-center relative">
-                        <img src={resultSvg} className="max-w-full max-h-full object-contain rounded-lg" alt="original layout" />
+                        <img src={imagePath} className="max-w-full max-h-full object-contain rounded-lg" alt="original layout" />
                       </div>
                     ))}
                   </div>

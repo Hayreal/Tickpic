@@ -20,7 +20,7 @@ export default function App() {
       <div className="flex-1 flex overflow-hidden w-full h-full" id="workspace-layout">
         <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
         <div className="flex-1 flex overflow-hidden" id="workspace-dynamic-panel">
-          {activeTab === 'sticker' && <StickerGen taskService={taskService} />}
+          {activeTab === 'sticker' && <StickerGen />}
           {activeTab === 'product' && <ProductProcessing taskService={taskService} />}
           {activeTab === 'settings' && <Settings />}
           {activeTab === 'profile' && (
