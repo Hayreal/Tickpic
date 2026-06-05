@@ -9,71 +9,49 @@ import {
   History,
 } from 'lucide-react';
 import type { ProductSubTab } from '../shared/view/ui';
-import type { ImportBatch, StoredImageRecord } from '../shared/domain/images';
-import type { TaskRecord } from '../shared/domain/tasks';
-import { buildReplaceLogoPrompt } from '../shared/domain/productPrompts';
-import type { RendererTaskService } from '../features/tasks/taskService';
+import type { ImportBatch } from '../shared/domain/images';
+import { useImageTask } from '../hooks/useImageTask';
+import type { ImageTaskRequest, ImageFeature } from '../shared/domain/imageFeatureApi';
 import ImageUploader from './ImageUploader';
 import GenerationResult from './GenerationResult';
 
-interface ProductProcessingProps {
-  taskService: RendererTaskService;
-}
+const FEATURE_MAP: Record<ProductSubTab, ImageFeature> = {
+  remove: 'remove_product',
+  replace: 'replace_product',
+  logo: 'replace_logo',
+  theme: 'main_image_asset_variation',
+  scene: 'create_new_scene',
+};
 
-export default function ProductProcessing({ taskService }: ProductProcessingProps) {
+export default function ProductProcessing() {
   const [subTab, setSubTab] = useState<ProductSubTab>('remove');
-  
-  // Simulated loading state for parameters
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [currentStepText, setCurrentStepText] = useState('');
-  const [progress, setProgress] = useState(0);
+  const { submit, activeTask, isSubmitting, error, reset } = useImageTask();
 
   // TAB 1: REMOVE PRODUCT state
   const [removeBatch, setRemoveBatch] = useState<ImportBatch | null>(null);
   const [removeDesc, setRemoveDesc] = useState('');
-  const [removeStatus, setRemoveStatus] = useState<'idle' | 'ready' | 'done'>('ready');
-  const [removeResult, setRemoveResult] = useState<string | null>(null);
 
   // TAB 2: REPLACE PRODUCT state
   const [replaceSceneBatch, setReplaceSceneBatch] = useState<ImportBatch | null>(null);
   const [replaceProductBatch, setReplaceProductBatch] = useState<ImportBatch | null>(null);
   const [replaceDesc, setReplaceDesc] = useState('');
-  const [replaceStatus, setReplaceStatus] = useState<'idle' | 'ready' | 'done'>('ready');
-  const [replaceResult, setReplaceResult] = useState<string | null>(null);
 
   // TAB 3: REPLACE LOGO state
   const [logoSourceBatch, setLogoSourceBatch] = useState<ImportBatch | null>(null);
   const [logoTargetBatch, setLogoTargetBatch] = useState<ImportBatch | null>(null);
   const [logoDesc, setLogoDesc] = useState('');
-  const [logoStatus, setLogoStatus] = useState<'idle' | 'ready' | 'done'>('ready');
 
   // TAB 4: THEME VARIATION state
   const [themeRefBatch, setThemeRefBatch] = useState<ImportBatch | null>(null);
   const [themePrompt, setThemePrompt] = useState('');
   const [themeCount, setThemeCount] = useState<number>(4);
-  const [themeResults, setThemeResults] = useState<string[]>([]);
 
   // TAB 5: SCENE CONFIG state
   const [sceneDesc, setSceneDesc] = useState('');
   const [sceneRefBatch, setSceneRefBatch] = useState<ImportBatch | null>(null);
   const [sceneCount, setSceneCount] = useState<number>(2);
-  const [sceneResults, setSceneResults] = useState<any[]>([]);
-
-  // Cosmetic Product SVGs to simulate premium output
-  const perfumeSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%"><rect width="400" height="400" fill="%23100e16" rx="16"/><defs><linearGradient id="pgrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="%23db2777"/><stop offset="100%" stop-color="%234c1d95"/></linearGradient></defs><g transform="translate(140, 100)"><rect x="30" y="0" width="60" height="25" rx="5" fill="%234b5563" stroke="%239ca3af" stroke-width="2"/><line x1="10" y1="25" x2="110" y2="25" stroke="gold" stroke-width="6" stroke-linecap="round"/><rect x="0" y="30" width="120" height="150" rx="20" fill="url(%23pgrad)" stroke="rgba(255,255,255,0.1)" stroke-width="2"/><circle cx="60" cy="100" r="35" fill="none" stroke="gold" stroke-width="2" stroke-dasharray="3 3"/><text x="25" y="105" font-family="sans-serif" font-size="13" font-weight="bold" fill="white" letter-spacing="1">AMBITION</text></g><rect x="60" y="270" width="280" height="50" fill="%231e1b21" rx="8" stroke="%233730a3" stroke-width="1.5"/><ellipse cx="200" cy="270" rx="150" ry="20" fill="%23110e16"/><text x="145" y="300" font-family="monospace" font-size="12" fill="%23a78bfa">STUDIO RUN: #7280</text></svg>`;
-
-  const skincareCreamSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%"><rect width="400" height="400" fill="%230c0c10" rx="16"/><defs><linearGradient id="cgrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%2306b6d4"/><stop offset="100%" stop-color="%231e1b4b"/></linearGradient></defs><path d="M100,280 Q200,290 300,280 L290,160 Q200,170 110,160 Z" fill="url(%23cgrad)" stroke="%2322d3ee" stroke-width="2"/><ellipse cx="200" cy="160" rx="90" ry="15" fill="%230e7490" stroke="%2322d3ee" stroke-width="2"/><ellipse cx="200" cy="151" rx="95" ry="15" fill="%230891b2" stroke="%2322d3ee" stroke-width="2"/><rect x="120" y="195" width="160" height="45" rx="5" fill="%23083344" fill-opacity="0.8" stroke="%2322d3ee" stroke-width="1"/><text x="160" y="222" font-family="sans-serif" font-size="12" font-weight="bold" fill="white">EPIDERMIC</text><path d="M50,280 L350,280 L320,330 L80,330 Z" fill="%231f2937" opacity="0.8"/><text x="165" y="310" font-family="sans-serif" font-size="11" fill="%239ca3af">4K RES: PREMIUM</text></svg>`;
-
-  const waterBottleSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%"><rect width="400" height="400" fill="%2309090e" rx="16"/><rect x="150" y="80" width="100%" height="220" rx="50" fill="%231e1b4b" stroke="%23ec4899" stroke-width="4"/><rect x="180" y="50" width="40" height="30" rx="5" fill="%23ec4899"/><path d="M190,50 L210,50 L200,30 Z" fill="%23a855f7"/><rect x="160" y="240" width="80" height="4" rx="2" fill="%2338bdf8"/><text x="168" y="180" font-family="sans-serif" font-size="18" font-weight="bold" fill="%2338bdf8">AURA</text><text x="168" y="205" font-family="sans-serif" font-size="10" font-weight="medium" fill="white" letter-spacing="2">HYDRATE</text></svg>`;
-
-  const headphoneSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%"><rect width="400" height="400" fill="%230b0a0f" rx="16"/><circle cx="200" cy="180" r="100" fill="none" stroke="%23a78bfa" stroke-width="20" stroke-dasharray="180 180" stroke-linecap="round" transform="rotate(-180 200 180)"/><rect x="90" y="150" width="45" height="90" rx="20" fill="%231e1b4b" stroke="%23a78bfa" stroke-width="4"/><rect x="265" y="150" width="45" height="90" rx="20" fill="%231e1b4b" stroke="%23a78bfa" stroke-width="4"/><circle cx="112" cy="195" r="12" fill="%23fb7185"/><circle cx="288" cy="195" r="12" fill="%23fb7185"/><text x="165" y="290" font-family="sans-serif" font-size="14" font-weight="bold" fill="white" letter-spacing="4">VEO 3D</text></svg>`;
-
-  const backgroundWoodTableSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%"><rect width="400" height="300" fill="%23131018"/><defs><linearGradient id="wgrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="%2378350f"/><stop offset="100%" stop-color="%23451a03"/></linearGradient></defs><rect x="20" y="140" width="360" height="40" rx="10" fill="url(%23wgrad)" stroke="%23d97706" stroke-width="1.5"/><rect x="60" y="180" width="30" height="100" fill="%23451a03"/><rect x="310" y="180" width="30" height="100" fill="%23451a03"/><line x1="0" y1="120" x2="400" y2="120" stroke="rgba(255,255,255,0.05)" stroke-width="2"/><ellipse cx="200" cy="140" rx="180" ry="12" fill="%23451a03" opacity="0.6"/></svg>`;
-
-  const bgNordicLivingRoomSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%"><rect width="400" height="300" fill="%231c1921"/><rect x="50" y="40" width="130" height="160" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="2"/><path d="M0,230 L400,230 L360,300 L400,300 Z" fill="%231e293b" opacity="0.4"/><rect x="140" y="210" width="120" height="30" rx="5" fill="%2378350f"/><line x1="260" y1="160" x2="320" y2="280" stroke="emerald" stroke-width="2" opacity="0.4"/></svg>`;
 
   const runProcessing = async (type: ProductSubTab) => {
-    // Input validation guards
     if (type === 'remove' && !removeBatch) {
       alert('请添加需要待去除的产品原图！');
       return;
@@ -95,99 +73,38 @@ export default function ProductProcessing({ taskService }: ProductProcessingProp
       return;
     }
 
-    const batchMap: Record<string, ImportBatch | null> = {
-      remove: removeBatch,
-      replace: replaceSceneBatch,
-      logo: logoSourceBatch,
-      theme: themeRefBatch,
-      scene: sceneRefBatch,
-    };
+    const images: ImageTaskRequest['images'] = [];
 
-    const featureMap: Record<string, string> = {
-      remove: '去除产品',
-      replace: '替换产品',
-      logo: '替换Logo',
-      theme: '主图裂变',
-      scene: '创作新场景',
-    };
-
-    const batch = batchMap[type];
-    const featureName = featureMap[type];
-    const currentLogoPrompt = type === 'logo' ? buildReplaceLogoPrompt(logoDesc) : '';
-
-    let task: TaskRecord | null = null;
-    if (batch) {
-      task = await taskService.createTask({
-        category: 'product',
-        feature: featureName,
-        batchId: batch.batchId,
-        imports: batch.images,
-      });
-      await taskService.startTask(task);
+    if (type === 'remove' && removeBatch) {
+      images.push({ role: 'source', path: removeBatch.images[0].filePath });
+    } else if (type === 'replace') {
+      if (replaceSceneBatch) images.push({ role: 'source', path: replaceSceneBatch.images[0].filePath });
+      if (replaceProductBatch) images.push({ role: 'product', path: replaceProductBatch.images[0].filePath });
+    } else if (type === 'logo') {
+      if (logoSourceBatch) images.push({ role: 'source', path: logoSourceBatch.images[0].filePath });
+      if (logoTargetBatch) images.push({ role: 'logo', path: logoTargetBatch.images[0].filePath });
+    } else if (type === 'theme' && themeRefBatch) {
+      images.push({ role: 'source', path: themeRefBatch.images[0].filePath });
+    } else if (type === 'scene' && sceneRefBatch) {
+      images.push({ role: 'reference', path: sceneRefBatch.images[0].filePath });
     }
 
-    setIsGenerating(true);
-    setProgress(0);
+    const request: ImageTaskRequest = {
+      feature: FEATURE_MAP[type],
+      images,
+      count: type === 'theme' ? themeCount : type === 'scene' ? sceneCount : 1,
+      ...(type === 'remove' && { prompt: removeDesc || undefined }),
+      ...(type === 'replace' && { prompt: replaceDesc || undefined }),
+      ...(type === 'logo' && { prompt: logoDesc || undefined }),
+      ...(type === 'theme' && { prompt: themePrompt || undefined }),
+      ...(type === 'scene' && { prompt: sceneDesc }),
+    };
 
-    const stages = [
-      { text: '⚡ 接入 GPU 工作流信道并初始化图纸...', weight: 20 },
-      { text: '📷 运用立体视觉卷积计算进行智能选区...', weight: 50 },
-      { text: '🎨 进行超高清像素重排与反光融合绘制...', weight: 80 },
-      { text: '✨ 平滑处理微层阴影贴合环境光影...', weight: 95 },
-      { text: '📦 数据集封装完成，合并至生成框！', weight: 100 }
-    ];
-
-    let stepIndex = 0;
-    const interval = setInterval(() => {
-      const step = stages[stepIndex];
-      if (step) {
-        setCurrentStepText(step.text);
-        setProgress(step.weight);
-        stepIndex++;
-      } else {
-        clearInterval(interval);
-        setIsGenerating(false);
-
-        // Populate mock completed outputs on successful simulated generation
-        let outputCount = 0;
-        if (type === 'remove') {
-          setRemoveResult(backgroundWoodTableSvg);
-          setRemoveStatus('done');
-          outputCount = 1;
-        } else if (type === 'replace') {
-          setReplaceResult(perfumeSvg);
-          setReplaceStatus('done');
-          outputCount = 1;
-        } else if (type === 'logo') {
-          console.info('Replace logo prompt:', currentLogoPrompt);
-          setLogoStatus('done');
-          outputCount = 1;
-        } else if (type === 'theme') {
-          const results = [perfumeSvg, skincareCreamSvg, waterBottleSvg, headphoneSvg].slice(0, themeCount);
-          setThemeResults(results);
-          outputCount = results.length;
-        } else if (type === 'scene') {
-          const results = [
-            { id: 1, img: backgroundWoodTableSvg, date: '2023-10-27 14:32', title: '完成' },
-            { id: 2, img: bgNordicLivingRoomSvg, date: '2023-10-27 14:32', title: '完成' }
-          ].slice(0, sceneCount);
-          setSceneResults(results);
-          outputCount = results.length;
-        }
-
-        if (task) {
-          const outputRecords: StoredImageRecord[] = Array.from({ length: outputCount }, (_, i) => ({
-            id: `output-${Date.now()}-${i}`,
-            fileName: `output-${i}.png`,
-            filePath: `outputs/${task!.taskId}/output-${i}.png`,
-            fileSize: 0,
-            mimeType: 'image/png',
-            createdAt: new Date().toISOString(),
-          }));
-          taskService.completeTask(task!, outputRecords).catch(console.error);
-        }
-      }
-    }, 700);
+    try {
+      await submit(request);
+    } catch (err) {
+      console.error('Task submission failed:', err);
+    }
   };
 
   return (
@@ -439,15 +356,15 @@ export default function ProductProcessing({ taskService }: ProductProcessingProp
           <div className="pt-4 border-t border-slate-900/60" id="product-cta">
             <button
               onClick={() => runProcessing(subTab)}
-              disabled={isGenerating}
+              disabled={isSubmitting}
               className={`cursor-pointer w-full py-3.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 shadow-lg ${
-                isGenerating 
+                isSubmitting 
                   ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50' 
                   : 'bg-[#7c3aed] text-white hover:bg-[#8b5cf6] active:scale-[0.98]'
               }`}
             >
-              <Sparkles className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
-              {isGenerating ? '正在执行产品处理...' : '开始生成'}
+              <Sparkles className={`w-4 h-4 ${isSubmitting ? 'animate-spin' : ''}`} />
+              {isSubmitting ? '正在执行产品处理...' : '开始生成'}
             </button>
           </div>
 
@@ -458,19 +375,25 @@ export default function ProductProcessing({ taskService }: ProductProcessingProp
           
           <div className="h-full flex flex-col justify-between">
             
-            {/* Real-time simulation loading block when running */}
-            {isGenerating && (
+            {/* Progress overlay when task is active */}
+            {(isSubmitting || (activeTask && (activeTask.status === 'queued' || activeTask.status === 'running'))) && (
               <div className="mb-6 p-4 rounded-xl bg-slate-950/80 border border-violet-500/10 shadow-sm animate-pulse" id="product-progress-overlay">
                 <div className="flex items-center justify-between text-xs text-white mb-2 font-mono">
                   <span className="font-sans flex items-center gap-2">
                     <RefreshCw className="w-3.5 h-3.5 text-violet-400 animate-spin" />
-                    {currentStepText}
+                    {activeTask?.status === 'running' ? 'AI 模型正在处理...' : activeTask?.status === 'queued' ? '任务排队中...' : '正在提交任务...'}
                   </span>
-                  <span className="text-[#a78bfa]">{progress}%</span>
                 </div>
                 <div className="w-full bg-slate-900 rounded-full h-1 overflow-hidden">
-                  <div className="bg-gradient-to-r from-violet-600 to-indigo-500 h-1 transition-all duration-300" style={{ width: `${progress}%` }} />
+                  <div className="bg-gradient-to-r from-violet-600 to-indigo-500 h-1 transition-all duration-300 animate-pulse" style={{ width: activeTask?.status === 'running' ? '60%' : activeTask?.status === 'queued' ? '20%' : '10%' }} />
                 </div>
+              </div>
+            )}
+
+            {/* Error display */}
+            {error && (
+              <div className="mb-6 p-4 rounded-xl bg-red-950/40 border border-red-500/20 text-red-300 text-xs">
+                {error}
               </div>
             )}
 
@@ -480,8 +403,8 @@ export default function ProductProcessing({ taskService }: ProductProcessingProp
             {subTab === 'remove' && (
               <GenerationResult
                 mode="single"
-                state={removeResult ? 'completed' : 'empty'}
-                results={removeResult ? [{ id: 'remove-0', imageUrl: removeResult, badge: 'Completed', taskId: 'TSK-8820: REMOVE COMPLETED' }] : []}
+                state={activeTask?.status === 'completed' && activeTask.images.length > 0 ? 'completed' : 'empty'}
+                results={activeTask?.status === 'completed' && activeTask.images.length > 0 ? [{ id: 'remove-0', imageUrl: activeTask.images[0], badge: 'Completed', taskId: activeTask.taskId }] : []}
                 emptyDescription="请在左侧上传待处理的原图并设置相应参数。AI 将自动识别并完美去除指定目标。"
               />
             )}
@@ -490,8 +413,8 @@ export default function ProductProcessing({ taskService }: ProductProcessingProp
             {subTab === 'replace' && (
               <GenerationResult
                 mode="single"
-                state={replaceResult ? 'completed' : 'empty'}
-                results={replaceResult ? [{ id: 'replace-0', imageUrl: replaceResult, badge: 'COMPLETED-SYNTH' }] : []}
+                state={activeTask?.status === 'completed' && activeTask.images.length > 0 ? 'completed' : 'empty'}
+                results={activeTask?.status === 'completed' && activeTask.images.length > 0 ? [{ id: 'replace-0', imageUrl: activeTask.images[0], badge: 'COMPLETED-SYNTH' }] : []}
                 emptyDescription="上传原场景和目标产品，然后配置您的选择以生成无缝合成图。"
               />
             )}
@@ -512,9 +435,9 @@ export default function ProductProcessing({ taskService }: ProductProcessingProp
                 {/* Interactive Logo placement grid checked board backdrop container */}
                 <div className="flex-1 flex flex-col items-center justify-center relative p-12 bg-[#09080d]" style={{ backgroundImage: 'radial-gradient(#181622 1px, transparent 1px)', backgroundSize: '16px 16px' }} id="logo-place-canvas">
                   
-                  {logoStatus === 'done' ? (
+                  {activeTask?.status === 'completed' && activeTask.images.length > 0 ? (
                     <div className="w-full max-w-sm aspect-square bg-[#100e16] border border-slate-800 rounded-xl flex items-center justify-center relative animate-fadeIn shadow-lg">
-                      <img src={perfumeSvg} className="max-h-full max-w-full" alt="Logo Result" />
+                      <img src={activeTask.images[0]} className="max-h-full max-w-full" alt="Logo Result" />
                       <div className="absolute top-4 left-4 bg-[#7c3aed] text-white font-mono text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">
                         AI OVERLAY OK
                       </div>
@@ -539,13 +462,14 @@ export default function ProductProcessing({ taskService }: ProductProcessingProp
             {subTab === 'theme' && (
               <GenerationResult
                 mode="multi"
-                state={themeResults.length > 0 ? 'completed' : 'completed'}
-                results={(themeResults.length > 0 ? themeResults : [perfumeSvg, skincareCreamSvg, waterBottleSvg, headphoneSvg]).map((svg, i) => ({
+                state={activeTask?.status === 'completed' && activeTask.images.length > 0 ? 'completed' : 'empty'}
+                results={(activeTask?.status === 'completed' ? activeTask.images : []).map((img, i) => ({
                   id: `theme-${i}`,
-                  imageUrl: svg,
+                  imageUrl: img,
                 }))}
-                count={themeResults.length || 4}
+                count={activeTask?.status === 'completed' ? activeTask.images.length : themeCount}
                 showCount
+                emptyDescription="上传场景参考图并设置提示词，AI 将生成主图素材裂变结果。"
               />
             )}
 
@@ -553,15 +477,13 @@ export default function ProductProcessing({ taskService }: ProductProcessingProp
             {subTab === 'scene' && (
               <GenerationResult
                 mode="multi"
-                state="completed"
-                results={(sceneResults.length > 0 ? sceneResults : [
-                  { id: 1, img: backgroundWoodTableSvg, date: '2023-10-27 14:32', title: 'Completed' },
-                  { id: 2, img: bgNordicLivingRoomSvg, date: '2023-10-27 14:32', title: 'Completed' }
-                ]).map((card) => ({
-                  id: `scene-${card.id}`,
-                  imageUrl: card.img,
-                  badge: card.title,
+                state={activeTask?.status === 'completed' && activeTask.images.length > 0 ? 'completed' : 'empty'}
+                results={(activeTask?.status === 'completed' ? activeTask.images : []).map((img, i) => ({
+                  id: `scene-${i}`,
+                  imageUrl: img,
+                  badge: 'Completed',
                 }))}
+                emptyDescription="输入产品品类/场景描述，AI 将创作全新的电商场景图。"
                 headerRight={
                   <button className="cursor-pointer text-[10px] font-mono bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded px-2.5 py-1 text-slate-400 flex items-center gap-1">
                     <History className="w-3.5 h-3.5 text-slate-500" />

@@ -13,7 +13,7 @@ import { toTaskItem } from './features/tasks/taskMappers';
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('sticker');
   const desktop = useDesktopClient();
-  const { tasks, taskService, refresh } = useDesktopTasks(desktop);
+  const { tasks, refresh } = useDesktopTasks(desktop);
 
   return (
     <WindowFrame title="Tickpic">
@@ -21,7 +21,7 @@ export default function App() {
         <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
         <div className="flex-1 flex overflow-hidden" id="workspace-dynamic-panel">
           {activeTab === 'sticker' && <StickerGen />}
-          {activeTab === 'product' && <ProductProcessing taskService={taskService} />}
+          {activeTab === 'product' && <ProductProcessing />}
           {activeTab === 'settings' && <Settings />}
           {activeTab === 'profile' && (
             <Profile tasks={tasks.map(toTaskItem)} onRefresh={refresh} />
