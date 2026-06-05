@@ -19,6 +19,7 @@ const MODEL_OPTIONS: { id: string; protocol: ImageModelProtocol; label: string }
   { id: 'gpt-image-2', protocol: 'openai', label: 'GPT Image 2' },
   { id: 'gpt-5.4-mini', protocol: 'openai', label: 'GPT 5.4 Mini' },
   { id: 'gemini-3.1-flash-lite', protocol: 'gemini', label: 'Gemini 3.1 Flash Lite' },
+  { id: 'gemini-3.1-flash-image-preview', protocol: 'gemini', label: 'Gemini 3.1 Flash Image Preview' },
 ];
 
 export default function Settings() {
@@ -33,6 +34,10 @@ export default function Settings() {
   const [visionModel, setVisionModel] = useState('gemini-2.5-flash-image');
   const [generationModel, setGenerationModel] = useState('gpt-image-2');
   const [editModel, setEditModel] = useState('gpt-image-2');
+  const [workspaceDir, setWorkspaceDir] = useState('');
+  const [defaultCount, setDefaultCount] = useState(4);
+  const [maxCount, setMaxCount] = useState(8);
+  const [maxConcurrentTasks, setMaxConcurrentTasks] = useState(5);
 
   const [testState, setTestState] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
   const [testMessage, setTestMessage] = useState('');
@@ -47,6 +52,10 @@ export default function Settings() {
       setVisionModel(settings.defaultModels.vision);
       setGenerationModel(settings.defaultModels.generation);
       setEditModel(settings.defaultModels.edit);
+      setWorkspaceDir(settings.workspaceDir);
+      setDefaultCount(settings.defaultCount);
+      setMaxCount(settings.maxCount);
+      setMaxConcurrentTasks(settings.maxConcurrentTasks);
     }).catch(console.error);
   }, [desktopClient]);
 
@@ -63,16 +72,16 @@ export default function Settings() {
       schemaVersion: 1,
       n1nApiKey: apiKeyInput || '',
       baseUrl,
-      workspaceDir: '',
+      workspaceDir,
       defaultModels: {
         vision: visionModel,
         generation: generationModel,
         edit: editModel,
       },
       modelProtocols,
-      defaultCount: 4,
-      maxCount: 8,
-      maxConcurrentTasks: 5,
+      defaultCount,
+      maxCount,
+      maxConcurrentTasks,
     };
 
     try {
