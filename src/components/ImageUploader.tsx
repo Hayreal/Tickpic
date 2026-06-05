@@ -1,7 +1,8 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState } from 'react';
 import { Upload, X, Layers } from 'lucide-react';
 import type { ImportBatch, StoredImageRecord } from '../shared/domain/images';
 import { collectImportFiles } from '../lib/importBatch';
+import { useDesktopClient } from '../hooks/useDesktopClient';
 
 interface ImageUploaderProps {
   batch: ImportBatch | null;
@@ -27,6 +28,9 @@ export default function ImageUploader({
   optional = false,
 }: ImageUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const desktopClient = useDesktopClient();
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const buildBatch = useCallback(
     (files: File[]): ImportBatch => ({
@@ -47,16 +51,38 @@ export default function ImageUploader({
   );
 
   const processFiles = useCallback(
-    (rawFiles: File[]) => {
+    async (rawFiles: File[]) => {
       const result = collectImportFiles(rawFiles);
       if (result.hasOverflow) {
         console.warn(`最多导入 4 张图片，已忽略 ${result.rejectedCount} 张`);
       }
-      if (result.accepted.length > 0) {
+      if (result.accepted.length === 0) return;
+
+      if (!desktopClient) {
+        console.warn('Desktop bridge unavailable, falling back to blob URLs');
         onBatchChange(buildBatch(result.accepted));
+        return;
+      }
+
+      setIsSaving(true);
+      setSaveError(null);
+
+      try {
+        const saved = await desktopClient.saveImportBatch({
+          page,
+          feature,
+          files: result.accepted,
+        });
+        onBatchChange(saved);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to save images';
+        setSaveError(message);
+        onBatchChange(buildBatch(result.accepted));
+      } finally {
+        setIsSaving(false);
       }
     },
-    [buildBatch, onBatchChange],
+    [buildBatch, onBatchChange, desktopClient, page, feature],
   );
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -184,6 +210,12 @@ export default function ImageUploader({
           </>
         )}
       </div>
+      {isSaving && (
+        <p className="text-[10px] text-violet-400 animate-pulse">正在保存图片...</p>
+      )}
+      {saveError && (
+        <p className="text-[10px] text-red-400">保存失败: {saveError}（图片仅在内存中可用）</p>
+      )}
     </div>
   );
 }
