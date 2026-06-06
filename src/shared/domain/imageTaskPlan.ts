@@ -15,9 +15,7 @@ import { buildImageInstructionSystemPrompt } from './imageInstructionPrompts.js'
 
 export interface ImageTaskRuntimeConfig {
   defaultModels: {
-    vision: string;
     generation: string;
-    edit: string;
   };
   modelProtocols: Readonly<Record<string, ImageModelProtocol>>;
   defaultCount: number;
@@ -55,7 +53,7 @@ export function buildImageTaskPlan(
   const validated = validateImageTaskRequest(request);
   const definition = getImageFeatureDefinition(validated.feature);
   const executionModel = resolveExecutionModel(validated, definition.executionModel, config);
-  const visionModel = validated.modelOverrides?.vision ?? config.defaultModels.vision;
+  const visionModel = validated.modelOverrides?.vision ?? config.defaultModels.generation;
   const count = validated.count ?? config.defaultCount;
   const normalizedAspectRatio = normalizeImageAspectRatio(validated.aspectRatio);
 
@@ -96,7 +94,7 @@ function resolveExecutionModel(
     return request.modelOverrides?.generation ?? config.defaultModels.generation;
   }
 
-  return request.modelOverrides?.edit ?? config.defaultModels.edit;
+  return request.modelOverrides?.edit ?? config.defaultModels.generation;
 }
 
 function resolveProtocol(model: string, config: ImageTaskRuntimeConfig) {
