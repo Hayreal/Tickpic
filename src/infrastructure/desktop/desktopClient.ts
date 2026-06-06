@@ -23,6 +23,10 @@ export function createDesktopClient(bridge: DesktopBridgeApi | undefined) {
         if (!bridge) throw new Error('Desktop bridge unavailable');
         return bridge.settings.save(settings);
       },
+      testConnection: () => {
+        if (!bridge) throw new Error('Desktop bridge unavailable');
+        return bridge.settings.testConnection();
+      },
     },
     imageTask: {
       submit: (request) => {

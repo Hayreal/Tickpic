@@ -8,9 +8,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   RefreshCw,
-  Sliders,
 } from 'lucide-react';
 import type { AppSettings, RendererAppSettings } from '../shared/domain/settings';
+import { KEEP_EXISTING_API_KEY } from '../shared/domain/settings';
 import type { ImageModelProtocol } from '../shared/domain/imageFeatureApi';
 import { useDesktopClient } from '../hooks/useDesktopClient';
 
@@ -31,9 +31,7 @@ export default function Settings() {
   const [apiKeyPreview, setApiKeyPreview] = useState('');
   const [showKey, setShowKey] = useState(false);
 
-  const [visionModel, setVisionModel] = useState('gemini-2.5-flash-image');
   const [generationModel, setGenerationModel] = useState('gpt-image-2');
-  const [editModel, setEditModel] = useState('gpt-image-2');
   const [workspaceDir, setWorkspaceDir] = useState('');
   const [defaultCount, setDefaultCount] = useState(4);
   const [maxCount, setMaxCount] = useState(8);
@@ -49,10 +47,7 @@ export default function Settings() {
       setBaseUrl(settings.baseUrl);
       setHasApiKey(settings.hasApiKey);
       setApiKeyPreview(settings.apiKeyPreview ?? '');
-      // TODO(Task 4): restore vision/edit model fields when type is expanded
-      // setVisionModel(settings.defaultModels.vision);
       setGenerationModel(settings.defaultModels.generation);
-      // setEditModel(settings.defaultModels.edit);
       setWorkspaceDir(settings.workspaceDir);
       setDefaultCount(settings.defaultCount);
       setMaxCount(settings.maxCount);
@@ -71,14 +66,11 @@ export default function Settings() {
 
     const settings: AppSettings = {
       schemaVersion: 1,
-      n1nApiKey: apiKeyInput || '',
+      n1nApiKey: apiKeyInput || (hasApiKey ? KEEP_EXISTING_API_KEY : ''),
       baseUrl,
       workspaceDir,
       defaultModels: {
-        // TODO(Task 4): restore vision/edit model fields when type is expanded
-        // vision: visionModel,
         generation: generationModel,
-        // edit: editModel,
       },
       modelProtocols,
       defaultCount,
@@ -103,9 +95,9 @@ export default function Settings() {
     setTestState('testing');
     setTestMessage('');
     try {
-      await desktopClient.settings.get();
-      setTestState('success');
-      setTestMessage('IPC 通道正常，配置已读取。');
+      const result = await desktopClient.settings.testConnection();
+      setTestState(result.success ? 'success' : 'failed');
+      setTestMessage(result.message);
     } catch (err) {
       setTestState('failed');
       setTestMessage(err instanceof Error ? err.message : 'Connection failed');
@@ -201,73 +193,18 @@ export default function Settings() {
             <p className="text-[11px] text-slate-500 font-sans leading-relaxed">目标后端网关地址，用于向 AI 服务器发出路由请求。</p>
           </div>
 
-          {/* Vision Model Dropdown */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">视觉理解模型</label>
-            <div className="relative">
-              <select
-                id="settings-vision-model"
-                value={visionModel}
-                onChange={(e) => setVisionModel(e.target.value)}
-                className="cursor-pointer w-full bg-slate-950/80 rounded-xl border border-slate-850 focus:border-violet-500 focus:outline-none p-3.5 text-xs text-white appearance-none select-none"
-              >
-                {MODEL_OPTIONS.map((m) => (
-                  <option key={m.id} value={m.id} className="bg-[#0c0b10] text-slate-300 py-2">
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-                <Sliders className="w-4 h-4 text-slate-600" />
-              </div>
-            </div>
-            <p className="text-[11px] text-slate-500 font-sans">用于第一阶段图片执行指令生成的模型。</p>
-          </div>
-
-          {/* Generation Model Dropdown */}
+          {/* Generation Model Input */}
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">生成模型</label>
-            <div className="relative">
-              <select
-                id="settings-generation-model"
-                value={generationModel}
-                onChange={(e) => setGenerationModel(e.target.value)}
-                className="cursor-pointer w-full bg-slate-950/80 rounded-xl border border-slate-850 focus:border-violet-500 focus:outline-none p-3.5 text-xs text-white appearance-none select-none"
-              >
-                {MODEL_OPTIONS.map((m) => (
-                  <option key={m.id} value={m.id} className="bg-[#0c0b10] text-slate-300 py-2">
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-                <Sliders className="w-4 h-4 text-slate-600" />
-              </div>
-            </div>
+            <input
+              id="settings-generation-model"
+              type="text"
+              value={generationModel}
+              onChange={(e) => setGenerationModel(e.target.value)}
+              placeholder="输入模型 ID..."
+              className="w-full bg-slate-950/80 rounded-xl border border-slate-850 focus:border-violet-500 focus:outline-none p-3.5 text-xs text-white placeholder-slate-600 transition-colors font-mono"
+            />
             <p className="text-[11px] text-slate-500 font-sans">纯图片生成任务使用的模型。</p>
-          </div>
-
-          {/* Edit Model Dropdown */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">编辑模型</label>
-            <div className="relative">
-              <select
-                id="settings-edit-model"
-                value={editModel}
-                onChange={(e) => setEditModel(e.target.value)}
-                className="cursor-pointer w-full bg-slate-950/80 rounded-xl border border-slate-850 focus:border-violet-500 focus:outline-none p-3.5 text-xs text-white appearance-none select-none"
-              >
-                {MODEL_OPTIONS.map((m) => (
-                  <option key={m.id} value={m.id} className="bg-[#0c0b10] text-slate-300 py-2">
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-                <Sliders className="w-4 h-4 text-slate-600" />
-              </div>
-            </div>
-            <p className="text-[11px] text-slate-500 font-sans">图片编辑和裂变任务使用的模型。</p>
           </div>
 
         </div>

@@ -11,6 +11,7 @@ const desktopShell: DesktopBridgeApi = {
   settings: {
     get: () => ipcRenderer.invoke(IPC_CHANNELS.settings.get),
     save: (settings) => ipcRenderer.invoke(IPC_CHANNELS.settings.save, settings),
+    testConnection: () => ipcRenderer.invoke(IPC_CHANNELS.settings.testConnection),
   },
   imageTask: {
     submit: (request) => ipcRenderer.invoke(IPC_CHANNELS.imageTask.submit, request),
