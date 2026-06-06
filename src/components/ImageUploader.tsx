@@ -1,8 +1,15 @@
 import React, { useRef, useCallback, useState } from 'react';
-import { Upload, X, Layers } from 'lucide-react';
+import { Upload, X, Layers, ZoomIn } from 'lucide-react';
 import type { ImportBatch, StoredImageRecord } from '../shared/domain/images';
 import { collectImportFiles } from '../lib/importBatch';
 import { useDesktopClient } from '../hooks/useDesktopClient';
+import { UI } from '../shared/view/design';
+import { Label } from '@/src/components/ui/label';
+import { Badge } from '@/src/components/ui/badge';
+import { Button } from '@/src/components/ui/button';
+import { cn } from '@/src/lib/utils';
+
+const MAX_IMPORT_IMAGES = 4;
 
 interface ImageUploaderProps {
   batch: ImportBatch | null;
@@ -14,6 +21,13 @@ interface ImageUploaderProps {
   placeholder?: string;
   description?: string;
   optional?: boolean;
+}
+
+function toDisplaySrc(filePath: string) {
+  if (filePath.startsWith('blob:') || filePath.startsWith('file:') || filePath.startsWith('http')) {
+    return filePath;
+  }
+  return `file://${filePath}`;
 }
 
 export default function ImageUploader({
@@ -31,6 +45,7 @@ export default function ImageUploader({
   const desktopClient = useDesktopClient();
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<StoredImageRecord | null>(null);
 
   const buildBatch = useCallback(
     (files: File[]): ImportBatch => ({
@@ -50,17 +65,28 @@ export default function ImageUploader({
     [page, feature],
   );
 
+  const mergeBatches = useCallback((existing: ImportBatch | null, incoming: ImportBatch): ImportBatch => {
+    if (!existing) return incoming;
+    return {
+      ...incoming,
+      batchId: existing.batchId,
+      images: [...existing.images, ...incoming.images].slice(0, MAX_IMPORT_IMAGES),
+      createdAt: existing.createdAt,
+    };
+  }, []);
+
   const processFiles = useCallback(
     async (rawFiles: File[]) => {
+      const existingCount = batch?.images.length ?? 0;
+      const slotsLeft = MAX_IMPORT_IMAGES - existingCount;
+      if (slotsLeft <= 0) return;
+
       const result = collectImportFiles(rawFiles);
-      if (result.hasOverflow) {
-        console.warn(`最多导入 4 张图片，已忽略 ${result.rejectedCount} 张`);
-      }
-      if (result.accepted.length === 0) return;
+      const accepted = result.accepted.slice(0, slotsLeft);
+      if (accepted.length === 0) return;
 
       if (!desktopClient) {
-        console.warn('Desktop bridge unavailable, falling back to blob URLs');
-        onBatchChange(buildBatch(result.accepted));
+        onBatchChange(mergeBatches(batch, buildBatch(accepted)));
         return;
       }
 
@@ -68,153 +94,128 @@ export default function ImageUploader({
       setSaveError(null);
 
       try {
-        const saved = await desktopClient.saveImportBatch({
-          page,
-          feature,
-          files: result.accepted,
-        });
-        onBatchChange(saved);
+        const serializedFiles = await Promise.all(
+          accepted.map(async (file) => ({
+            name: file.name,
+            type: file.type,
+            buffer: await file.arrayBuffer(),
+          })),
+        );
+        const saved = await desktopClient.saveImportBatch({ page, feature, files: serializedFiles });
+        onBatchChange(mergeBatches(batch, saved));
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to save images';
-        setSaveError(message);
-        onBatchChange(buildBatch(result.accepted));
+        setSaveError(err instanceof Error ? err.message : 'Failed to save images');
+        onBatchChange(mergeBatches(batch, buildBatch(accepted)));
       } finally {
         setIsSaving(false);
       }
     },
-    [buildBatch, onBatchChange, desktopClient, page, feature],
+    [batch, buildBatch, mergeBatches, onBatchChange, desktopClient, page, feature],
   );
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) processFiles(files);
-  };
-
-  const handlePaste = (e: React.ClipboardEvent) => {
-    const items = Array.from(e.clipboardData.items) as DataTransferItem[];
-    const files = items
-      .filter((item) => item.type.startsWith('image/'))
-      .map((item) => item.getAsFile())
-      .filter((file): file is File => file !== null);
-    if (files.length > 0) {
-      e.preventDefault();
-      processFiles(files);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (files.length > 0) processFiles(files);
-    e.target.value = '';
-  };
-
-  const removeImage = (imageId: string) => {
-    if (!batch) return;
-    const remaining = batch.images.filter((img) => img.id !== imageId);
-    onBatchChange(remaining.length === 0 ? null : { ...batch, images: remaining });
-  };
+  const imageCount = batch?.images.length ?? 0;
+  const canAddMore = imageCount < MAX_IMPORT_IMAGES;
 
   return (
     <div className="space-y-2">
       {label && (
         <div className="flex items-center justify-between">
-          <label className="text-xs font-bold text-slate-400 flex items-center gap-1.5 uppercase tracking-wider">
-            {labelIcon ?? <Layers className="w-3.5 h-3.5 text-violet-400" />}
+          <Label className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">
+            {labelIcon ?? <Layers className="w-3.5 h-3.5" />}
             {label}
-          </label>
-          {optional && (
-            <span className="text-[10px] font-mono text-violet-400 bg-violet-400/10 px-1 py-0.5 rounded">
-              可选
-            </span>
-          )}
+          </Label>
+          {optional && <Badge variant="secondary">可选</Badge>}
         </div>
       )}
-      <div
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-        onPaste={handlePaste}
-        onClick={() => fileInputRef.current?.click()}
-        tabIndex={0}
-        className="h-32 rounded-xl border border-dashed border-slate-800 hover:border-[#7c3aed]/50 bg-slate-950/40 hover:bg-slate-950/80 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all group overflow-hidden relative focus:outline-none focus:border-[#7c3aed]/50"
-      >
-        <input
-          type="file"
-          ref={fileInputRef}
-          className="hidden"
-          accept="image/*"
-          multiple
-          onChange={handleFileChange}
-        />
-        {batch ? (
-          <div
-            className="flex flex-col gap-2 w-full"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="grid grid-cols-2 gap-2">
-              {batch.images.map((img) => (
-                <div
-                  key={img.id}
-                  className="relative group aspect-square bg-slate-950 rounded-lg border border-slate-800 overflow-hidden flex items-center justify-center"
-                >
-                  <img
-                    src={img.filePath}
-                    className="w-full h-full object-contain p-1"
-                    alt={img.fileName}
-                  />
-                  <button
-                    className="absolute top-1 right-1 bg-slate-900/80 hover:bg-red-900/80 text-white p-0.5 rounded border border-slate-800 cursor-pointer transition-colors opacity-0 group-hover:opacity-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeImage(img.id);
-                    }}
-                  >
-                    <X className="w-2.5 h-2.5" />
-                  </button>
-                  <div className="absolute bottom-0 left-0 right-0 bg-slate-950/80 px-1 py-0.5">
-                    <span className="text-[9px] text-slate-500 truncate block">
-                      {img.fileName}
-                    </span>
-                  </div>
+
+      {canAddMore && (
+        <div
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            const files = Array.from(e.dataTransfer.files);
+            if (files.length > 0) processFiles(files);
+          }}
+          onPaste={(e) => {
+            const files = Array.from(e.clipboardData.items as DataTransferItemList)
+              .filter((item: DataTransferItem) => item.type.startsWith('image/'))
+              .map((item: DataTransferItem) => item.getAsFile())
+              .filter((f): f is File => f !== null);
+            if (files.length > 0) {
+              e.preventDefault();
+              processFiles(files);
+            }
+          }}
+          onClick={() => fileInputRef.current?.click()}
+          tabIndex={0}
+          className={cn(UI.uploadZone, 'group')}
+        >
+          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
+            const files = Array.from(e.target.files ?? []);
+            if (files.length > 0) processFiles(files);
+            e.target.value = '';
+          }} />
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-105 transition-transform">
+            <Upload className="h-4 w-4" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-medium text-foreground">{placeholder}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+          </div>
+        </div>
+      )}
+
+      {batch && batch.images.length > 0 && (
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            {batch.images.map((img) => (
+              <div key={img.id} className="relative group aspect-square rounded-lg border bg-card overflow-hidden shadow-sm">
+                <button type="button" className="w-full h-full flex items-center justify-center" onClick={() => setPreviewImage(img)}>
+                  <img src={toDisplaySrc(img.filePath)} className="w-full h-full object-contain p-1.5" alt={img.fileName} />
+                </button>
+                <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button type="button" variant="secondary" size="icon" className="h-6 w-6" onClick={() => setPreviewImage(img)}>
+                    <ZoomIn className="h-3 w-3" />
+                  </Button>
+                  <Button type="button" variant="destructive" size="icon" className="h-6 w-6" onClick={() => {
+                    const remaining = batch.images.filter((i) => i.id !== img.id);
+                    onBatchChange(remaining.length === 0 ? null : { ...batch, images: remaining });
+                  }}>
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
-              ))}
+                <div className="absolute bottom-0 inset-x-0 bg-card/95 border-t px-2 py-1">
+                  <span className="text-[9px] text-muted-foreground truncate block font-mono">{img.fileName}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">{batch.images.length} / {MAX_IMPORT_IMAGES} 张</span>
+            <button type="button" className="text-xs text-muted-foreground hover:text-destructive" onClick={() => onBatchChange(null)}>
+              清除全部
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isSaving && <p className="text-xs text-primary animate-pulse">正在保存图片...</p>}
+      {saveError && <p className="text-xs text-destructive">保存失败: {saveError}</p>}
+
+      {previewImage && (
+        <div className={UI.modalOverlay} onClick={() => setPreviewImage(null)}>
+          <div className={UI.modal} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b">
+              <span className="text-sm font-mono truncate">{previewImage.fileName}</span>
+              <Button variant="ghost" size="icon" onClick={() => setPreviewImage(null)}>
+                <X className="h-4 w-4" />
+              </Button>
             </div>
-            <div className="flex items-center justify-between px-1">
-              <span className="text-[10px] text-slate-500">
-                {batch.images.length} 张图片已导入
-              </span>
-              <button
-                className="text-[10px] text-slate-500 hover:text-red-400 cursor-pointer transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onBatchChange(null);
-                }}
-              >
-                清除全部
-              </button>
+            <div className="p-4 flex items-center justify-center bg-muted/30 min-h-[240px]">
+              <img src={toDisplaySrc(previewImage.filePath)} alt={previewImage.fileName} className="max-h-[65vh] object-contain" />
             </div>
           </div>
-        ) : (
-          <>
-            <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center group-hover:scale-105 transition-transform border border-slate-800">
-              <Upload className="w-4 h-4 text-violet-400" />
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-white font-semibold">{placeholder}</p>
-              <p className="text-[10px] text-slate-500 mt-1">{description}</p>
-            </div>
-          </>
-        )}
-      </div>
-      {isSaving && (
-        <p className="text-[10px] text-violet-400 animate-pulse">正在保存图片...</p>
-      )}
-      {saveError && (
-        <p className="text-[10px] text-red-400">保存失败: {saveError}（图片仅在内存中可用）</p>
+        </div>
       )}
     </div>
   );

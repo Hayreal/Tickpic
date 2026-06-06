@@ -14,6 +14,10 @@ export function createDesktopClient(bridge: DesktopBridgeApi | undefined) {
       if (!bridge) throw new Error('Desktop bridge unavailable');
       return bridge.saveTaskOutputs(request);
     },
+    openOutputDirectory: (request) => {
+      if (!bridge) throw new Error('Desktop bridge unavailable');
+      return bridge.openOutputDirectory(request);
+    },
     settings: {
       get: () => {
         if (!bridge) throw new Error('Desktop bridge unavailable');
@@ -26,6 +30,10 @@ export function createDesktopClient(bridge: DesktopBridgeApi | undefined) {
       testConnection: () => {
         if (!bridge) throw new Error('Desktop bridge unavailable');
         return bridge.settings.testConnection();
+      },
+      pickWorkspaceDir: () => {
+        if (!bridge) throw new Error('Desktop bridge unavailable');
+        return bridge.settings.pickWorkspaceDir();
       },
     },
     imageTask: {

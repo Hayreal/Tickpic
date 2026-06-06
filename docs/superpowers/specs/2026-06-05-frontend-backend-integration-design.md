@@ -2,6 +2,8 @@
 comet_change: frontend-backend-integration
 role: technical-design
 canonical_spec: openspec
+archived-with: 2026-06-05-frontend-backend-integration
+status: final
 ---
 
 # Frontend-Backend Integration Design Doc

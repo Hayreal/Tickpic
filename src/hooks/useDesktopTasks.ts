@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { TaskRecord } from '../shared/domain/tasks';
 import type { TaskPersistenceClient, RendererTaskService } from '../features/tasks/taskService';
 import { createRendererTaskService } from '../features/tasks/taskService';
+import type { createDesktopClient } from '../infrastructure/desktop/desktopClient';
 
 const noopClient: TaskPersistenceClient = {
   createTask: async () => {},
@@ -9,11 +10,17 @@ const noopClient: TaskPersistenceClient = {
   listTasks: async () => [],
 };
 
-export function useDesktopTasks(desktop: TaskPersistenceClient | undefined) {
+type DesktopClient = ReturnType<typeof createDesktopClient>;
+
+export function useDesktopTasks(desktop: DesktopClient | undefined) {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
 
+  const persistenceClient: TaskPersistenceClient = desktop?.isAvailable()
+    ? desktop
+    : noopClient;
+
   const taskService: RendererTaskService = useMemo(() => {
-    const base = createRendererTaskService(desktop ?? noopClient);
+    const base = createRendererTaskService(persistenceClient);
     return {
       async createTask(input) {
         const task = await base.createTask(input);
@@ -41,19 +48,27 @@ export function useDesktopTasks(desktop: TaskPersistenceClient | undefined) {
         return next;
       },
     };
+  }, [persistenceClient]);
+
+  const refresh = useCallback(() => {
+    if (desktop?.isAvailable()) {
+      desktop.listTasks().then(setTasks).catch(console.error);
+    }
   }, [desktop]);
 
   useEffect(() => {
-    if (desktop) {
-      desktop.listTasks().then(setTasks).catch(console.error);
-    }
-  }, [desktop]);
+    refresh();
+  }, [refresh]);
 
-  const refresh = useCallback(() => {
-    if (desktop) {
-      desktop.listTasks().then(setTasks).catch(console.error);
-    }
-  }, [desktop]);
+  useEffect(() => {
+    if (!desktop?.isAvailable()) return;
+
+    const unsubscribe = desktop.imageTask.onStatus(() => {
+      refresh();
+    });
+
+    return unsubscribe;
+  }, [desktop, refresh]);
 
   return { tasks, taskService, refresh };
 }

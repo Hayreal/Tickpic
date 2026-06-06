@@ -33,9 +33,17 @@ export function createFileSettingsStore(settingsFile: string, defaultWorkspaceDi
   return {
     async load() {
       try {
-        const payload = JSON.parse(await readFile(settingsFile, 'utf-8')) as StoredSettingsPayload;
+        const payload = JSON.parse(await readFile(settingsFile, 'utf-8')) as StoredSettingsPayload & {
+          modelProtocols?: unknown;
+        };
+        const { modelProtocols: _deprecatedModelProtocols, ...rest } = payload;
         return validateSettings({
-          ...payload,
+          ...createDefaultAppSettings(defaultWorkspaceDir),
+          ...rest,
+          defaultModels: {
+            generation: rest.defaultModels?.generation ?? '',
+            vision: rest.defaultModels?.vision ?? '',
+          },
           n1nApiKey: decryptSecret(payload.n1nApiKey, encryptionKey),
         });
       } catch (error) {

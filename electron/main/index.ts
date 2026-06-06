@@ -9,12 +9,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
-const rendererIndexPath = path.join(__dirname, '../dist/index.html');
+const rendererIndexPath = path.join(__dirname, '../../../dist/index.html');
 
 const paths = getStoragePaths(app.getPath('userData'));
 
 app.whenReady().then(() => {
-  registerDesktopHandlers(paths);
+  registerDesktopHandlers({
+    settingsFile: paths.settingsFile,
+    defaultWorkspaceDir: paths.storageBase,
+  });
   createMainWindow(__dirname, rendererUrl, rendererIndexPath);
 
   app.on('activate', () => {

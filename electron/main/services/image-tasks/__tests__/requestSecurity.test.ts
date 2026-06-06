@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -83,6 +83,21 @@ describe('requestSecurity', () => {
       },
       authorizedRoots: [importsDir, workspaceDir],
     })).rejects.toThrow('region r1 exceeds bounds of image role source');
+  });
+
+  it('accepts in-bounds regions for jpeg images', async () => {
+    const jpegPath = path.join(tempDir, 'sample.jpg');
+    const fixturePath = path.join(process.cwd(), 'docs/docx_extract/contact_sheet.jpg');
+    await writeFile(jpegPath, await readFile(fixturePath));
+
+    await expect(validateImageTaskRequestForMain({
+      request: {
+        feature: 'remove_product',
+        images: [{ role: 'source', path: jpegPath, mimeType: 'image/jpeg' }],
+        regions: [{ id: 'r1', imageRole: 'source', x: 0, y: 0, width: 1, height: 1 }],
+      },
+      authorizedRoots: [tempDir, workspaceDir],
+    })).resolves.toBeUndefined();
   });
 });
 

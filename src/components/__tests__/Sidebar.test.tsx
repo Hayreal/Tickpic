@@ -1,23 +1,39 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import Sidebar from '../Sidebar';
+import { AppearanceProvider } from '../../contexts/AppearanceContext';
+
+function renderSidebar() {
+  return render(
+    <AppearanceProvider>
+      <Sidebar activeTab="sticker" onTabChange={() => {}} />
+    </AppearanceProvider>,
+  );
+}
 
 describe('Sidebar', () => {
+  afterEach(() => cleanup());
+
   it('does not render GPU or disk writing footer copy', () => {
-    render(<Sidebar activeTab="sticker" onTabChange={() => {}} />);
+    renderSidebar();
 
     expect(screen.queryByText(/GPU ACCELERATED/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/LOCAL DISK WRITING/i)).not.toBeInTheDocument();
   });
 
-  it('renders the sidebar as a dark segmented panel', () => {
-    const { container } = render(<Sidebar activeTab="sticker" onTabChange={() => {}} />);
+  it('renders eye-care mode toggle', () => {
+    renderSidebar();
+    expect(screen.getByRole('switch', { name: '护眼模式' })).toHaveAttribute('id', 'sidebar-eye-care-switch');
+  });
+
+  it('renders the sidebar as a light SaaS navigation panel', () => {
+    const { container } = renderSidebar();
 
     expect(container.querySelector('#app-sidebar')).toHaveClass(
-      'bg-[#111111]',
+      'bg-sidebar',
       'border-r',
-      'border-[#1f1f1f]',
+      'border-sidebar-border',
     );
   });
 });

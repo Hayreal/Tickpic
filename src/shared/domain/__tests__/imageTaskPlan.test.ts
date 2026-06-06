@@ -5,13 +5,9 @@ describe('imageTaskPlan', () => {
   const config = {
     defaultModels: {
       generation: 'gemini-2.5-flash-image',
+      vision: 'gpt-5.4-mini',
     },
-    modelProtocols: {
-      'gemini-3.1-flash-lite': 'gemini',
-      'gemini-2.5-flash-image': 'gemini',
-      'gpt-image-2': 'openai',
-      'gpt-5.4-mini': 'openai',
-    },
+    modelProtocol: 'openai',
     defaultCount: 4,
     maxCount: 8,
   } as const;
@@ -36,7 +32,7 @@ describe('imageTaskPlan', () => {
     expect(plan.executionStage).toEqual({
       kind: 'edit',
       model: 'gemini-2.5-flash-image',
-      protocol: 'gemini',
+      protocol: 'openai',
     });
     expect(plan.executionImages).toEqual([
       { role: 'source', path: '/authorized/input/scene.png' },
@@ -55,13 +51,13 @@ describe('imageTaskPlan', () => {
         { role: 'style', path: '/authorized/input/light.png' },
       ],
       modelOverrides: {
-        generation: 'gpt-image-2',
+        generation: 'gpt-image-2-all',
       },
     }, config);
 
     expect(plan.executionStage).toEqual({
       kind: 'generation',
-      model: 'gpt-image-2',
+      model: 'gpt-image-2-all',
       protocol: 'openai',
     });
     expect(plan.instructionImages).toHaveLength(2);
@@ -96,14 +92,24 @@ describe('imageTaskPlan', () => {
     expect(plan.openaiImageSize).toBe('auto');
   });
 
-  it('rejects selected models without a configured protocol mapping', () => {
+  it('rejects tasks when the settings vision model is not configured', () => {
     expect(() => buildImageTaskPlan({
       feature: 'sticker_original',
       productCategory: 'cleaning sheets',
-      modelOverrides: {
-        generation: 'unknown-image-model',
-      },
-    }, config)).toThrow('model unknown-image-model is missing protocol mapping');
+    }, {
+      ...config,
+      defaultModels: { generation: 'gpt-image-2-all', vision: '' },
+    })).toThrow('vision model is not configured in settings');
+  });
+
+  it('rejects tasks when the settings generation model is not configured', () => {
+    expect(() => buildImageTaskPlan({
+      feature: 'sticker_original',
+      productCategory: 'cleaning sheets',
+    }, {
+      ...config,
+      defaultModels: { generation: '', vision: 'gpt-5.4-mini' },
+    })).toThrow('generation model is not configured in settings');
   });
 
   it('rejects counts above the configured maximum', () => {

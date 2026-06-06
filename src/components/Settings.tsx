@@ -8,19 +8,16 @@ import {
   CheckCircle2,
   AlertTriangle,
   RefreshCw,
+  FolderOpen,
 } from 'lucide-react';
 import type { AppSettings, RendererAppSettings } from '../shared/domain/settings';
 import { KEEP_EXISTING_API_KEY } from '../shared/domain/settings';
-import type { ImageModelProtocol } from '../shared/domain/imageFeatureApi';
 import { useDesktopClient } from '../hooks/useDesktopClient';
-
-const MODEL_OPTIONS: { id: string; protocol: ImageModelProtocol; label: string }[] = [
-  { id: 'gemini-2.5-flash-image', protocol: 'gemini', label: 'Gemini 2.5 Flash Image' },
-  { id: 'gpt-image-2', protocol: 'openai', label: 'GPT Image 2' },
-  { id: 'gpt-5.4-mini', protocol: 'openai', label: 'GPT 5.4 Mini' },
-  { id: 'gemini-3.1-flash-lite', protocol: 'gemini', label: 'Gemini 3.1 Flash Lite' },
-  { id: 'gemini-3.1-flash-image-preview', protocol: 'gemini', label: 'Gemini 3.1 Flash Image Preview' },
-];
+import { Button } from '@/src/components/ui/button';
+import { Input } from '@/src/components/ui/input';
+import { Label } from '@/src/components/ui/label';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/src/components/ui/card';
+import EyeCareToggle from './EyeCareToggle';
 
 export default function Settings() {
   const desktopClient = useDesktopClient();
@@ -31,7 +28,8 @@ export default function Settings() {
   const [apiKeyPreview, setApiKeyPreview] = useState('');
   const [showKey, setShowKey] = useState(false);
 
-  const [generationModel, setGenerationModel] = useState('gpt-image-2');
+  const [generationModel, setGenerationModel] = useState('');
+  const [visionModel, setVisionModel] = useState('');
   const [workspaceDir, setWorkspaceDir] = useState('');
   const [defaultCount, setDefaultCount] = useState(4);
   const [maxCount, setMaxCount] = useState(8);
@@ -48,6 +46,7 @@ export default function Settings() {
       setHasApiKey(settings.hasApiKey);
       setApiKeyPreview(settings.apiKeyPreview ?? '');
       setGenerationModel(settings.defaultModels.generation);
+      setVisionModel(settings.defaultModels.vision);
       setWorkspaceDir(settings.workspaceDir);
       setDefaultCount(settings.defaultCount);
       setMaxCount(settings.maxCount);
@@ -59,20 +58,15 @@ export default function Settings() {
     if (!desktopClient) return;
     setSaveMessage('');
 
-    const modelProtocols: Record<string, ImageModelProtocol> = {};
-    MODEL_OPTIONS.forEach((m) => {
-      modelProtocols[m.id] = m.protocol;
-    });
-
     const settings: AppSettings = {
       schemaVersion: 1,
       n1nApiKey: apiKeyInput || (hasApiKey ? KEEP_EXISTING_API_KEY : ''),
       baseUrl,
-      workspaceDir,
+      workspaceDir: workspaceDir.trim(),
       defaultModels: {
-        generation: generationModel,
+        generation: generationModel.trim(),
+        vision: visionModel.trim(),
       },
-      modelProtocols,
       defaultCount,
       maxCount,
       maxConcurrentTasks,
@@ -87,6 +81,16 @@ export default function Settings() {
       setApiKeyPreview(updated.apiKeyPreview ?? '');
     } catch (err) {
       setSaveMessage(err instanceof Error ? err.message : 'Save failed');
+    }
+  };
+
+  const handlePickWorkspaceDir = async () => {
+    if (!desktopClient) return;
+    try {
+      const picked = await desktopClient.settings.pickWorkspaceDir();
+      if (picked) setWorkspaceDir(picked);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -106,187 +110,167 @@ export default function Settings() {
 
   if (!desktopClient) {
     return (
-      <div className="flex-1 bg-[#111015] p-6 flex items-center justify-center">
-        <p className="text-slate-500 text-sm">需要 Electron 环境才能使用设置功能</p>
+      <div className="ui-page-scroll items-center justify-center">
+        <p className="text-muted-foreground text-sm">需要 Electron 环境才能使用设置功能</p>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 bg-[#111015] p-6 md:p-8 flex flex-col overflow-y-auto select-none" id="settings-tab-viewport">
-
-      {/* Settings Title Section */}
-      <div className="mb-6 flex flex-col gap-1.5" id="settings-header">
-        <h2 className="text-xl font-sans font-bold text-white flex items-center gap-2">
-          设置
-        </h2>
-        <p className="text-[12px] text-slate-500 font-sans tracking-wide">
-          配置您的工作区和 AI 模型集成。
-        </p>
+    <div className="ui-page-scroll" id="settings-tab-viewport">
+      <div className="mb-8 max-w-3xl" id="settings-header">
+        <h2 className="text-2xl font-semibold tracking-tight">设置</h2>
+        <p className="text-sm text-muted-foreground mt-1">配置工作区路径与 AI 模型集成。</p>
       </div>
 
-      {/* Main Configurations Container Card */}
-      <div className="w-full max-w-3xl bg-[#0c0b10]/40 rounded-xl border border-slate-900/80 p-6 space-y-6" id="settings-card">
+      <Card className="max-w-3xl mb-6" id="settings-appearance-card">
+        <CardHeader>
+          <CardTitle>界面外观</CardTitle>
+          <CardDescription>调整应用视觉风格，保护视力健康。</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <EyeCareToggle switchId="settings-eye-care-switch" />
+        </CardContent>
+      </Card>
 
-        {/* Model header bar */}
-        <div className="flex items-center gap-3 pb-3 border-b border-slate-900" id="settings-card-head">
-          <div className="w-8 h-8 rounded-lg bg-violet-950/10 border border-violet-500/10 flex items-center justify-center text-[#a78bfa]">
-            <Cpu className="w-4 h-4" />
+      <Card className="max-w-3xl" id="settings-card">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Cpu className="h-5 w-5" />
+            </div>
+            <div>
+              <CardTitle>AI 模型配置</CardTitle>
+              <CardDescription>API 密钥、模型地址与模型 ID</CardDescription>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest leading-none">AI 模型配置</h3>
-            <p className="text-[10px] text-slate-500 font-sans mt-1">设置您的 API 令牌和主机网关端点</p>
-          </div>
-        </div>
+        </CardHeader>
 
-        {/* Input Parameters Fields */}
-        <div className="space-y-5" id="settings-fields">
-
-          {/* API KEY Input field with Toggle Eye icon */}
+        <CardContent className="space-y-6">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">模型 API 密钥</label>
-              <span className="text-[10px] text-slate-500 font-mono">Bearer Auth Token</span>
+              <Label htmlFor="settings-apikey-input">模型 API 密钥</Label>
             </div>
-
             {hasApiKey && !showKey && (
-              <p className="text-[11px] text-emerald-400 font-mono">已保存密钥: {apiKeyPreview}</p>
+              <p className="text-xs text-emerald-600 font-mono">已保存: {apiKeyPreview}</p>
             )}
-
-            <div className="relative flex items-center">
-              <input
+            <div className="relative">
+              <Input
                 id="settings-apikey-input"
                 type={showKey ? 'text' : 'password'}
                 value={apiKeyInput}
                 onChange={(e) => setApiKeyInput(e.target.value)}
-                placeholder={hasApiKey ? '输入新密钥以替换现有密钥...' : '请输入您的 API Key...'}
-                className="w-full bg-slate-950/80 rounded-xl border border-slate-850 focus:border-violet-500 focus:outline-none p-3.5 pr-12 text-xs text-white placeholder-slate-600 tracking-wide transition-colors font-mono"
+                placeholder={hasApiKey ? '输入新密钥以替换...' : '请输入 API Key'}
+                className="pr-10 font-mono"
               />
               <button
                 id="toggle-apikey-visibility"
+                type="button"
                 onClick={() => setShowKey(!showKey)}
-                className="cursor-pointer absolute right-3.5 text-slate-500 hover:text-slate-300 transition-colors"
-                title={showKey ? '模糊隐藏' : '明文显示'}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
-                {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            <p className="text-[11px] text-slate-500 font-sans leading-relaxed">
-              {hasApiKey ? '留空则保留现有密钥，输入新值将替换。' : '安全存放您的 API 密钥以用于身份验证。'}
-            </p>
           </div>
 
-          {/* Base URL Input Parameter */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">基础 URL</label>
-              <span className="text-[10px] text-slate-500 font-mono">Gateway API Host</span>
-            </div>
-            <input
+            <Label htmlFor="settings-baseurl-input">基础 URL</Label>
+            <Input
               id="settings-baseurl-input"
-              type="text"
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder="例如 https://api.openai.com/v1"
-              className="w-full bg-slate-950/80 rounded-xl border border-slate-850 focus:border-violet-500 focus:outline-none p-3.5 text-xs text-white placeholder-slate-600 transition-colors font-mono"
+              placeholder="https://api.openai.com/v1"
+              className="font-mono"
             />
-            <p className="text-[11px] text-slate-500 font-sans leading-relaxed">目标后端网关地址，用于向 AI 服务器发出路由请求。</p>
           </div>
 
-          {/* Generation Model Input */}
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">生成模型</label>
-            <input
-              id="settings-generation-model"
-              type="text"
-              value={generationModel}
-              onChange={(e) => setGenerationModel(e.target.value)}
-              placeholder="输入模型 ID..."
-              className="w-full bg-slate-950/80 rounded-xl border border-slate-850 focus:border-violet-500 focus:outline-none p-3.5 text-xs text-white placeholder-slate-600 transition-colors font-mono"
-            />
-            <p className="text-[11px] text-slate-500 font-sans">纯图片生成任务使用的模型。</p>
+            <Label htmlFor="settings-workspace-dir">保存路径</Label>
+            <div className="flex gap-2">
+              <Input
+                id="settings-workspace-dir"
+                value={workspaceDir}
+                onChange={(e) => setWorkspaceDir(e.target.value)}
+                placeholder="选择或输入本地保存目录"
+                className="font-mono"
+              />
+              <Button id="pick-workspace-dir" type="button" variant="outline" onClick={handlePickWorkspaceDir}>
+                <FolderOpen className="h-4 w-4" />
+                浏览
+              </Button>
+            </div>
           </div>
 
-        </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="settings-vision-model">指令生成模型</Label>
+              <Input
+                id="settings-vision-model"
+                value={visionModel}
+                onChange={(e) => setVisionModel(e.target.value)}
+                placeholder="gpt-5.4-mini"
+                className="font-mono text-xs"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="settings-generation-model">出图模型</Label>
+              <Input
+                id="settings-generation-model"
+                value={generationModel}
+                onChange={(e) => setGenerationModel(e.target.value)}
+                placeholder="gpt-image-2-all"
+                className="font-mono text-xs"
+              />
+            </div>
+          </div>
 
-        {/* Action Controls panel */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-slate-900" id="settings-actions">
+          {saveMessage === 'success' && (
+            <div className="ui-alert-success">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>配置已保存到本地加密存储。</span>
+            </div>
+          )}
+          {saveMessage && saveMessage !== 'success' && (
+            <div className="ui-alert-error">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>{saveMessage}</span>
+            </div>
+          )}
+          {testState === 'success' && (
+            <div className="ui-alert-success" id="test-alert-success">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>{testMessage}</span>
+            </div>
+          )}
+          {testState === 'failed' && (
+            <div className="ui-alert-error" id="test-alert-failed">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>{testMessage}</span>
+            </div>
+          )}
+        </CardContent>
 
-          {/* Test connection CTA */}
-          <button
+        <CardFooter className="justify-end gap-2 border-t bg-muted/30 pt-6">
+          <Button
             id="test-api-connection"
+            variant="outline"
             onClick={handleTestConnection}
             disabled={testState === 'testing'}
-            className={`cursor-pointer px-5 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all text-slate-300 border border-slate-850 hover:bg-slate-900/60 ${testState === 'testing' ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {testState === 'testing' ? (
-              <>
-                <RefreshCw className="w-3.5 h-3.5 text-violet-400 animate-spin" />
-                正在连通测试...
-              </>
+              <RefreshCw className="h-4 w-4 animate-spin" />
             ) : (
-              <>
-                <Wifi className="w-3.5 h-3.5 text-[#a78bfa]" />
-                测试连接
-              </>
+              <Wifi className="h-4 w-4" />
             )}
-          </button>
-
-          {/* Confirm Save Config button */}
-          <button
-            id="save-api-config"
-            onClick={handleSave}
-            className="cursor-pointer bg-[#7c3aed] hover:bg-[#8b5cf6] text-white px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow transition-all active:scale-[0.98]"
-          >
-            <Save className="w-3.5 h-3.5" />
+            测试连接
+          </Button>
+          <Button id="save-api-config" onClick={handleSave}>
+            <Save className="h-4 w-4" />
             保存配置
-          </button>
-
-        </div>
-
-        {/* Save status messages */}
-        {saveMessage === 'success' && (
-          <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex gap-2 animate-fadeIn">
-            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />
-            <div>
-              <p className="font-bold leading-none">配置已保存</p>
-              <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">设置已成功写入本地加密存储。</p>
-            </div>
-          </div>
-        )}
-        {saveMessage && saveMessage !== 'success' && (
-          <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex gap-2 animate-fadeIn">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
-            <div>
-              <p className="font-bold leading-none">保存失败</p>
-              <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">{saveMessage}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Testing status alert banners */}
-        {testState === 'success' && (
-          <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex gap-2 animate-fadeIn" id="test-alert-success">
-            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />
-            <div>
-              <p className="font-bold leading-none">测试连接成功！</p>
-              <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">{testMessage}</p>
-            </div>
-          </div>
-        )}
-
-        {testState === 'failed' && (
-          <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex gap-2 animate-fadeIn" id="test-alert-failed">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
-            <div>
-              <p className="font-bold leading-none">握手测试失败</p>
-              <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">{testMessage}</p>
-            </div>
-          </div>
-        )}
-
-      </div>
-
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

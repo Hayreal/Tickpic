@@ -2,7 +2,6 @@ import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { ImageInput, ImageTaskRecord, ImageTaskRequest } from '../src/shared/domain/imageFeatureApi.js';
-import type { ImageModelProtocol } from '../src/shared/domain/imageFeatureApi.js';
 import type { AppSettings } from '../src/shared/domain/settings.js';
 import { createDefaultAppSettings } from '../src/shared/domain/settings.js';
 import { createImageTaskController } from '../electron/main/services/image-tasks/imageTaskController.js';
@@ -163,36 +162,17 @@ function buildSettings(workspaceDir: string): AppSettings {
   //   ?? imageModel
   //   ?? settings.defaultModels.edit;
 
+  const protocol = process.env.MODEL_PROTOCOL?.trim();
   return {
     ...settings,
     n1nApiKey: apiKey,
     baseUrl,
     defaultModels: {
       generation: generationModel,
+      vision: process.env.VISION_MODEL?.trim() ?? settings.defaultModels.vision ?? generationModel,
     },
-    modelProtocols: applyEnvModelProtocols(settings.modelProtocols, {
-      generation: generationModel,
-    }),
+    ...(protocol === 'openai' || protocol === 'gemini' ? { modelProtocol: protocol } : {}),
   };
-}
-
-function applyEnvModelProtocols(
-  defaults: Record<string, ImageModelProtocol>,
-  models: { generation: string },
-): Record<string, ImageModelProtocol> {
-  const protocol = process.env.MODEL_PROTOCOL?.trim();
-  if (protocol !== 'openai' && protocol !== 'gemini') {
-    return defaults;
-  }
-
-  const next = { ...defaults };
-  for (const model of Object.values(models)) {
-    if (!next[model]) {
-      next[model] = protocol;
-    }
-  }
-
-  return next;
 }
 
 async function rewriteRequestImagesIntoAuthorizedImports(

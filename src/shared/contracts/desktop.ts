@@ -11,6 +11,7 @@ export const IPC_CHANNELS = {
   storage: {
     saveImportBatch: 'storage:save-import-batch',
     saveTaskOutputs: 'storage:save-task-outputs',
+    openOutputDirectory: 'storage:open-output-directory',
   },
   tasks: {
     list: 'tasks:list',
@@ -21,6 +22,7 @@ export const IPC_CHANNELS = {
     get: 'settings:get',
     save: 'settings:save',
     testConnection: 'settings:test-connection',
+    pickWorkspaceDir: 'settings:pick-workspace-dir',
   },
   imageTask: {
     submit: 'image-task:submit',
@@ -33,7 +35,7 @@ export const IPC_CHANNELS = {
 export interface SaveImportBatchRequest {
   page: 'sticker' | 'product';
   feature: string;
-  files: File[];
+  files: { name: string; type: string; buffer: ArrayBuffer }[];
 }
 
 export interface SaveTaskOutputsRequest {
@@ -41,6 +43,15 @@ export interface SaveTaskOutputsRequest {
   page: 'sticker' | 'product';
   feature: string;
   outputs: { name: string; buffer: ArrayBuffer }[];
+}
+
+export interface OpenOutputDirectoryRequest {
+  outputDir?: string;
+  filePaths?: string[];
+}
+
+export interface OpenOutputDirectoryResult {
+  openedDir: string;
 }
 
 export interface ImageTaskBridgeApi {
@@ -54,12 +65,14 @@ export interface SettingsBridgeApi {
   get(): Promise<RendererAppSettings>;
   save(settings: AppSettings): Promise<void>;
   testConnection(): Promise<{ success: boolean; message: string }>;
+  pickWorkspaceDir(): Promise<string | null>;
 }
 
 export interface DesktopBridgeApi {
   platform: string;
   saveImportBatch(request: SaveImportBatchRequest): Promise<ImportBatch>;
   saveTaskOutputs(request: SaveTaskOutputsRequest): Promise<StoredImageRecord[]>;
+  openOutputDirectory(request: OpenOutputDirectoryRequest): Promise<OpenOutputDirectoryResult>;
   createTask(record: TaskRecord): Promise<void>;
   updateTask(record: TaskRecord): Promise<void>;
   listTasks(): Promise<TaskRecord[]>;

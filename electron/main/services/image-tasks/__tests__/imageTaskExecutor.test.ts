@@ -7,12 +7,9 @@ describe('imageTaskExecutor', () => {
   const runtimeConfig: ImageTaskRuntimeConfig = {
     defaultModels: {
       generation: 'gemini-2.5-flash-image',
+      vision: 'gpt-5.4-mini',
     },
-    modelProtocols: {
-      'gemini-3.1-flash-lite': 'gemini',
-      'gemini-2.5-flash-image': 'gemini',
-      'gpt-image-2': 'openai',
-    },
+    modelProtocol: 'gemini',
     defaultCount: 4,
     maxCount: 8,
   };
@@ -64,7 +61,7 @@ describe('imageTaskExecutor', () => {
     }), new AbortController().signal);
 
     expect(calls).toEqual([
-      'instruction:gemini-2.5-flash-image:2',
+      'instruction:gpt-5.4-mini:2',
       'execute:gemini-2.5-flash-image:2:Replace the source product with the target product and keep lighting natural.',
       'save:task-1:Replace the source product with the target product and keep lighting natural.:1',
     ]);

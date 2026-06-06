@@ -8,7 +8,7 @@ import Profile from './components/Profile';
 import type { ActiveTab } from './shared/view/ui';
 import { useDesktopClient } from './hooks/useDesktopClient';
 import { useDesktopTasks } from './hooks/useDesktopTasks';
-import { toTaskItem } from './features/tasks/taskMappers';
+import { AppearanceProvider } from './contexts/AppearanceContext';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('sticker');
@@ -16,6 +16,7 @@ export default function App() {
   const { tasks, refresh } = useDesktopTasks(desktop);
 
   return (
+    <AppearanceProvider>
     <WindowFrame title="Tickpic">
       <div className="flex-1 flex overflow-hidden w-full h-full" id="workspace-layout">
         <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
@@ -24,10 +25,11 @@ export default function App() {
           {activeTab === 'product' && <ProductProcessing />}
           {activeTab === 'settings' && <Settings />}
           {activeTab === 'profile' && (
-            <Profile tasks={tasks.map(toTaskItem)} onRefresh={refresh} />
+            <Profile tasks={tasks} onRefresh={refresh} />
           )}
         </div>
       </div>
     </WindowFrame>
+    </AppearanceProvider>
   );
 }

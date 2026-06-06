@@ -11,33 +11,42 @@ export interface TaskRepository {
   update(record: Record<string, unknown>): void;
 }
 
-export function createTaskRepository(tasksFile: string): TaskRepository {
+export function createTaskRepository(resolveTasksFile: () => string): TaskRepository {
+  function readTasks() {
+    const tasksFile = resolveTasksFile();
+    ensureDir(path.dirname(tasksFile));
+    if (!fs.existsSync(tasksFile)) {
+      fs.writeFileSync(tasksFile, '[]', 'utf-8');
+    }
+    return JSON.parse(fs.readFileSync(tasksFile, 'utf-8')) as unknown[];
+  }
+
+  function writeTasks(tasks: unknown[]) {
+    const tasksFile = resolveTasksFile();
+    ensureDir(path.dirname(tasksFile));
+    fs.writeFileSync(tasksFile, JSON.stringify(tasks, null, 2), 'utf-8');
+  }
+
   return {
     list() {
-      ensureDir(path.dirname(tasksFile));
-      if (!fs.existsSync(tasksFile)) {
-        fs.writeFileSync(tasksFile, '[]', 'utf-8');
-      }
-      return JSON.parse(fs.readFileSync(tasksFile, 'utf-8')) as unknown[];
+      return readTasks();
     },
 
     create(record: Record<string, unknown>) {
-      const tasks = this.list();
+      const tasks = readTasks();
       tasks.push(record);
-      ensureDir(path.dirname(tasksFile));
-      fs.writeFileSync(tasksFile, JSON.stringify(tasks, null, 2), 'utf-8');
+      writeTasks(tasks);
     },
 
     update(record: Record<string, unknown>) {
-      const tasks = this.list() as Record<string, unknown>[];
+      const tasks = readTasks() as Record<string, unknown>[];
       const idx = tasks.findIndex((t) => t.taskId === record.taskId);
       if (idx >= 0) {
         tasks[idx] = record;
       } else {
         tasks.push(record);
       }
-      ensureDir(path.dirname(tasksFile));
-      fs.writeFileSync(tasksFile, JSON.stringify(tasks, null, 2), 'utf-8');
+      writeTasks(tasks);
     },
   };
 }

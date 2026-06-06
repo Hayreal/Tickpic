@@ -2,6 +2,7 @@
 change: frontend-backend-integration
 design-doc: docs/superpowers/specs/2026-06-05-frontend-backend-integration-design.md
 base-ref: ac79070df3c4a0a4e813abb66390842fe607514a
+archived-with: 2026-06-05-frontend-backend-integration
 ---
 
 # Frontend-Backend Integration Implementation Plan
@@ -14,6 +15,7 @@ base-ref: ac79070df3c4a0a4e813abb66390842fe607514a
 
 **Tech Stack:** React hooks, Electron IPC (contextBridge), TypeScript
 
+archived-with: 2026-06-05-frontend-backend-integration
 ---
 
 ### Task 1: Create `useImageTask` Hook
@@ -118,6 +120,7 @@ git add src/hooks/useImageTask.ts
 git commit -m "feat: add useImageTask hook for task lifecycle management"
 ```
 
+archived-with: 2026-06-05-frontend-backend-integration
 ---
 
 ### Task 2: Modify ImageUploader for Disk Persistence
@@ -207,6 +210,7 @@ git add src/components/ImageUploader.tsx
 git commit -m "feat: persist uploaded images to disk via saveImportBatch IPC"
 ```
 
+archived-with: 2026-06-05-frontend-backend-integration
 ---
 
 ### Task 3: Migrate Settings Component
@@ -515,6 +519,7 @@ git add src/components/Settings.tsx
 git commit -m "feat: migrate Settings from localStorage to Electron encrypted store"
 ```
 
+archived-with: 2026-06-05-frontend-backend-integration
 ---
 
 ### Task 4: Modify StickerGen for Real Task Submission
@@ -647,6 +652,7 @@ git add src/components/StickerGen.tsx
 git commit -m "feat: replace StickerGen simulation with real image task submission"
 ```
 
+archived-with: 2026-06-05-frontend-backend-integration
 ---
 
 ### Task 5: Modify ProductProcessing for Real Task Submission
@@ -759,6 +765,7 @@ git add src/components/ProductProcessing.tsx
 git commit -m "feat: replace ProductProcessing simulation with real image task submission"
 ```
 
+archived-with: 2026-06-05-frontend-backend-integration
 ---
 
 ### Task 6: Integration Verification

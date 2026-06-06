@@ -27,10 +27,14 @@ describe('protocolClients', () => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
-  it('uses OpenAI responses.create for instruction generation with image data urls', async () => {
+  it('uses OpenAI chat.completions for instruction generation with image data urls', async () => {
     const openai = {
-      responses: {
-        create: vi.fn().mockResolvedValue({ output_text: 'final instruction' }),
+      chat: {
+        completions: {
+          create: vi.fn().mockResolvedValue({
+            choices: [{ message: { content: 'final instruction' } }],
+          }),
+        },
       },
       images: {
         generate: vi.fn(),
@@ -42,19 +46,21 @@ describe('protocolClients', () => {
     const result = await client.generateInstruction(createInstructionInput(imagePath));
 
     expect(result).toBe('final instruction');
-    expect(openai.responses.create).toHaveBeenCalledWith(
+    expect(openai.chat.completions.create).toHaveBeenCalledWith(
       expect.objectContaining({
         model: 'gpt-5.4-mini',
-        instructions: 'system prompt',
-        input: [
+        messages: [
+          { role: 'system', content: 'system prompt' },
           {
             role: 'user',
             content: [
-              { type: 'input_text', text: expect.stringContaining('feature: replace_product') },
+              { type: 'text', text: expect.stringContaining('feature: replace_product') },
               {
-                type: 'input_image',
-                image_url: 'data:image/png;base64,iVBORw==',
-                detail: 'auto',
+                type: 'image_url',
+                image_url: {
+                  url: 'data:image/png;base64,iVBORw==',
+                  detail: 'low',
+                },
               },
             ],
           },
@@ -66,9 +72,25 @@ describe('protocolClients', () => {
     );
   });
 
+  it('builds a local instruction when an image-only model is configured for stage 1', async () => {
+    const openai = {
+      chat: { completions: { create: vi.fn() } },
+      images: { generate: vi.fn(), edit: vi.fn() },
+    };
+    const client = createOpenAIProtocolClient(openai);
+
+    const result = await client.generateInstruction({
+      ...createInstructionInput(imagePath),
+      model: 'gpt-image-2-all',
+    });
+
+    expect(result).toContain('replace product');
+    expect(openai.chat.completions.create).not.toHaveBeenCalled();
+  });
+
   it('uses OpenAI image generation when execution has no image inputs', async () => {
     const openai = {
-      responses: { create: vi.fn() },
+      chat: { completions: { create: vi.fn() } },
       images: {
         generate: vi.fn().mockResolvedValue({
           data: [{ b64_json: Buffer.from('generated').toString('base64') }],
@@ -105,7 +127,7 @@ describe('protocolClients', () => {
 
   it('passes size auto to OpenAI image edit when aspectRatio is auto', async () => {
     const openai = {
-      responses: { create: vi.fn() },
+      chat: { completions: { create: vi.fn() } },
       images: {
         generate: vi.fn(),
         edit: vi.fn().mockResolvedValue({
@@ -171,7 +193,7 @@ describe('protocolClients', () => {
 
   it('uses OpenAI image edit when execution has image inputs', async () => {
     const openai = {
-      responses: { create: vi.fn() },
+      chat: { completions: { create: vi.fn() } },
       images: {
         generate: vi.fn(),
         edit: vi.fn().mockResolvedValue({

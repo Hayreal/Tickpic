@@ -1,30 +1,35 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Tasks are created only when generation starts
-The system SHALL create a task record only after the user explicitly starts a generation flow, not when images are merely imported.
+The system SHALL create an image task record via `desktop.imageTask.submit()` only after the user explicitly starts a generation flow, not when images are merely imported. The task lifecycle is managed by the Main Process image task controller.
 
 #### Scenario: Import images without starting generation
 - **WHEN** the user imports one or more images into a page
-- **THEN** no task record is created yet
-- **AND** the imported batch remains available only as the current page input
+- **THEN** no image task is created
+- **AND** the imported batch (with persisted disk paths) remains available as the current page input
 
 #### Scenario: Start generation with an imported batch
-- **WHEN** the user clicks the generation start action for a feature with a valid current batch
-- **THEN** the system creates a task record with a task ID and batch ID
-- **AND** the task starts in a pending or running state
-- **AND** the task stores the batch's imported image records
+- **WHEN** the user clicks the generation start action for a feature with a valid persisted batch
+- **THEN** the system calls `desktop.imageTask.submit()` with the feature, image paths, and parameters
+- **AND** the Main Process creates a task in the image task controller queue
+- **AND** the frontend receives a task ID and subscribes to status updates via `desktop.imageTask.onStatus()`
 
 ### Requirement: Task records include import and output history
-The system SHALL persist task records with generation status, import records, and output records for display in the personal center.
+The system SHALL track image task status through real-time events and persist output artifacts via the Main Process artifact store. The frontend SHALL display task progress and results based on status events.
 
 #### Scenario: Complete generation successfully
-- **WHEN** a generation flow finishes successfully
-- **THEN** the task status becomes completed
-- **AND** the system stores the generated output records with local file metadata
-- **AND** the personal center can display both import and output records for that task
+- **WHEN** the image task controller reports a completed task via `image-task:status` event
+- **THEN** the frontend updates the task status to completed
+- **AND** the generated output images (from the artifact store) are displayed in the result component
+- **AND** the user can download individual output images
 
 #### Scenario: Generation fails after task creation
-- **WHEN** a generation flow fails after the task record exists
-- **THEN** the task status becomes failed
-- **AND** the task still retains its import records
-- **AND** the output record list is empty or partial based on what was produced before the failure
+- **WHEN** the image task controller reports a failed task via `image-task:status` event
+- **THEN** the frontend updates the task status to failed
+- **AND** the error message from the status event is displayed to the user
+- **AND** the task retains its input image references for retry
+
+#### Scenario: Task is still running
+- **WHEN** the image task is in progress (queued or running)
+- **THEN** the frontend displays an appropriate progress indicator
+- **AND** the status updates in real-time as events arrive

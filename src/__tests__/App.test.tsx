@@ -40,7 +40,7 @@ vi.mock('../components/Settings', () => ({
 
 const profileTasksSpy = vi.fn();
 vi.mock('../components/Profile', () => ({
-  default: ({ tasks, onRefresh }: { tasks: { feature: string }[]; onRefresh: () => void }) => {
+  default: ({ tasks, onRefresh }: { tasks: { taskId: string; feature: string }[]; onRefresh: () => void }) => {
     profileTasksSpy(tasks);
     return (
       <div data-testid="profile">

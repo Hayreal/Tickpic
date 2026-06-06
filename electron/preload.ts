@@ -5,6 +5,7 @@ const desktopShell: DesktopBridgeApi = {
   platform: process.platform,
   saveImportBatch: (payload) => ipcRenderer.invoke(IPC_CHANNELS.storage.saveImportBatch, payload),
   saveTaskOutputs: (payload) => ipcRenderer.invoke(IPC_CHANNELS.storage.saveTaskOutputs, payload),
+  openOutputDirectory: (payload) => ipcRenderer.invoke(IPC_CHANNELS.storage.openOutputDirectory, payload),
   createTask: (record) => ipcRenderer.invoke(IPC_CHANNELS.tasks.create, record),
   updateTask: (record) => ipcRenderer.invoke(IPC_CHANNELS.tasks.update, record),
   listTasks: () => ipcRenderer.invoke(IPC_CHANNELS.tasks.list),
@@ -12,6 +13,7 @@ const desktopShell: DesktopBridgeApi = {
     get: () => ipcRenderer.invoke(IPC_CHANNELS.settings.get),
     save: (settings) => ipcRenderer.invoke(IPC_CHANNELS.settings.save, settings),
     testConnection: () => ipcRenderer.invoke(IPC_CHANNELS.settings.testConnection),
+    pickWorkspaceDir: () => ipcRenderer.invoke(IPC_CHANNELS.settings.pickWorkspaceDir),
   },
   imageTask: {
     submit: (request) => ipcRenderer.invoke(IPC_CHANNELS.imageTask.submit, request),

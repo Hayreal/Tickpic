@@ -1,22 +1,26 @@
 import React, { useState } from 'react';
-import { 
-  RefreshCw, 
-  Search, 
-  SlidersHorizontal, 
-  ChevronLeft, 
-  ChevronRight, 
-  Play, 
-  CheckCircle, 
-  XCircle, 
+import {
+  RefreshCw,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle,
+  XCircle,
   Clock,
-  ExternalLink,
+  FolderOpen,
   Filter,
-  Check
 } from 'lucide-react';
-import type { TaskItem } from '../shared/view/tasks';
+import type { TaskRecord } from '../shared/domain/tasks';
+import { toTaskItem } from '../features/tasks/taskMappers';
+import { useOpenOutputDirectory } from '../hooks/useOpenOutputDirectory';
+import { Button } from '@/src/components/ui/button';
+import { Input } from '@/src/components/ui/input';
+import { Badge } from '@/src/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
+import { cn } from '@/src/lib/utils';
 
 interface ProfileProps {
-  tasks: TaskItem[];
+  tasks: TaskRecord[];
   onRefresh: () => void;
 }
 
@@ -25,125 +29,116 @@ export default function Profile({ tasks, onRefresh }: ProfileProps) {
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Running' | 'Completed' | 'Failed'>('All');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [openingTaskId, setOpeningTaskId] = useState<string | null>(null);
+  const { openTaskOutputDirectory } = useOpenOutputDirectory();
 
   const handleRefreshClick = () => {
     setIsRefreshing(true);
     onRefresh();
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 1000);
+    setTimeout(() => setIsRefreshing(false), 1000);
   };
 
-  // Filter tasks based on query and status filter
-  const filteredTasks = tasks.filter(task => {
-    const matchesSearch = task.id.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          task.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (task.batchId || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || task.status === statusFilter;
+  const filteredTasks = tasks.filter((task) => {
+    const item = toTaskItem(task);
+    const matchesSearch =
+      item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.batchId || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  // Calculate items for current page
   const itemsPerPage = 4;
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedTasks = filteredTasks.slice(startIndex, startIndex + itemsPerPage);
   const totalPages = Math.ceil(filteredTasks.length / itemsPerPage);
 
+  const handleOpenTaskDirectory = async (task: TaskRecord) => {
+    setOpeningTaskId(task.taskId);
+    try {
+      await openTaskOutputDirectory(task);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '打开目录失败';
+      alert(message);
+    } finally {
+      setOpeningTaskId(null);
+    }
+  };
+
+  const statusBadge = (status: TaskRecord['status']) => {
+    switch (status) {
+      case 'Pending':
+        return <Badge variant="warning"><Clock className="h-3 w-3" />待处理</Badge>;
+      case 'Running':
+        return <Badge variant="info"><span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />运行中</Badge>;
+      case 'Completed':
+        return <Badge variant="success"><CheckCircle className="h-3 w-3" />已完成</Badge>;
+      case 'Failed':
+        return <Badge variant="destructive"><XCircle className="h-3 w-3" />失败</Badge>;
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className="flex-1 bg-[#111015] p-6 lg:p-8 flex flex-col overflow-y-auto select-none" id="profile-tab-viewport">
-      
-      {/* Upper header section */}
+    <div className="ui-page-scroll" id="profile-tab-viewport">
       <div className="mb-6 flex items-center justify-between" id="profile-header">
         <div>
-          <h2 className="text-xl font-sans font-bold text-white flex items-center gap-2">
-            个人中心
-          </h2>
-          <p className="text-[12px] text-slate-500 font-sans tracking-wide">
-            任务管理面板
-          </p>
+          <h2 className="text-2xl font-semibold tracking-tight">个人中心</h2>
+          <p className="text-sm text-muted-foreground mt-1">任务管理与运行状态</p>
         </div>
-        
-        {/* Refresh data action button */}
-        <button 
-          id="refresh-profile-tasks"
-          onClick={handleRefreshClick}
-          className="cursor-pointer bg-slate-900 hover:bg-slate-850 border border-slate-850 hover:border-slate-700 text-xs text-white font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition-all active:scale-[0.98]"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 text-violet-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+        <Button id="refresh-profile-tasks" variant="outline" size="sm" onClick={handleRefreshClick}>
+          <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
           刷新数据
-        </button>
+        </Button>
       </div>
 
-      {/* Grid Dashboard Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" id="profile-dashboard-metrics">
-        
-        {/* Metric 1: 总任务数 */}
-        <div className="bg-[#0c0b10]/40 border border-slate-900/80 rounded-xl p-5 flex items-center justify-between relative overflow-hidden" id="metric-total-tasks">
-          <div>
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest font-mono">总任务数</span>
-            <div className="text-3xl font-bold text-white tracking-tight mt-2">{1248 + tasks.length - 4}</div>
-            <div className="text-[11px] text-emerald-450 font-bold flex items-center gap-1 mt-2.5 font-sans">
-              <span className="text-[#10b981]">↗ 本周 +12%</span>
-            </div>
-          </div>
-          
-          {/* Circular radial mock decoration */}
-          <div className="w-16 h-16 rounded-full border-[6px] border-slate-900/60 border-t-[#7c3aed] flex items-center justify-center rotate-[45deg] relative shrink-0">
-            <span className="text-[10px] font-bold text-slate-500 font-mono -rotate-[45deg]">84%</span>
-          </div>
-        </div>
+        <Card id="metric-total-tasks">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">总任务数</CardTitle>
+            <Badge variant="secondary">{tasks.length}</Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-primary">{tasks.length}</div>
+            <p className="text-xs text-emerald-600 mt-1">↗ 本周 +12%</p>
+          </CardContent>
+        </Card>
 
-        {/* Metric 2: 运行中 */}
-        <div className="bg-[#0c0b10]/40 border border-slate-900/80 rounded-xl p-5 flex items-center justify-between relative overflow-hidden" id="metric-running-tasks">
-          <div>
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest font-mono">运行中</span>
-            <div className="text-3xl font-bold text-white tracking-tight mt-2">
-              {tasks.filter(t => t.status === 'Running').length}
+        <Card id="metric-running-tasks">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">运行中</CardTitle>
+            <RefreshCw className="h-4 w-4 text-primary animate-spin" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-primary">
+              {tasks.filter((t) => t.status === 'Running').length}
             </div>
-            <div className="text-[11px] text-slate-500 font-semibold flex items-center gap-1 mt-2.5 font-sans">
-              消耗约 1.2 积分/分钟
-            </div>
-          </div>
-
-          {/* Glowing rotating cycle mock */}
-          <div className="w-16 h-16 rounded-full bg-slate-950/20 border border-slate-900 flex items-center justify-center shrink-0">
-            <RefreshCw className="w-6 h-6 text-[#a78bfa] animate-spin" />
-          </div>
-        </div>
-
+            <p className="text-xs text-muted-foreground mt-1">消耗约 1.2 积分/分钟</p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Interactive Table Container */}
-      <div className="bg-[#0c0b10]/40 border border-slate-900/80 rounded-xl flex flex-col overflow-hidden" id="tasks-table-container">
-        
-        {/* Table Filter Top Toolbar */}
-        <div className="p-4 border-b border-slate-900/80 flex flex-col sm:flex-row gap-3 sm:items-center justify-between" id="table-toolbar">
-          <div className="flex items-center gap-2">
-            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest font-mono">最近任务</h3>
-          </div>
-          
-          {/* Actions panel */}
+      <Card id="tasks-table-container">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b">
+          <CardTitle className="text-base">最近任务</CardTitle>
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            {/* Search inputs */}
-            <div className="relative flex-1 sm:flex-initial">
-              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
-              <input 
+            <div className="relative flex-1 sm:w-48">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
                 id="search-tasks-input"
-                type="text"
                 placeholder="搜索任务..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full sm:w-48 bg-slate-950/80 border border-slate-850 rounded-lg pl-9 pr-3.5 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-violet-500 transition-colors"
+                className="pl-9"
               />
             </div>
-            
-            {/* Dropdown filters */}
             <div className="relative">
               <select
                 id="tasks-status-filter"
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="cursor-pointer bg-slate-950/80 border border-slate-850 rounded-lg px-3 py-1.5 text-xs text-white pr-8 appearance-none focus:outline-none"
+                onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring appearance-none pr-8"
               >
                 <option value="All">全部状态</option>
                 <option value="Pending">待处理</option>
@@ -151,143 +146,116 @@ export default function Profile({ tasks, onRefresh }: ProfileProps) {
                 <option value="Completed">已完成</option>
                 <option value="Failed">失败</option>
               </select>
-              <div className="absolute right-2.5 top-2.5 pointer-events-none text-slate-500">
-                <Filter className="w-3 h-3" />
-              </div>
+              <Filter className="absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             </div>
           </div>
-        </div>
+        </CardHeader>
 
-        {/* Data Table */}
-        <div className="overflow-x-auto" id="tasks-data-table">
-          <table className="w-full text-left border-collapse select-none">
-            <thead>
-              <tr className="border-b border-slate-900 bg-slate-950/50 text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">
-                <th className="py-3 px-4">任务ID</th>
-                <th className="py-3 px-4">功能</th>
-                <th className="py-3 px-4">批次</th>
-                <th className="py-3 px-4">导入/出图</th>
-                <th className="py-3 px-4">状态</th>
-                <th className="py-3 px-4">时间</th>
-                <th className="py-3 px-4 text-right">操作</th>
-              </tr>
-            </thead>
-            <tbody className="text-xs text-slate-300 divide-y divide-slate-900/60 font-sans" id="tasks-table-body">
-              {paginatedTasks.length > 0 ? (
-                paginatedTasks.map((task) => (
-                  <tr key={task.id} className="hover:bg-slate-950/30 transition-colors group">
-                    <td className="py-3 px-4 font-mono font-medium text-slate-400">{task.id}</td>
-                    <td className="py-3 px-4 font-medium text-white flex items-center gap-1.5 h-11">
-                      {task.feature}
-                      {task.feature.includes('复刻') && (
-                        <span className="text-[9px] bg-violet-400/10 text-[#a78bfa] border border-violet-500/10 px-1 py-0.2 rounded font-semibold">批量</span>
-                      )}
-                      {task.feature.includes('4x') && (
-                        <span className="text-[9px] bg-slate-900 text-slate-400 border border-slate-850 px-1 py-0.2 rounded font-mono">高分辨率</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 font-mono text-slate-500 text-[11px]">
-                      {task.batchId ? task.batchId.slice(0, 8) + '...' : '-'}
-                    </td>
-                    <td className="py-3 px-4 font-mono text-slate-400 text-[11px]">
-                      {task.importCount ?? 0}/{task.outputCount ?? 0}
-                    </td>
-                    <td className="py-3 px-4">
-                      {task.status === 'Pending' && (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold uppercase tracking-wider font-mono">
-                          <Clock className="w-3 h-3 text-amber-400" />
-                          待处理
-                        </span>
-                      )}
-                      {task.status === 'Running' && (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] bg-violet-500/10 text-[#a78bfa] border border-violet-500/20 font-bold uppercase tracking-wider font-mono">
-                          <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-ping inline-block shrink-0" />
-                          运行中
-                        </span>
-                      )}
-                      {task.status === 'Completed' && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] bg-[#10b981]/10 text-emerald-500 border border-[#10b981]/15 font-bold uppercase tracking-wider font-mono">
-                          <CheckCircle className="w-3 h-3 text-emerald-500 fill-emerald-500/10" />
-                          已完成
-                        </span>
-                      )}
-                      {task.status === 'Failed' && (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] bg-rose-500/10 text-rose-500 border border-rose-500/20 font-bold uppercase tracking-wider font-mono">
-                          <XCircle className="w-3 h-3 text-rose-500" />
-                          失败
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-slate-500">{task.time}</td>
-                    <td className="py-3 px-4 text-right">
-                      <button className="cursor-pointer text-slate-400 hover:text-white transition-opacity inline-flex items-center gap-1 py-1 px-2.5 rounded hover:bg-slate-900 text-[11px] font-semibold border border-transparent hover:border-slate-800">
-                        管理效果
-                        <ExternalLink className="w-3 h-3" />
-                      </button>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto" id="tasks-data-table">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b bg-muted/40 text-xs font-medium text-muted-foreground">
+                  <th className="py-3 px-4">任务ID</th>
+                  <th className="py-3 px-4">功能</th>
+                  <th className="py-3 px-4">批次</th>
+                  <th className="py-3 px-4">导入/出图</th>
+                  <th className="py-3 px-4">状态</th>
+                  <th className="py-3 px-4">时间</th>
+                  <th className="py-3 px-4 text-right">操作</th>
+                </tr>
+              </thead>
+              <tbody id="tasks-table-body">
+                {paginatedTasks.length > 0 ? (
+                  paginatedTasks.map((task) => {
+                    const item = toTaskItem(task);
+                    const canOpenDirectory = task.status === 'Completed' && task.outputs.length > 0;
+                    const isOpening = openingTaskId === task.taskId;
+
+                    return (
+                      <tr key={task.taskId} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                        <td className="py-3 px-4 font-mono text-xs text-muted-foreground">{item.id}</td>
+                        <td className="py-3 px-4 text-sm font-medium">{item.feature}</td>
+                        <td className="py-3 px-4 font-mono text-xs text-muted-foreground">
+                          {item.batchId ? `${item.batchId.slice(0, 8)}...` : '-'}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-xs text-muted-foreground">
+                          {item.importCount ?? 0}/{item.outputCount ?? 0}
+                        </td>
+                        <td className="py-3 px-4">{statusBadge(task.status)}</td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground">{item.time}</td>
+                        <td className="py-3 px-4 text-right">
+                          <Button
+                            id={`open-task-${task.taskId}`}
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 gap-1 text-xs"
+                            disabled={!canOpenDirectory || isOpening}
+                            onClick={() => handleOpenTaskDirectory(task)}
+                          >
+                            <FolderOpen className={cn('h-3 w-3', isOpening && 'animate-pulse')} />
+                            {isOpening ? '打开中' : '打开目录'}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                      暂无符合过滤条件的任务
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-500 font-sans">
-                    暂无符合过滤条件的任务明细
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
 
-        {/* Bottom Pagination controls matching Image 2 Layout */}
-        <div className="p-4 border-t border-slate-900/80 bg-[#0c0b10]/20 flex items-center justify-between" id="tasks-table-footer">
-          <span className="text-[11px] text-slate-500 font-sans font-medium">
-            显示 {Math.min(startIndex + 1, filteredTasks.length)}-{Math.min(startIndex + itemsPerPage, filteredTasks.length)} 条，共 {filteredTasks.length} 条任务
+        <div className="flex items-center justify-between border-t px-4 py-3 bg-muted/20" id="tasks-table-footer">
+          <span className="text-xs text-muted-foreground">
+            显示 {Math.min(startIndex + 1, filteredTasks.length)}-
+            {Math.min(startIndex + itemsPerPage, filteredTasks.length)} / {filteredTasks.length}
           </span>
-          
-          <div className="flex items-center gap-1.5" id="profile-pagination">
-            {/* Prev arrow button */}
-            <button 
+          <div className="flex items-center gap-1" id="profile-pagination">
+            <Button
               id="pagination-prev"
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
               disabled={currentPage === 1}
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              className={`cursor-pointer w-7 h-7 rounded bg-slate-950/60 border border-slate-850 flex items-center justify-center text-slate-500 hover:text-slate-350 disabled:opacity-30 disabled:cursor-not-allowed`}
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
             >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-
-            {/* Page buttons */}
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
             {Array.from({ length: totalPages || 1 }).map((_, idx) => {
               const p = idx + 1;
               return (
-                <button
+                <Button
                   key={p}
                   id={`pagination-page-${p}`}
+                  variant={currentPage === p ? 'default' : 'ghost'}
+                  size="icon"
+                  className="h-7 w-7 text-xs"
                   onClick={() => setCurrentPage(p)}
-                  className={`cursor-pointer w-7 h-7 rounded text-xs px-1 font-bold font-mono transition-all border ${
-                    currentPage === p 
-                      ? 'bg-violet-950/20 text-white border-violet-500 shadow' 
-                      : 'bg-transparent text-slate-400 border-transparent hover:text-white'
-                  }`}
                 >
                   {p}
-                </button>
+                </Button>
               );
             })}
-
-            {/* Next arrow button */}
-            <button 
+            <Button
               id="pagination-next"
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
               disabled={currentPage === totalPages || totalPages === 0}
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              className={`cursor-pointer w-7 h-7 rounded bg-slate-950/60 border border-slate-855 flex items-center justify-center text-slate-500 hover:text-slate-350 disabled:opacity-30 disabled:cursor-not-allowed`}
+              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
             >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         </div>
-
-      </div>
-
+      </Card>
     </div>
   );
 }

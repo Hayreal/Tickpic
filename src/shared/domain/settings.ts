@@ -4,7 +4,10 @@ import type { ImageTaskRuntimeConfig } from './imageTaskPlan.js';
 export const KEEP_EXISTING_API_KEY = '__KEEP_EXISTING__' as const;
 
 export interface ImageStageModelSettings {
+  /** Image generation / edit model */
   generation: string;
+  /** Vision / instruction model for stage 1; must not be an image-only model */
+  vision: string;
 }
 
 export interface AppSettings {
@@ -13,7 +16,8 @@ export interface AppSettings {
   baseUrl: string;
   workspaceDir: string;
   defaultModels: ImageStageModelSettings;
-  modelProtocols: Record<string, ImageModelProtocol>;
+  /** Optional override; when omitted, derived from baseUrl at runtime. */
+  modelProtocol?: ImageModelProtocol;
   defaultCount: number;
   maxCount: number;
   maxConcurrentTasks: number;
@@ -31,19 +35,28 @@ export function createDefaultAppSettings(workspaceDir: string): AppSettings {
     baseUrl: 'https://api.n1n.ai',
     workspaceDir,
     defaultModels: {
-      generation: 'gemini-2.5-flash-image',
-    },
-    modelProtocols: {
-      'gemini-3.1-flash-lite': 'gemini',
-      'gemini-2.5-flash-image': 'gemini',
-      'gemini-3.1-flash-image-preview': 'gemini',
-      'gpt-image-2': 'openai',
-      'gpt-5.4-mini': 'openai',
+      generation: '',
+      vision: '',
     },
     defaultCount: 1,
     maxCount: 8,
     maxConcurrentTasks: 5,
   };
+}
+
+export function resolveModelProtocolFromSettings(
+  settings: Pick<AppSettings, 'baseUrl' | 'modelProtocol'>,
+): ImageModelProtocol {
+  if (settings.modelProtocol === 'openai' || settings.modelProtocol === 'gemini') {
+    return settings.modelProtocol;
+  }
+
+  const baseUrl = settings.baseUrl.toLowerCase();
+  if (baseUrl.includes('google') || baseUrl.includes('gemini')) {
+    return 'gemini';
+  }
+
+  return 'openai';
 }
 
 export function redactAppSettings(settings: AppSettings): RendererAppSettings {
@@ -58,7 +71,7 @@ export function redactAppSettings(settings: AppSettings): RendererAppSettings {
 export function createRuntimeConfigFromSettings(settings: AppSettings): ImageTaskRuntimeConfig {
   return {
     defaultModels: settings.defaultModels,
-    modelProtocols: settings.modelProtocols,
+    modelProtocol: resolveModelProtocolFromSettings(settings),
     defaultCount: settings.defaultCount,
     maxCount: settings.maxCount,
   };

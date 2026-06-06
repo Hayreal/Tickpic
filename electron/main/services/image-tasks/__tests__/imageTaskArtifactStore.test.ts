@@ -24,12 +24,9 @@ describe('imageTaskArtifactStore', () => {
     const plan = buildImageTaskPlan(task.request, {
       defaultModels: {
         generation: 'gemini-2.5-flash-image',
+        vision: 'gpt-5.4-mini',
       },
-      modelProtocols: {
-        'gemini-3.1-flash-lite': 'gemini',
-        'gemini-2.5-flash-image': 'gemini',
-        'gpt-image-2': 'openai',
-      },
+      modelProtocol: 'gemini',
       defaultCount: 4,
       maxCount: 8,
     });
@@ -67,7 +64,7 @@ describe('imageTaskArtifactStore', () => {
       },
       plan: {
         instructionSystemPrompt: expect.stringContaining('Your task is not to generate images.'),
-        instructionStage: { model: 'gemini-2.5-flash-image', protocol: 'gemini' },
+        instructionStage: { model: 'gpt-5.4-mini', protocol: 'gemini' },
         executionStage: { kind: 'edit', model: 'gemini-2.5-flash-image', protocol: 'gemini' },
         outputAspectRatio: '4:3',
         openaiImageSize: '1536x1024',

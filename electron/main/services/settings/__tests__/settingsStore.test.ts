@@ -5,6 +5,16 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDefaultAppSettings } from '../../../../../src/shared/domain/settings';
 import { createFileSettingsStore } from '../settingsStore';
 
+function createSavableSettings(tempDir: string) {
+  return {
+    ...createDefaultAppSettings(tempDir),
+    defaultModels: {
+      generation: 'gpt-image-2-all',
+      vision: 'gpt-5.4-mini',
+    },
+  };
+}
+
 describe('settingsStore', () => {
   let tempDir: string;
   let settingsFile: string;
@@ -27,7 +37,7 @@ describe('settingsStore', () => {
   it('saves settings without writing the raw API key to disk', async () => {
     const store = createFileSettingsStore(settingsFile, tempDir);
     const settings = {
-      ...createDefaultAppSettings(tempDir),
+      ...createSavableSettings(tempDir),
       n1nApiKey: 'sk-live-secret-value',
       baseUrl: 'https://api.n1n.ai',
       defaultCount: 2,
@@ -43,7 +53,7 @@ describe('settingsStore', () => {
   it('returns redacted settings for renderer reads', async () => {
     const store = createFileSettingsStore(settingsFile, tempDir);
     await store.save({
-      ...createDefaultAppSettings(tempDir),
+      ...createSavableSettings(tempDir),
       n1nApiKey: 'sk-live-secret-value',
     });
 
@@ -68,14 +78,14 @@ describe('settingsStore', () => {
   it('preserves existing API key when __KEEP_EXISTING__ sentinel is used', async () => {
     const store = createFileSettingsStore(settingsFile, tempDir);
     const initialSettings = {
-      ...createDefaultAppSettings(tempDir),
+      ...createSavableSettings(tempDir),
       n1nApiKey: 'sk-live-original-key',
     };
 
     await store.save(initialSettings);
 
     const updatedSettings = {
-      ...createDefaultAppSettings(tempDir),
+      ...createSavableSettings(tempDir),
       n1nApiKey: '__KEEP_EXISTING__',
       defaultCount: 5,
     };
@@ -90,14 +100,14 @@ describe('settingsStore', () => {
   it('overwrites API key when new value is provided', async () => {
     const store = createFileSettingsStore(settingsFile, tempDir);
     const initialSettings = {
-      ...createDefaultAppSettings(tempDir),
+      ...createSavableSettings(tempDir),
       n1nApiKey: 'sk-live-old-key',
     };
 
     await store.save(initialSettings);
 
     const updatedSettings = {
-      ...createDefaultAppSettings(tempDir),
+      ...createSavableSettings(tempDir),
       n1nApiKey: 'sk-live-new-key',
     };
 
@@ -110,14 +120,14 @@ describe('settingsStore', () => {
   it('saves empty API key when explicitly provided', async () => {
     const store = createFileSettingsStore(settingsFile, tempDir);
     const initialSettings = {
-      ...createDefaultAppSettings(tempDir),
+      ...createSavableSettings(tempDir),
       n1nApiKey: 'sk-live-original-key',
     };
 
     await store.save(initialSettings);
 
     const updatedSettings = {
-      ...createDefaultAppSettings(tempDir),
+      ...createSavableSettings(tempDir),
       n1nApiKey: '',
     };
 

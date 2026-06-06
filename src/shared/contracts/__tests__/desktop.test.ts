@@ -7,6 +7,7 @@ describe('desktop contract', () => {
       storage: {
         saveImportBatch: 'storage:save-import-batch',
         saveTaskOutputs: 'storage:save-task-outputs',
+        openOutputDirectory: 'storage:open-output-directory',
       },
       tasks: {
         list: 'tasks:list',
@@ -17,6 +18,7 @@ describe('desktop contract', () => {
         get: 'settings:get',
         save: 'settings:save',
         testConnection: 'settings:test-connection',
+        pickWorkspaceDir: 'settings:pick-workspace-dir',
       },
       imageTask: {
         submit: 'image-task:submit',

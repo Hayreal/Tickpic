@@ -14,6 +14,7 @@ describe('desktopClient', () => {
       platform: 'darwin',
       saveImportBatch: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['saveImportBatch'],
       saveTaskOutputs: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['saveTaskOutputs'],
+      openOutputDirectory: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['openOutputDirectory'],
       createTask: () => Promise.resolve(),
       updateTask: () => Promise.resolve(),
       listTasks: () => Promise.resolve([]),
@@ -27,6 +28,7 @@ describe('desktopClient', () => {
         testConnection: async () => {
           throw new Error('not used');
         },
+        pickWorkspaceDir: async () => null,
       },
       imageTask: {
         submit: async (request) => {
@@ -77,6 +79,7 @@ describe('desktopClient', () => {
       platform: 'darwin',
       saveImportBatch: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['saveImportBatch'],
       saveTaskOutputs: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['saveTaskOutputs'],
+      openOutputDirectory: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['openOutputDirectory'],
       createTask: () => Promise.resolve(),
       updateTask: () => Promise.resolve(),
       listTasks: () => Promise.resolve([]),
@@ -90,9 +93,7 @@ describe('desktopClient', () => {
             defaultModels: {
               vision: 'gemini-3.1-flash-lite',
               generation: 'gemini-2.5-flash-image',
-              edit: 'gemini-2.5-flash-image',
             },
-            modelProtocols: {},
             defaultCount: 4,
             maxCount: 8,
             maxConcurrentTasks: 5,
@@ -105,6 +106,10 @@ describe('desktopClient', () => {
         testConnection: async () => {
           calls.push('settings:testConnection');
           return { success: true, message: '连接成功' };
+        },
+        pickWorkspaceDir: async () => {
+          calls.push('settings:pickWorkspaceDir');
+          return '/tmp/tickpic-workspace';
         },
       },
       imageTask: {

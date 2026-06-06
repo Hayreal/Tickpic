@@ -1,6 +1,7 @@
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { ImageInput, ImageTaskRequest } from '../../../../src/shared/domain/imageFeatureApi.js';
+import { readImageDimensionsFromBuffer } from './imageDimensions.js';
 
 export interface ValidateImageTaskRequestForMainInput {
   request: ImageTaskRequest;
@@ -59,18 +60,9 @@ function resolveRegionImage(role: ImageInput['role'] | undefined, images: ImageI
 
 async function readImageDimensions(image: ImageInput) {
   const buffer = await readFile(image.path);
-  if (isPng(buffer)) {
-    return {
-      width: buffer.readUInt32BE(16),
-      height: buffer.readUInt32BE(20),
-    };
+  try {
+    return readImageDimensionsFromBuffer(buffer);
+  } catch {
+    throw new Error(`unsupported image format for bounds check: ${image.path}`);
   }
-
-  throw new Error(`unsupported image format for bounds check: ${image.path}`);
-}
-
-function isPng(buffer: Buffer) {
-  return buffer.length >= 24
-    && buffer.readUInt32BE(0) === 0x89504e47
-    && buffer.readUInt32BE(4) === 0x0d0a1a0a;
 }

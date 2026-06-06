@@ -1,6 +1,7 @@
 import React from 'react';
-import { Download } from 'lucide-react';
+import { FolderOpen } from 'lucide-react';
 import type { ResultItem } from '../shared/view/ui';
+import { UI } from '../shared/view/design';
 
 interface GenerationResultProps {
   mode: 'single' | 'multi';
@@ -10,13 +11,13 @@ interface GenerationResultProps {
   title?: string;
   count?: number;
   showCount?: boolean;
-  showDownloadAll?: boolean;
+  showOpenDirectory?: boolean;
   headerRight?: React.ReactNode;
 
   emptyDescription?: string;
 
-  onDownload?: (item: ResultItem) => void;
-  onDownloadAll?: () => void;
+  onOpenDirectory?: (item: ResultItem) => void;
+  onOpenDirectoryAll?: () => void;
 }
 
 export default function GenerationResult({
@@ -26,48 +27,47 @@ export default function GenerationResult({
   title = '生成结果',
   count,
   showCount = false,
-  showDownloadAll = false,
+  showOpenDirectory = false,
   headerRight,
   emptyDescription,
-  onDownload,
-  onDownloadAll,
+  onOpenDirectory,
+  onOpenDirectoryAll,
 }: GenerationResultProps) {
   const hasResults = state === 'completed' && results.length > 0;
 
   return (
     <div className="flex-1 flex flex-col">
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <h3 className="text-sm font-semibold text-white">
+          <h3 className="text-sm font-semibold text-foreground">
             {title}
             {count !== undefined && ` (${count})`}
           </h3>
           {showCount && hasResults && (
-            <p className="text-[11px] text-slate-500 font-sans">
+            <p className="text-[11px] text-muted-foreground font-sans">
               {results.length} / {results.length} completed
             </p>
           )}
         </div>
         <div className="flex items-center gap-2">
-          {showDownloadAll && hasResults && (
+          {(showOpenDirectory || onOpenDirectoryAll) && hasResults && onOpenDirectoryAll && (
             <button
-              onClick={onDownloadAll}
-              className="cursor-pointer text-[11px] bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-white font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+              type="button"
+              onClick={onOpenDirectoryAll}
+              className={`${UI.btnSecondary} py-1.5 px-3 text-[11px]`}
             >
-              <Download className="w-3.5 h-3.5 text-violet-400" />
-              Download All
+              <FolderOpen className="w-3.5 h-3.5" />
+              打开目录
             </button>
           )}
           {headerRight}
         </div>
       </div>
 
-      {/* Content */}
       {state === 'empty' ? (
-        <div className="flex-1 flex items-center justify-center min-h-[300px] bg-slate-950/10 rounded-xl border border-slate-900/40 p-6">
+        <div className="flex-1 flex items-center justify-center min-h-[300px] bg-white rounded-lg border border-border p-6">
           {emptyDescription && (
-            <p className="text-[11px] text-slate-500 max-w-md text-center leading-relaxed font-sans">
+            <p className="text-[11px] text-muted-foreground max-w-md text-center leading-relaxed font-sans">
               {emptyDescription}
             </p>
           )}
@@ -77,26 +77,28 @@ export default function GenerationResult({
           {results.map((item) => (
             <div
               key={item.id}
-              className="aspect-square bg-[#100f13] border border-slate-900 hover:border-slate-800 rounded-xl overflow-hidden shadow-inner flex items-center justify-center relative p-3 group"
+              className="aspect-square bg-white border border-border hover:border-slate-300 rounded-lg overflow-hidden flex items-center justify-center relative p-3 group"
             >
               <img
                 src={item.imageUrl}
-                className="max-w-full max-h-full object-contain rounded-lg"
+                className="max-w-full max-h-full object-contain rounded"
                 alt="Generated result"
               />
               {item.badge && (
                 <div className="absolute top-2 right-2">
-                  <span className="px-2 py-0.5 text-[10px] uppercase font-mono tracking-wide font-bold bg-[#10b981]/15 text-[#10b981] rounded-full border border-[#10b981]/25">
+                  <span className="ui-badge-success px-2 py-0.5">
                     {item.badge}
                   </span>
                 </div>
               )}
-              <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-950/80 p-1.5 rounded-lg border border-slate-800">
+              <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/95 p-1.5 rounded border border-border">
                 <button
-                  onClick={() => onDownload?.(item)}
-                  className="text-white hover:text-violet-400 cursor-pointer"
+                  type="button"
+                  onClick={() => onOpenDirectory?.(item)}
+                  className="text-muted-foreground hover:text-foreground cursor-pointer"
+                  title="打开目录"
                 >
-                  <Download className="w-3.5 h-3.5" />
+                  <FolderOpen className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
@@ -105,7 +107,7 @@ export default function GenerationResult({
       ) : (
         results.length > 0 && (
           <div className="flex-1 flex items-center justify-center">
-            <div className="w-full max-w-lg aspect-video rounded-xl bg-slate-950 border border-slate-900 overflow-hidden relative group animate-fadeIn">
+            <div className="w-full max-w-lg aspect-video rounded-lg bg-white border border-border overflow-hidden relative group">
               <img
                 src={results[0].imageUrl}
                 className="w-full h-full object-cover"
@@ -113,20 +115,22 @@ export default function GenerationResult({
               />
               {results[0].badge && (
                 <div className="absolute top-2 right-2">
-                  <span className="px-2.5 py-1 text-[10px] uppercase font-mono tracking-wide font-bold bg-[#10b981]/15 text-[#10b981] rounded-full border border-[#10b981]/25">
+                  <span className="ui-badge-success px-2.5 py-1">
                     {results[0].badge}
                   </span>
                 </div>
               )}
-              <div className="absolute bottom-3 left-3 right-3 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 p-2.5 rounded-lg border border-slate-800">
+              <div className="absolute bottom-3 left-3 right-3 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity bg-white/95 p-2.5 rounded border border-border">
                 {results[0].taskId && (
-                  <span className="text-[10px] text-slate-300 font-mono">{results[0].taskId}</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">{results[0].taskId}</span>
                 )}
                 <button
-                  onClick={() => onDownload?.(results[0])}
-                  className="text-white hover:text-violet-400 cursor-pointer"
+                  type="button"
+                  onClick={() => onOpenDirectory?.(results[0])}
+                  className="text-muted-foreground hover:text-foreground cursor-pointer"
+                  title="打开目录"
                 >
-                  <Download className="w-4 h-4" />
+                  <FolderOpen className="w-4 h-4" />
                 </button>
               </div>
             </div>

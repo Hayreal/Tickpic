@@ -16,8 +16,9 @@ import { buildImageInstructionSystemPrompt } from './imageInstructionPrompts.js'
 export interface ImageTaskRuntimeConfig {
   defaultModels: {
     generation: string;
+    vision: string;
   };
-  modelProtocols: Readonly<Record<string, ImageModelProtocol>>;
+  modelProtocol: ImageModelProtocol;
   defaultCount: number;
   maxCount: number;
 }
@@ -53,7 +54,15 @@ export function buildImageTaskPlan(
   const validated = validateImageTaskRequest(request);
   const definition = getImageFeatureDefinition(validated.feature);
   const executionModel = resolveExecutionModel(validated, definition.executionModel, config);
-  const visionModel = validated.modelOverrides?.vision ?? config.defaultModels.generation;
+  const visionModel = validated.modelOverrides?.vision
+    ?? config.defaultModels.vision
+    ?? config.defaultModels.generation;
+  if (!visionModel.trim()) {
+    throw new Error('vision model is not configured in settings');
+  }
+  if (!executionModel.trim()) {
+    throw new Error('generation model is not configured in settings');
+  }
   const count = validated.count ?? config.defaultCount;
   const normalizedAspectRatio = normalizeImageAspectRatio(validated.aspectRatio);
 
@@ -70,12 +79,12 @@ export function buildImageTaskPlan(
     instructionSystemPrompt: buildImageInstructionSystemPrompt(validated.feature),
     instructionStage: {
       model: visionModel,
-      protocol: resolveProtocol(visionModel, config),
+      protocol: config.modelProtocol,
     },
     executionStage: {
       kind: definition.executionModel,
       model: executionModel,
-      protocol: resolveProtocol(executionModel, config),
+      protocol: config.modelProtocol,
     },
     instructionImages: validated.images ?? [],
     executionImages: selectExecutionImages(validated),
@@ -95,15 +104,6 @@ function resolveExecutionModel(
   }
 
   return request.modelOverrides?.edit ?? config.defaultModels.generation;
-}
-
-function resolveProtocol(model: string, config: ImageTaskRuntimeConfig) {
-  const protocol = config.modelProtocols[model];
-  if (!protocol) {
-    throw new Error(`model ${model} is missing protocol mapping`);
-  }
-
-  return protocol;
 }
 
 function selectExecutionImages(request: ImageTaskRequest) {

@@ -3,6 +3,7 @@ import {
   createDefaultAppSettings,
   createRuntimeConfigFromSettings,
   redactAppSettings,
+  resolveModelProtocolFromSettings,
 } from '../settings';
 
 describe('settings domain', () => {
@@ -15,14 +16,8 @@ describe('settings domain', () => {
       baseUrl: 'https://api.n1n.ai',
       workspaceDir: '/tmp/tickpic-workspace',
       defaultModels: {
-        generation: 'gemini-2.5-flash-image',
-      },
-      modelProtocols: {
-        'gemini-3.1-flash-lite': 'gemini',
-        'gemini-2.5-flash-image': 'gemini',
-        'gemini-3.1-flash-image-preview': 'gemini',
-        'gpt-image-2': 'openai',
-        'gpt-5.4-mini': 'openai',
+        generation: '',
+        vision: '',
       },
       defaultCount: 1,
       maxCount: 8,
@@ -41,21 +36,38 @@ describe('settings domain', () => {
     expect(redacted.apiKeyPreview).toBe('sk-l...alue');
   });
 
+  it('derives model protocol from baseUrl when not explicitly configured', () => {
+    expect(resolveModelProtocolFromSettings({
+      baseUrl: 'https://api.n1n.ai',
+    })).toBe('openai');
+
+    expect(resolveModelProtocolFromSettings({
+      baseUrl: 'https://generativelanguage.googleapis.com',
+    })).toBe('gemini');
+
+    expect(resolveModelProtocolFromSettings({
+      baseUrl: 'https://api.n1n.ai',
+      modelProtocol: 'gemini',
+    })).toBe('gemini');
+  });
+
   it('converts settings into image task runtime config', () => {
     const runtimeConfig = createRuntimeConfigFromSettings({
       ...createDefaultAppSettings('/tmp/tickpic-workspace'),
+      defaultModels: {
+        generation: 'gpt-image-2-all',
+        vision: 'gpt-5.4-mini',
+      },
       defaultCount: 3,
       maxCount: 6,
     });
 
     expect(runtimeConfig).toEqual({
       defaultModels: {
-        generation: 'gemini-2.5-flash-image',
+        generation: 'gpt-image-2-all',
+        vision: 'gpt-5.4-mini',
       },
-      modelProtocols: expect.objectContaining({
-        'gemini-2.5-flash-image': 'gemini',
-        'gpt-image-2': 'openai',
-      }),
+      modelProtocol: 'openai',
       defaultCount: 3,
       maxCount: 6,
     });

@@ -21,13 +21,13 @@ afterEach(() => {
 describe('taskRepository', () => {
   it('creates an empty tasks file when none exists', () => {
     tmpFile = makeTmpFile();
-    const repo = createTaskRepository(tmpFile);
+    const repo = createTaskRepository(() => tmpFile);
     expect(repo.list()).toEqual([]);
   });
 
   it('persists tasks across reads', () => {
     tmpFile = makeTmpFile();
-    const repo = createTaskRepository(tmpFile);
+    const repo = createTaskRepository(() => tmpFile);
     repo.create({ taskId: 't1', name: 'first' });
     const tasks = repo.list() as Record<string, unknown>[];
     expect(tasks).toHaveLength(1);
@@ -36,7 +36,7 @@ describe('taskRepository', () => {
 
   it('updates an existing task by taskId', () => {
     tmpFile = makeTmpFile();
-    const repo = createTaskRepository(tmpFile);
+    const repo = createTaskRepository(() => tmpFile);
     repo.create({ taskId: 't1', name: 'original' });
     repo.update({ taskId: 't1', name: 'updated' });
     const tasks = repo.list() as Record<string, unknown>[];
@@ -46,7 +46,7 @@ describe('taskRepository', () => {
 
   it('appends when updating a non-existent taskId', () => {
     tmpFile = makeTmpFile();
-    const repo = createTaskRepository(tmpFile);
+    const repo = createTaskRepository(() => tmpFile);
     repo.create({ taskId: 't1', name: 'first' });
     repo.update({ taskId: 't2', name: 'second' });
     const tasks = repo.list() as Record<string, unknown>[];

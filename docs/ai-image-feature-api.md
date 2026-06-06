@@ -178,16 +178,16 @@ type ImageTaskResult = {
 
 | 功能 | feature | 主提示词 | 图片角色 | 可选参数 | 执行模型 |
 |---|---|---|---|---|---|
-| 贴纸复刻 | `sticker_replica` | 提取当前产品上面的贴纸 | `source`、`reference` | `prompt`、`regions`、`productName`、`logoText`、`colorScheme`、`aspectRatio` | edit |
-| 贴纸裂变 | `sticker_variation` | 参考当前图片中的贴纸设计，让它看起来像同系列的新款贴纸 | `source`、`reference` | `prompt`、`colorScheme`、`aspectRatio`、`count` | edit |
-| 贴纸原创 | `sticker_original` | 设计一张适合当前产品的原创 2D 平面贴纸 | `reference`、`style` | `prompt`、`productName`、`productCategory`、`sellingPoints`、`capacity`、`logoText`、`colorScheme`、`aspectRatio` | generation |
-| 去除产品 | `remove_product` | 去除图中的目标产品，并自然补全背景 | `source` | `prompt`、`regions` | edit |
-| 替换产品 | `replace_product` | 用目标产品替换原图中的产品，并保持场景自然贴合 | `source`、`product` | `prompt`、`regions`、`colorScheme` | edit |
-| 替换 Logo | `replace_logo` | 图1是原图，图2只参考 Logo 线稿，不参考背景和颜色。只替换图1中的品牌 Logo/品牌文字，保持原位置、透视、材质和光影自然贴合，不改包装、产品、背景或其他文字 | `source`、`logo` | `prompt`、`regions`、`logoText`、`colorScheme` | edit |
-| 主图素材裂变 | `main_image_asset_variation` | 参考当前主图设计，生成同类电商主图素材变化 | `source`、`reference` | `prompt`、`productName`、`sellingPoints`、`colorScheme`、`aspectRatio`、`count`、`showProduct` | edit |
-| 场景裂变 | `scene_variation` | 参考当前场景，生成同品类可用的新使用场景素材 | `source`、`reference` | `prompt`、`productCategory`、`colorScheme`、`showProduct`、`count` | edit |
-| 创作新场景图 | `create_new_scene` | 根据产品品类和卖点创作新的电商使用场景图 | `style` | `prompt`、`productCategory`、`sellingPoints`、`colorScheme`、`aspectRatio`、`showProduct` | generation |
-| 纯提示词主图/素材图 | `prompt_only_main_asset` | 根据用户提示词生成电商主图或素材图 | `source`、`reference`、`style`，仅一阶段使用 | `prompt`、`productName`、`sellingPoints`、`colorScheme`、`aspectRatio`、`count` | generation |
+| 贴纸复刻 | `sticker_replica` | 复刻参考图中贴纸的色系、风格、排版和视觉结构，输出独立 2D 平面贴纸图。不要求像素级复刻，重点是风格与排版相似。 | `source`、`reference` | `prompt`、`regions`、`productName`、`logoText`、`colorScheme`、`aspectRatio` | edit |
+| 贴纸裂变 | `sticker_variation` | 参考当前贴纸设计，生成同品类感的新款贴纸变体。可调整标题区、卖点区、图标区、背景纹理与色块比例，输出独立 2D 平面贴纸。 | `source`、`reference` | `prompt`、`colorScheme`、`aspectRatio`、`count` | edit |
+| 贴纸原创 | `sticker_original` | 设计一张适合当前产品的原创 2D 平面贴纸初稿，可贴到包装上。根据品类与产品信息补充合适的卖点与视觉风格。 | `reference`、`style` | `prompt`、`productName`、`productCategory`、`sellingPoints`、`capacity`、`logoText`、`colorScheme`、`aspectRatio` | generation |
+| 去除产品 | `remove_product` | 去除场景图中的目标产品，并自然补全背景。保留原场景的光影、透视与环境氛围，结果可作为后续替换或裂变素材。 | `source` | `prompt`、`regions` | edit |
+| 替换产品 | `replace_product` | 用目标产品替换场景图中的原产品，尽量保持原手持姿势、透视、大小比例与光影自然。除非明确要求对比展示，否则不保留新旧产品并存。 | `source`、`product` | `prompt`、`regions`、`colorScheme` | edit |
+| 替换 Logo | `replace_logo` | 只替换原图中明显的品牌 Logo 或品牌文字。目标 Logo 仅作标识参考，保持原位置、透视、材质与光影贴合，不改包装结构、产品形态、背景及其他文字。 | `source`、`logo` | `prompt`、`regions`、`logoText`、`colorScheme` | edit |
+| 主图素材裂变 | `main_image_asset_variation` | 参考当前主图，生成同类电商主图素材变体。支持不同风格、色系、构图及 Before/After 对比表达，默认不展示具体产品。 | `source`、`reference` | `prompt`、`productName`、`sellingPoints`、`colorScheme`、`aspectRatio`、`count`、`showProduct` | edit |
+| 场景裂变 | `scene_variation` | 参考当前场景，生成同品类可用的新使用场景素材。发散不同具体使用场景，而非仅改色或构图，默认不展示具体产品。 | `source`、`reference` | `prompt`、`productCategory`、`colorScheme`、`showProduct`、`count` | edit |
+| 创作新场景图 | `create_new_scene` | 根据产品品类与场景要求，创作新的电商使用场景图。自动发散多个真实生活场景，可含使用前后对比与细节图。 | `style` | `prompt`、`productCategory`、`sellingPoints`、`colorScheme`、`aspectRatio`、`showProduct` | generation |
+| 纯提示词主图/素材图 | `prompt_only_main_asset` | 根据用户描述完成电商主图或广告素材生成 | `source`、`reference`、`style`，仅一阶段使用 | `prompt`、`productName`、`sellingPoints`、`colorScheme`、`aspectRatio`、`count` | generation |
 
 说明：
 
@@ -196,6 +196,7 @@ type ImageTaskResult = {
 - 贴纸类功能必须输出独立 2D 平面贴纸，不输出瓶、罐、盒或包装 mockup。
 - 主图素材裂变和场景裂变默认不展示具体产品，除非 `showProduct: true` 或用户明确要求展示产品。
 - 纯提示词主图/素材图即使传入图片，也只用图片辅助生成图片执行指令，第二阶段仍是文本生成。
+- 纯提示词主图/素材图的 Renderer 提交时，`prompt` 会带固定前缀 `生成电商主图或广告素材：`，再接用户输入的主描述。
 
 ## 9. 图片执行指令生成
 

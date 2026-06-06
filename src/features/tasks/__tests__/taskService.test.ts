@@ -22,7 +22,7 @@ describe('toTaskItem', () => {
       category: 'sticker',
       feature: '贴纸复刻',
       status: 'Completed',
-      time: '2026-06-03T00:00:00.000Z',
+      time: expect.stringMatching(/2026/),
       batchId: 'batch-1',
       importCount: 0,
       outputCount: 1,

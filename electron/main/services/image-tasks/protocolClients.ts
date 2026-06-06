@@ -8,6 +8,9 @@ import type {
   ModelInstructionClientInput,
   ProtocolModelClient,
 } from './modelGateway.js';
+import { buildFallbackFinalPrompt, isImageGenerationModel } from './instructionPrompt.js';
+
+const MAX_VISION_IMAGE_BYTES = 4 * 1024 * 1024;
 
 type ImageResponseItem = {
   b64_json?: string;
@@ -20,38 +23,42 @@ type ImageResponseItem = {
 export function createOpenAIProtocolClient(openai: any): ProtocolModelClient {
   return {
     async generateInstruction(input) {
-      const content: unknown[] = [
+      if (isImageGenerationModel(input.model)) {
+        return buildFallbackFinalPrompt(input);
+      }
+
+      const content: Array<
+        | { type: 'text'; text: string }
+        | { type: 'image_url'; image_url: { url: string; detail: 'low' | 'auto' | 'high' } }
+      > = [
         {
-          type: 'input_text',
+          type: 'text',
           text: buildInstructionUserText(input),
         },
       ];
 
       for (const image of input.images) {
         content.push({
-          type: 'input_image',
-          image_url: await readImageAsDataUrl(image),
-          detail: 'auto',
+          type: 'image_url',
+          image_url: {
+            url: await readImageAsDataUrl(image),
+            detail: 'low',
+          },
         });
       }
 
-      const response = await openai.responses.create({
+      const response = await openai.chat.completions.create({
         model: input.model,
-        instructions: input.systemPrompt,
-        input: [
-          {
-            role: 'user',
-            content,
-          },
+        messages: [
+          { role: 'system', content: input.systemPrompt },
+          { role: 'user', content },
         ],
-        text: {
-          verbosity: 'low',
-        },
+        temperature: 0.2,
       }, {
         signal: input.abortSignal,
       });
 
-      const finalPrompt = String(response.output_text ?? '').trim();
+      const finalPrompt = String(response.choices[0]?.message?.content ?? '').trim();
       if (!finalPrompt) {
         throw new Error('image instruction model returned empty finalPrompt');
       }
@@ -96,6 +103,10 @@ export function createOpenAIProtocolClient(openai: any): ProtocolModelClient {
 export function createGeminiProtocolClient(gemini: any): ProtocolModelClient {
   return {
     async generateInstruction(input) {
+      if (isImageGenerationModel(input.model)) {
+        return buildFallbackFinalPrompt(input);
+      }
+
       const response = await gemini.models.generateContent({
         model: input.model,
         contents: [
@@ -151,6 +162,11 @@ function buildInstructionUserText(input: ModelInstructionClientInput) {
 
 async function readImageAsDataUrl(image: ImageInput) {
   const buffer = await readFile(image.path);
+  if (buffer.byteLength > MAX_VISION_IMAGE_BYTES) {
+    throw new Error(
+      `image ${image.path} is too large for vision API (${Math.round(buffer.byteLength / 1024 / 1024)}MB); use an image under 4MB`,
+    );
+  }
   return `data:${image.mimeType ?? inferMimeType(image.path)};base64,${buffer.toString('base64')}`;
 }
 

@@ -2,7 +2,14 @@ export type ActiveTab = 'sticker' | 'product' | 'settings' | 'profile';
 
 export type StickerSubTab = 'copy' | 'variation' | 'original';
 
-export type ProductSubTab = 'remove' | 'replace' | 'logo' | 'theme' | 'scene';
+export type ProductSubTab =
+  | 'remove'
+  | 'replace'
+  | 'logo'
+  | 'theme'
+  | 'sceneVariation'
+  | 'scene'
+  | 'promptAsset';
 
 export interface ResultItem {
   id: string;
