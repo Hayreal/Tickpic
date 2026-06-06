@@ -16,7 +16,7 @@ export function registerSettingsService(store: SettingsStore) {
     const settings = await store.load();
     const apiKey = settings.n1nApiKey.trim();
     if (!apiKey) {
-      throw new Error('API Key 未配置');
+      return { success: false, message: 'API Key 未配置' };
     }
 
     const isOpenAI = settings.baseUrl.includes('openai');
@@ -29,7 +29,7 @@ export function registerSettingsService(store: SettingsStore) {
     });
 
     if (!response.ok) {
-      throw new Error(`连接失败: ${response.status} ${response.statusText}`);
+      return { success: false, message: `连接失败: ${response.status} ${response.statusText}` };
     }
     return { success: true, message: '连接成功' };
   });
