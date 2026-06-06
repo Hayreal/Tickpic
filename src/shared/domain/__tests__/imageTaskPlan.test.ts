@@ -4,9 +4,7 @@ import { buildImageTaskPlan } from '../imageTaskPlan';
 describe('imageTaskPlan', () => {
   const config = {
     defaultModels: {
-      vision: 'gemini-3.1-flash-lite',
       generation: 'gemini-2.5-flash-image',
-      edit: 'gpt-image-2',
     },
     modelProtocols: {
       'gemini-3.1-flash-lite': 'gemini',
@@ -37,8 +35,8 @@ describe('imageTaskPlan', () => {
     });
     expect(plan.executionStage).toEqual({
       kind: 'edit',
-      model: 'gpt-image-2',
-      protocol: 'openai',
+      model: 'gemini-2.5-flash-image',
+      protocol: 'gemini',
     });
     expect(plan.executionImages).toEqual([
       { role: 'source', path: '/authorized/input/scene.png' },

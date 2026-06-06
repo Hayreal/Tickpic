@@ -15,9 +15,7 @@ describe('settings domain', () => {
       baseUrl: 'https://api.n1n.ai',
       workspaceDir: '/tmp/tickpic-workspace',
       defaultModels: {
-        vision: 'gemini-3.1-flash-lite',
         generation: 'gemini-2.5-flash-image',
-        edit: 'gemini-2.5-flash-image',
       },
       modelProtocols: {
         'gemini-3.1-flash-lite': 'gemini',
@@ -52,9 +50,7 @@ describe('settings domain', () => {
 
     expect(runtimeConfig).toEqual({
       defaultModels: {
-        vision: 'gemini-3.1-flash-lite',
         generation: 'gemini-2.5-flash-image',
-        edit: 'gemini-2.5-flash-image',
       },
       modelProtocols: expect.objectContaining({
         'gemini-2.5-flash-image': 'gemini',

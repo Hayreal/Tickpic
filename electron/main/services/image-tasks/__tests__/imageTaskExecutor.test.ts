@@ -6,9 +6,7 @@ import type { ImageTaskRuntimeConfig } from '../../../../../src/shared/domain/im
 describe('imageTaskExecutor', () => {
   const runtimeConfig: ImageTaskRuntimeConfig = {
     defaultModels: {
-      vision: 'gemini-3.1-flash-lite',
       generation: 'gemini-2.5-flash-image',
-      edit: 'gpt-image-2',
     },
     modelProtocols: {
       'gemini-3.1-flash-lite': 'gemini',
@@ -66,13 +64,13 @@ describe('imageTaskExecutor', () => {
     }), new AbortController().signal);
 
     expect(calls).toEqual([
-      'instruction:gemini-3.1-flash-lite:2',
-      'execute:gpt-image-2:2:Replace the source product with the target product and keep lighting natural.',
+      'instruction:gemini-2.5-flash-image:2',
+      'execute:gemini-2.5-flash-image:2:Replace the source product with the target product and keep lighting natural.',
       'save:task-1:Replace the source product with the target product and keep lighting natural.:1',
     ]);
     expect(result).toEqual({
-      model: 'gpt-image-2',
-      protocol: 'openai',
+      model: 'gemini-2.5-flash-image',
+      protocol: 'gemini',
       outputDir: '/outputs/task-1',
       images: ['/outputs/task-1/result-1.png'],
       requestJsonPath: '/outputs/task-1/request.json',
