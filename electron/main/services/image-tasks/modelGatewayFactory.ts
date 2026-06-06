@@ -13,6 +13,9 @@ export function createModelGatewayFromSettings(settings: AppSettings) {
     throw new Error('n1n API Key is not configured');
   }
 
+  console.log('[ModelGateway] Using baseUrl:', settings.baseUrl);
+  console.log('[ModelGateway] API Key configured:', !!apiKey);
+
   return createProtocolModelGateway({
     openai: createOpenAIProtocolClient(new OpenAI({
       apiKey,
