@@ -1,6 +1,8 @@
 import type { ImageModelProtocol } from './imageFeatureApi.js';
 import type { ImageTaskRuntimeConfig } from './imageTaskPlan.js';
 
+export const KEEP_EXISTING_API_KEY = '__KEEP_EXISTING__' as const;
+
 export interface ImageStageModelSettings {
   generation: string;
 }

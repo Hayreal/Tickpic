@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { AppSettings, RendererAppSettings } from '../../../../src/shared/domain/settings.js';
 import {
+  KEEP_EXISTING_API_KEY,
   createDefaultAppSettings,
   redactAppSettings,
 } from '../../../../src/shared/domain/settings.js';
@@ -53,7 +54,7 @@ export function createFileSettingsStore(settingsFile: string, defaultWorkspaceDi
       const current = await this.load();
       const merged = {
         ...settings,
-        n1nApiKey: settings.n1nApiKey === '__KEEP_EXISTING__'
+        n1nApiKey: settings.n1nApiKey === KEEP_EXISTING_API_KEY
           ? current.n1nApiKey
           : settings.n1nApiKey,
       };
