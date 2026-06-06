@@ -46,22 +46,21 @@ Tickpic 是一个面向电商场景的 Electron 桌面客户端，用于 AI 作�
 # 安装依赖
 pnpm install
 
-# 终端 1：启动 Renderer 开发服务器（默认 http://127.0.0.1:3000）
-pnpm dev
-
-# 终端 2：编译 Electron 并启动桌面壳
-pnpm dev:electron
+# 构建并启动桌面应用
+pnpm desktop
 ```
 
 首次使用前，在应用内打开 **设置**，配置 API Base URL、API Key、视觉模型、出图模型和工作目录，并执行连接测试。
+
+需要热更新的前端开发时，可开两个终端分别运行 `pnpm dev` 与 `pnpm dev:electron`。
 
 ## 常用命令
 
 | 命令 | 说明 |
 |------|------|
-| `pnpm dev` | 启动 Vite 开发服务器 |
+| `pnpm desktop` | 构建 Renderer + Electron 并启动桌面应用（推荐） |
+| `pnpm dev` | 启动 Vite 开发服务器（配合 `dev:electron` 热更新开发） |
 | `pnpm dev:electron` | 编译 Electron 并以开发模式启动 |
-| `pnpm desktop` | 构建 Renderer + Electron 后启动生产模式 |
 | `pnpm build` | 构建 Renderer |
 | `pnpm build:electron` | 编译 Main Process 与 Preload |
 | `pnpm dist:win` | 打包 Windows NSIS 安装包（输出到 `release/`） |
