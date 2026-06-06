@@ -24,6 +24,9 @@ describe('desktopClient', () => {
         save: async () => {
           throw new Error('not used');
         },
+        testConnection: async () => {
+          throw new Error('not used');
+        },
       },
       imageTask: {
         submit: async (request) => {
@@ -98,6 +101,10 @@ describe('desktopClient', () => {
         },
         save: async (settings) => {
           calls.push(`settings:save:${settings.baseUrl}`);
+        },
+        testConnection: async () => {
+          calls.push('settings:testConnection');
+          return { success: true, message: '连接成功' };
         },
       },
       imageTask: {

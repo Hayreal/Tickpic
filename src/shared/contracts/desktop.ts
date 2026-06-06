@@ -20,6 +20,7 @@ export const IPC_CHANNELS = {
   settings: {
     get: 'settings:get',
     save: 'settings:save',
+    testConnection: 'settings:test-connection',
   },
   imageTask: {
     submit: 'image-task:submit',
@@ -52,6 +53,7 @@ export interface ImageTaskBridgeApi {
 export interface SettingsBridgeApi {
   get(): Promise<RendererAppSettings>;
   save(settings: AppSettings): Promise<void>;
+  testConnection(): Promise<{ success: boolean; message: string }>;
 }
 
 export interface DesktopBridgeApi {

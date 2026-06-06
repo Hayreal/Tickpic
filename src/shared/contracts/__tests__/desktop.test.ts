@@ -16,6 +16,7 @@ describe('desktop contract', () => {
       settings: {
         get: 'settings:get',
         save: 'settings:save',
+        testConnection: 'settings:test-connection',
       },
       imageTask: {
         submit: 'image-task:submit',
