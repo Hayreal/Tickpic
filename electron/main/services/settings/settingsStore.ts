@@ -75,15 +75,16 @@ function validateSettings(settings: AppSettings): AppSettings {
   if (!settings.workspaceDir.trim()) {
     throw new Error('workspaceDir is required');
   }
-  if (!settings.defaultModels.vision.trim()) {
-    throw new Error('defaultModels.vision is required');
-  }
+  // TODO(Task 2): restore vision/edit validation when type is expanded
+  // if (!settings.defaultModels.vision.trim()) {
+  //   throw new Error('defaultModels.vision is required');
+  // }
   if (!settings.defaultModels.generation.trim()) {
     throw new Error('defaultModels.generation is required');
   }
-  if (!settings.defaultModels.edit.trim()) {
-    throw new Error('defaultModels.edit is required');
-  }
+  // if (!settings.defaultModels.edit.trim()) {
+  //   throw new Error('defaultModels.edit is required');
+  // }
   if (!Number.isInteger(settings.defaultCount) || settings.defaultCount <= 0) {
     throw new Error('defaultCount must be a positive integer');
   }

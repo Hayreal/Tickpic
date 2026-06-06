@@ -49,9 +49,10 @@ export default function Settings() {
       setBaseUrl(settings.baseUrl);
       setHasApiKey(settings.hasApiKey);
       setApiKeyPreview(settings.apiKeyPreview ?? '');
-      setVisionModel(settings.defaultModels.vision);
+      // TODO(Task 4): restore vision/edit model fields when type is expanded
+      // setVisionModel(settings.defaultModels.vision);
       setGenerationModel(settings.defaultModels.generation);
-      setEditModel(settings.defaultModels.edit);
+      // setEditModel(settings.defaultModels.edit);
       setWorkspaceDir(settings.workspaceDir);
       setDefaultCount(settings.defaultCount);
       setMaxCount(settings.maxCount);
@@ -74,9 +75,10 @@ export default function Settings() {
       baseUrl,
       workspaceDir,
       defaultModels: {
-        vision: visionModel,
+        // TODO(Task 4): restore vision/edit model fields when type is expanded
+        // vision: visionModel,
         generation: generationModel,
-        edit: editModel,
+        // edit: editModel,
       },
       modelProtocols,
       defaultCount,

@@ -154,34 +154,31 @@ function buildSettings(workspaceDir: string): AppSettings {
     ?? process.env.OPENAI_BASE_URL
     ?? settings.baseUrl;
   const imageModel = process.env.IMAGE_MODEL?.trim();
-  const visionModel = process.env.VISION_MODEL?.trim() ?? settings.defaultModels.vision;
+  // TODO: restore vision/edit model fields when type is expanded
+  // const visionModel = process.env.VISION_MODEL?.trim() ?? settings.defaultModels.vision;
   const generationModel = process.env.GENERATION_MODEL?.trim()
     ?? imageModel
     ?? settings.defaultModels.generation;
-  const editModel = process.env.EDIT_MODEL?.trim()
-    ?? imageModel
-    ?? settings.defaultModels.edit;
+  // const editModel = process.env.EDIT_MODEL?.trim()
+  //   ?? imageModel
+  //   ?? settings.defaultModels.edit;
 
   return {
     ...settings,
     n1nApiKey: apiKey,
     baseUrl,
     defaultModels: {
-      vision: visionModel,
       generation: generationModel,
-      edit: editModel,
     },
     modelProtocols: applyEnvModelProtocols(settings.modelProtocols, {
-      vision: visionModel,
       generation: generationModel,
-      edit: editModel,
     }),
   };
 }
 
 function applyEnvModelProtocols(
   defaults: Record<string, ImageModelProtocol>,
-  models: { vision: string; generation: string; edit: string },
+  models: { generation: string },
 ): Record<string, ImageModelProtocol> {
   const protocol = process.env.MODEL_PROTOCOL?.trim();
   if (protocol !== 'openai' && protocol !== 'gemini') {
