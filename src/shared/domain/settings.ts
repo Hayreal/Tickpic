@@ -2,9 +2,7 @@ import type { ImageModelProtocol } from './imageFeatureApi.js';
 import type { ImageTaskRuntimeConfig } from './imageTaskPlan.js';
 
 export interface ImageStageModelSettings {
-  vision: string;
   generation: string;
-  edit: string;
 }
 
 export interface AppSettings {
@@ -31,9 +29,7 @@ export function createDefaultAppSettings(workspaceDir: string): AppSettings {
     baseUrl: 'https://api.n1n.ai',
     workspaceDir,
     defaultModels: {
-      vision: 'gemini-3.1-flash-lite',
       generation: 'gemini-2.5-flash-image',
-      edit: 'gemini-2.5-flash-image',
     },
     modelProtocols: {
       'gemini-3.1-flash-lite': 'gemini',
