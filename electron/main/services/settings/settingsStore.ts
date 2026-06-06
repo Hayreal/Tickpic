@@ -50,7 +50,14 @@ export function createFileSettingsStore(settingsFile: string, defaultWorkspaceDi
     },
 
     async save(settings) {
-      const validated = validateSettings(settings);
+      const current = await this.load();
+      const merged = {
+        ...settings,
+        n1nApiKey: settings.n1nApiKey === '__KEEP_EXISTING__'
+          ? current.n1nApiKey
+          : settings.n1nApiKey,
+      };
+      const validated = validateSettings(merged);
       await mkdir(path.dirname(settingsFile), { recursive: true });
       const payload: StoredSettingsPayload = {
         ...validated,
@@ -75,16 +82,9 @@ function validateSettings(settings: AppSettings): AppSettings {
   if (!settings.workspaceDir.trim()) {
     throw new Error('workspaceDir is required');
   }
-  // TODO(Task 2): restore vision/edit validation when type is expanded
-  // if (!settings.defaultModels.vision.trim()) {
-  //   throw new Error('defaultModels.vision is required');
-  // }
   if (!settings.defaultModels.generation.trim()) {
     throw new Error('defaultModels.generation is required');
   }
-  // if (!settings.defaultModels.edit.trim()) {
-  //   throw new Error('defaultModels.edit is required');
-  // }
   if (!Number.isInteger(settings.defaultCount) || settings.defaultCount <= 0) {
     throw new Error('defaultCount must be a positive integer');
   }

@@ -64,4 +64,66 @@ describe('settingsStore', () => {
       baseUrl: 'not a url',
     })).rejects.toThrow('baseUrl must be a valid URL');
   });
+
+  it('preserves existing API key when __KEEP_EXISTING__ sentinel is used', async () => {
+    const store = createFileSettingsStore(settingsFile, tempDir);
+    const initialSettings = {
+      ...createDefaultAppSettings(tempDir),
+      n1nApiKey: 'sk-live-original-key',
+    };
+
+    await store.save(initialSettings);
+
+    const updatedSettings = {
+      ...createDefaultAppSettings(tempDir),
+      n1nApiKey: '__KEEP_EXISTING__',
+      defaultCount: 5,
+    };
+
+    await store.save(updatedSettings);
+
+    const loaded = await store.load();
+    expect(loaded.n1nApiKey).toBe('sk-live-original-key');
+    expect(loaded.defaultCount).toBe(5);
+  });
+
+  it('overwrites API key when new value is provided', async () => {
+    const store = createFileSettingsStore(settingsFile, tempDir);
+    const initialSettings = {
+      ...createDefaultAppSettings(tempDir),
+      n1nApiKey: 'sk-live-old-key',
+    };
+
+    await store.save(initialSettings);
+
+    const updatedSettings = {
+      ...createDefaultAppSettings(tempDir),
+      n1nApiKey: 'sk-live-new-key',
+    };
+
+    await store.save(updatedSettings);
+
+    const loaded = await store.load();
+    expect(loaded.n1nApiKey).toBe('sk-live-new-key');
+  });
+
+  it('saves empty API key when explicitly provided', async () => {
+    const store = createFileSettingsStore(settingsFile, tempDir);
+    const initialSettings = {
+      ...createDefaultAppSettings(tempDir),
+      n1nApiKey: 'sk-live-original-key',
+    };
+
+    await store.save(initialSettings);
+
+    const updatedSettings = {
+      ...createDefaultAppSettings(tempDir),
+      n1nApiKey: '',
+    };
+
+    await store.save(updatedSettings);
+
+    const loaded = await store.load();
+    expect(loaded.n1nApiKey).toBe('');
+  });
 });
