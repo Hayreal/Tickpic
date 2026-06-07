@@ -51,6 +51,13 @@ export function sanitizeForLog(value: unknown): unknown {
       };
       continue;
     }
+    if (
+      (key === 'b64_json' || key === 'base64' || key === 'image_base64')
+      && typeof nestedValue === 'string'
+    ) {
+      sanitized[key] = `[base64 redacted, length=${nestedValue.length}]`;
+      continue;
+    }
     sanitized[key] = sanitizeForLog(nestedValue);
   }
 

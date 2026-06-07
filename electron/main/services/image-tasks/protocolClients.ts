@@ -13,7 +13,7 @@ import {
   buildInstructionUserText,
   isImageGenerationModel,
 } from './instructionPrompt.js';
-import { logModelRequest } from './modelRequestLogger.js';
+import { logModelRequest, logModelResponse } from './modelRequestLogger.js';
 import {
   buildGeminiGenerateContentUrl,
   buildOpenAIChatCompletionsUrl,
@@ -100,6 +100,13 @@ export function createOpenAIProtocolClient(
       });
 
       const finalPrompt = String(response.choices[0]?.message?.content ?? '').trim();
+      logModelResponse('instruction', {
+        protocol: 'openai',
+        url: buildOpenAIChatCompletionsUrl(options.baseUrl),
+        model: input.model,
+        finalPrompt,
+        response,
+      });
       if (!finalPrompt) {
         throw new Error('image instruction model returned empty finalPrompt');
       }
@@ -167,8 +174,24 @@ export function createOpenAIProtocolClient(
           signal: input.abortSignal,
         });
 
+      const images = await extractOpenAIImages(response);
+      logModelResponse('execution', {
+        protocol: 'openai',
+        url: input.images.length > 0
+          ? buildOpenAIImagesEditUrl(options.baseUrl)
+          : buildOpenAIImagesGenerateUrl(options.baseUrl),
+        model: input.model,
+        imageCount: images.length,
+        images: images.map((image) => ({
+          fileName: image.fileName,
+          mimeType: image.mimeType,
+          byteLength: image.buffer.byteLength,
+        })),
+        response,
+      });
+
       return {
-        images: await extractOpenAIImages(response),
+        images,
         warnings: [],
       };
     },
@@ -226,6 +249,13 @@ export function createGeminiProtocolClient(
       });
 
       const finalPrompt = extractGeminiText(response).trim();
+      logModelResponse('instruction', {
+        protocol: 'gemini',
+        url: buildGeminiGenerateContentUrl(options.baseUrl, input.model),
+        model: input.model,
+        finalPrompt,
+        response,
+      });
       if (!finalPrompt) {
         throw new Error('image instruction model returned empty finalPrompt');
       }
@@ -265,7 +295,22 @@ export function createGeminiProtocolClient(
         abortSignal: input.abortSignal,
       });
 
-      return extractGeminiExecutionResult(response);
+      const result = extractGeminiExecutionResult(response);
+      logModelResponse('execution', {
+        protocol: 'gemini',
+        url: buildGeminiGenerateContentUrl(options.baseUrl, input.model),
+        model: input.model,
+        imageCount: result.images.length,
+        textNotes: result.textNotes,
+        images: result.images.map((image) => ({
+          fileName: image.fileName,
+          mimeType: image.mimeType,
+          byteLength: image.buffer.byteLength,
+        })),
+        response,
+      });
+
+      return result;
     },
   };
 }

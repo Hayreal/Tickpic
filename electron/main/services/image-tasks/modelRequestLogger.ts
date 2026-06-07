@@ -4,23 +4,9 @@ import { sanitizeForLog } from '../logger/sanitizeLog.js';
 type LogStage = 'instruction' | 'execution';
 
 export function logModelRequest(stage: LogStage, payload: unknown) {
-  const url = extractRequestUrl(payload);
-  const logger = getAppLogger();
-
-  if (url) {
-    logger.info('model', `模型请求 (${stage})`, { url });
-  } else {
-    logger.info('model', `模型请求 (${stage})`, sanitizeForLog(payload));
-  }
+  getAppLogger().info('model', `模型请求 (${stage})`, sanitizeForLog(payload));
 }
 
-function extractRequestUrl(payload: unknown) {
-  if (!isRecord(payload) || typeof payload.url !== 'string') {
-    return undefined;
-  }
-  return payload.url;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+export function logModelResponse(stage: LogStage, payload: unknown) {
+  getAppLogger().info('model', `模型响应 (${stage})`, sanitizeForLog(payload));
 }
