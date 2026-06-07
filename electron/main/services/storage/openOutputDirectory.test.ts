@@ -20,10 +20,11 @@ describe('openOutputDirectory', () => {
       fs.rmSync(tempDir, { recursive: true, force: true });
       tempDir = '';
     }
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('opens an explicit output directory', async () => {
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tickpic-open-output-'));
     const outputDir = path.join(tempDir, 'outputs', '20260606', 'task-1');
     fs.mkdirSync(outputDir, { recursive: true });
@@ -32,9 +33,11 @@ describe('openOutputDirectory', () => {
 
     expect(result.openedDir).toBe(outputDir);
     expect(shell.openPath).toHaveBeenCalledWith(outputDir);
+    platformSpy.mockRestore();
   });
 
   it('opens the parent directory of authorized image paths', async () => {
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tickpic-open-output-'));
     const outputDir = path.join(tempDir, 'outputs', '20260606', 'task-2');
     fs.mkdirSync(outputDir, { recursive: true });
@@ -45,6 +48,7 @@ describe('openOutputDirectory', () => {
 
     expect(result.openedDir).toBe(outputDir);
     expect(shell.openPath).toHaveBeenCalledWith(outputDir);
+    platformSpy.mockRestore();
   });
 
   it('rejects directories outside authorized roots', async () => {
@@ -55,5 +59,18 @@ describe('openOutputDirectory', () => {
     await expect(
       openOutputDirectory({ outputDir: outsideDir }, [path.join(tempDir, 'allowed')]),
     ).rejects.toThrow('file path is outside authorized roots');
+  });
+
+  it('rejects missing directories before opening in file manager', async () => {
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tickpic-open-output-'));
+    const missingDir = path.join(tempDir, 'missing-output');
+
+    await expect(
+      openOutputDirectory({ outputDir: missingDir }, [tempDir]),
+    ).rejects.toThrow('目录不存在');
+
+    expect(shell.openPath).not.toHaveBeenCalled();
+    platformSpy.mockRestore();
   });
 });

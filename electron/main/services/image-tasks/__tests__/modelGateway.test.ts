@@ -7,7 +7,10 @@ describe('modelGateway', () => {
   it('routes instruction and execution stages to clients by configured protocol', async () => {
     const openai = {
       generateInstruction: vi.fn().mockResolvedValue('openai instruction'),
-      executeImage: vi.fn().mockResolvedValue({ images: [], warnings: ['openai image'] }),
+      executeImage: vi.fn().mockResolvedValue({
+        images: [{ fileName: 'result-1.png', buffer: new Uint8Array([1]), mimeType: 'image/png' }],
+        warnings: ['openai image'],
+      }),
     };
     const gemini = {
       generateInstruction: vi.fn().mockResolvedValue('gemini instruction'),
@@ -22,7 +25,8 @@ describe('modelGateway', () => {
     const result = await gateway.executeImage({ task, plan, finalPrompt, abortSignal });
 
     expect(finalPrompt).toBe('gemini instruction');
-    expect(result.warnings).toEqual(['openai image']);
+    expect(result.warnings).toEqual(['openai image', 'openai image']);
+    expect(result.images).toHaveLength(2);
     expect(gemini.generateInstruction).toHaveBeenCalledWith({
       task,
       plan,
@@ -31,13 +35,14 @@ describe('modelGateway', () => {
       systemPrompt: plan.instructionSystemPrompt,
       abortSignal,
     });
+    expect(openai.executeImage).toHaveBeenCalledTimes(2);
     expect(openai.executeImage).toHaveBeenCalledWith({
       task,
       plan,
       model: 'gpt-image-2',
       finalPrompt: 'gemini instruction',
       images: plan.executionImages,
-      count: 2,
+      count: 1,
       aspectRatio: '4:3',
       size: '1536x1024',
       abortSignal,

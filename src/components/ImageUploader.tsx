@@ -1,7 +1,7 @@
-import React, { useRef, useCallback, useState } from 'react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { Upload, X, Layers, ZoomIn } from 'lucide-react';
 import type { ImportBatch, StoredImageRecord } from '../shared/domain/images';
-import { collectImportFiles } from '../lib/importBatch';
+import { collectImportFiles, extractClipboardImageFiles } from '../lib/importBatch';
 import { useDesktopClient } from '../hooks/useDesktopClient';
 import { UI } from '../shared/view/design';
 import { Label } from '@/src/components/ui/label';
@@ -42,6 +42,8 @@ export default function ImageUploader({
   optional = false,
 }: ImageUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadZoneRef = useRef<HTMLDivElement>(null);
+  const isHoveringUploadZoneRef = useRef(false);
   const desktopClient = useDesktopClient();
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -113,6 +115,35 @@ export default function ImageUploader({
     [batch, buildBatch, mergeBatches, onBatchChange, desktopClient, page, feature],
   );
 
+  const handlePaste = useCallback((event: ClipboardEvent | React.ClipboardEvent<HTMLDivElement>) => {
+    const files = extractClipboardImageFiles(event.clipboardData);
+    if (files.length === 0) {
+      return;
+    }
+
+    event.preventDefault();
+    void processFiles(files);
+  }, [processFiles]);
+
+  useEffect(() => {
+    const handleWindowPaste = (event: ClipboardEvent) => {
+      const uploadZone = uploadZoneRef.current;
+      if (!uploadZone) {
+        return;
+      }
+
+      const isFocused = document.activeElement === uploadZone;
+      if (!isHoveringUploadZoneRef.current && !isFocused) {
+        return;
+      }
+
+      handlePaste(event);
+    };
+
+    window.addEventListener('paste', handleWindowPaste);
+    return () => window.removeEventListener('paste', handleWindowPaste);
+  }, [handlePaste]);
+
   const imageCount = batch?.images.length ?? 0;
   const canAddMore = imageCount < MAX_IMPORT_IMAGES;
 
@@ -130,25 +161,31 @@ export default function ImageUploader({
 
       {canAddMore && (
         <div
+          ref={uploadZoneRef}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();
             const files = Array.from(e.dataTransfer.files);
             if (files.length > 0) processFiles(files);
           }}
-          onPaste={(e) => {
-            const files = Array.from(e.clipboardData.items as DataTransferItemList)
-              .filter((item: DataTransferItem) => item.type.startsWith('image/'))
-              .map((item: DataTransferItem) => item.getAsFile())
-              .filter((f): f is File => f !== null);
-            if (files.length > 0) {
-              e.preventDefault();
-              processFiles(files);
-            }
+          onMouseEnter={() => {
+            isHoveringUploadZoneRef.current = true;
+            uploadZoneRef.current?.focus({ preventScroll: true });
+          }}
+          onMouseLeave={() => {
+            isHoveringUploadZoneRef.current = false;
+          }}
+          onFocus={() => {
+            isHoveringUploadZoneRef.current = true;
+          }}
+          onBlur={() => {
+            isHoveringUploadZoneRef.current = false;
           }}
           onClick={() => fileInputRef.current?.click()}
           tabIndex={0}
-          className={cn(UI.uploadZone, 'group')}
+          role="button"
+          aria-label={placeholder}
+          className={cn(UI.uploadZone, 'group outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2')}
         >
           <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
             const files = Array.from(e.target.files ?? []);

@@ -8,7 +8,11 @@ import type {
   ModelInstructionClientInput,
   ProtocolModelClient,
 } from './modelGateway.js';
-import { buildFallbackFinalPrompt, isImageGenerationModel } from './instructionPrompt.js';
+import {
+  buildFallbackFinalPrompt,
+  buildInstructionUserText,
+  isImageGenerationModel,
+} from './instructionPrompt.js';
 
 const MAX_VISION_IMAGE_BYTES = 4 * 1024 * 1024;
 
@@ -149,15 +153,6 @@ export function createGeminiProtocolClient(gemini: any): ProtocolModelClient {
       return extractGeminiExecutionResult(response);
     },
   };
-}
-
-function buildInstructionUserText(input: ModelInstructionClientInput) {
-  return [
-    `feature: ${input.task.feature}`,
-    `mainPrompt: ${input.plan.mainPrompt}`,
-    `request: ${JSON.stringify(input.task.request)}`,
-    'Return only the final image instruction text.',
-  ].join('\n');
 }
 
 async function readImageAsDataUrl(image: ImageInput) {

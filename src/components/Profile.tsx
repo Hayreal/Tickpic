@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   RefreshCw,
   Search,
@@ -12,12 +12,16 @@ import {
 } from 'lucide-react';
 import type { TaskRecord } from '../shared/domain/tasks';
 import { toTaskItem } from '../features/tasks/taskMappers';
+import { sortTasksByUpdatedAtDesc } from '../features/tasks/sortTasks';
 import { useOpenOutputDirectory } from '../hooks/useOpenOutputDirectory';
+import TaskDetailDrawer from './TaskDetailDrawer';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Badge } from '@/src/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { cn } from '@/src/lib/utils';
+
+const ITEMS_PER_PAGE = 10;
 
 interface ProfileProps {
   tasks: TaskRecord[];
@@ -30,7 +34,45 @@ export default function Profile({ tasks, onRefresh }: ProfileProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [openingTaskId, setOpeningTaskId] = useState<string | null>(null);
-  const { openTaskOutputDirectory } = useOpenOutputDirectory();
+  const [selectedTask, setSelectedTask] = useState<TaskRecord | null>(null);
+  const openDirectoryRequestRef = useRef(0);
+  const { openTaskOutputDirectory, resetOpenOutputDirectory } = useOpenOutputDirectory();
+
+  const clearOpeningDirectoryState = useCallback(() => {
+    openDirectoryRequestRef.current += 1;
+    resetOpenOutputDirectory();
+    setOpeningTaskId(null);
+  }, [resetOpenOutputDirectory]);
+
+  const handleSelectTask = useCallback((task: TaskRecord) => {
+    clearOpeningDirectoryState();
+    setSelectedTask(task);
+  }, [clearOpeningDirectoryState]);
+
+  const handleCloseDrawer = useCallback(() => {
+    clearOpeningDirectoryState();
+    setSelectedTask(null);
+  }, [clearOpeningDirectoryState]);
+
+  const handleOpenTaskDirectory = useCallback(async (task: TaskRecord) => {
+    const requestId = openDirectoryRequestRef.current + 1;
+    openDirectoryRequestRef.current = requestId;
+    setOpeningTaskId(task.taskId);
+
+    try {
+      await openTaskOutputDirectory(task);
+    } catch (err) {
+      if (openDirectoryRequestRef.current !== requestId) {
+        return;
+      }
+      const message = err instanceof Error ? err.message : '打开目录失败';
+      alert(message);
+    } finally {
+      if (openDirectoryRequestRef.current === requestId) {
+        setOpeningTaskId(null);
+      }
+    }
+  }, [openTaskOutputDirectory]);
 
   const handleRefreshClick = () => {
     setIsRefreshing(true);
@@ -38,32 +80,32 @@ export default function Profile({ tasks, onRefresh }: ProfileProps) {
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
-  const filteredTasks = tasks.filter((task) => {
-    const item = toTaskItem(task);
-    const matchesSearch =
-      item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.batchId || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredTasks = useMemo(() => {
+    const sorted = sortTasksByUpdatedAtDesc(tasks);
+    return sorted.filter((task) => {
+      const item = toTaskItem(task);
+      const matchesSearch =
+        item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.batchId || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [tasks, searchQuery, statusFilter]);
 
-  const itemsPerPage = 4;
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedTasks = filteredTasks.slice(startIndex, startIndex + itemsPerPage);
-  const totalPages = Math.ceil(filteredTasks.length / itemsPerPage);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
 
-  const handleOpenTaskDirectory = async (task: TaskRecord) => {
-    setOpeningTaskId(task.taskId);
-    try {
-      await openTaskOutputDirectory(task);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '打开目录失败';
-      alert(message);
-    } finally {
-      setOpeningTaskId(null);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedTasks = filteredTasks.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredTasks.length / ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
     }
-  };
+  }, [currentPage, totalPages]);
 
   const statusBadge = (status: TaskRecord['status']) => {
     switch (status) {
@@ -171,9 +213,17 @@ export default function Profile({ tasks, onRefresh }: ProfileProps) {
                     const item = toTaskItem(task);
                     const canOpenDirectory = task.status === 'Completed' && task.outputs.length > 0;
                     const isOpening = openingTaskId === task.taskId;
+                    const isSelected = selectedTask?.taskId === task.taskId;
 
                     return (
-                      <tr key={task.taskId} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                      <tr
+                        key={task.taskId}
+                        className={cn(
+                          'border-b last:border-0 transition-colors cursor-pointer',
+                          isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/30',
+                        )}
+                        onClick={() => handleSelectTask(task)}
+                      >
                         <td className="py-3 px-4 font-mono text-xs text-muted-foreground">{item.id}</td>
                         <td className="py-3 px-4 text-sm font-medium">{item.feature}</td>
                         <td className="py-3 px-4 font-mono text-xs text-muted-foreground">
@@ -191,7 +241,10 @@ export default function Profile({ tasks, onRefresh }: ProfileProps) {
                             size="sm"
                             className="h-8 gap-1 text-xs"
                             disabled={!canOpenDirectory || isOpening}
-                            onClick={() => handleOpenTaskDirectory(task)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleOpenTaskDirectory(task);
+                            }}
                           >
                             <FolderOpen className={cn('h-3 w-3', isOpening && 'animate-pulse')} />
                             {isOpening ? '打开中' : '打开目录'}
@@ -214,8 +267,8 @@ export default function Profile({ tasks, onRefresh }: ProfileProps) {
 
         <div className="flex items-center justify-between border-t px-4 py-3 bg-muted/20" id="tasks-table-footer">
           <span className="text-xs text-muted-foreground">
-            显示 {Math.min(startIndex + 1, filteredTasks.length)}-
-            {Math.min(startIndex + itemsPerPage, filteredTasks.length)} / {filteredTasks.length}
+            显示 {filteredTasks.length === 0 ? 0 : Math.min(startIndex + 1, filteredTasks.length)}-
+            {Math.min(startIndex + ITEMS_PER_PAGE, filteredTasks.length)} / {filteredTasks.length}
           </span>
           <div className="flex items-center gap-1" id="profile-pagination">
             <Button
@@ -256,6 +309,13 @@ export default function Profile({ tasks, onRefresh }: ProfileProps) {
           </div>
         </div>
       </Card>
+
+      <TaskDetailDrawer
+        task={selectedTask}
+        onClose={handleCloseDrawer}
+        onOpenDirectory={handleOpenTaskDirectory}
+        isOpeningDirectory={selectedTask ? openingTaskId === selectedTask.taskId : false}
+      />
     </div>
   );
 }

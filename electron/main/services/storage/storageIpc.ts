@@ -36,7 +36,11 @@ export function registerOpenOutputDirectoryIpc(resolveAuthorizedRoots: RootsReso
     outputDir?: string;
     filePaths?: string[];
   }) => {
-    const authorizedRoots = await Promise.resolve(resolveAuthorizedRoots());
-    return openOutputDirectory(payload, authorizedRoots);
+    try {
+      const authorizedRoots = await Promise.resolve(resolveAuthorizedRoots());
+      return await openOutputDirectory(payload, authorizedRoots);
+    } catch (error) {
+      throw error instanceof Error ? error : new Error(String(error));
+    }
   });
 }

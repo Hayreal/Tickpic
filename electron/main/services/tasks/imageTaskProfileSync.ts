@@ -51,6 +51,10 @@ export function imageTaskRecordToTaskRecord(task: ImageTaskRecord): TaskRecord {
     status: mapImageTaskStatus(task.status),
     imports,
     outputs: task.images.map(toStoredImageRecord),
+    request: task.request,
+    outputDir: task.outputDir,
+    warnings: task.warnings,
+    error: task.error,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
   };
