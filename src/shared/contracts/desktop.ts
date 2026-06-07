@@ -5,6 +5,7 @@ import type {
   ImageTaskRequest,
   ImageTaskSubmitResult,
 } from '../domain/imageFeatureApi.js';
+import type { AppLogEntry } from '../domain/appLog.js';
 import type { AppSettings, RendererAppSettings } from '../domain/settings.js';
 
 export const IPC_CHANNELS = {
@@ -29,6 +30,10 @@ export const IPC_CHANNELS = {
     cancel: 'image-task:cancel',
     get: 'image-task:get',
     status: 'image-task:status',
+  },
+  appLog: {
+    list: 'app-log:list',
+    entry: 'app-log:entry',
   },
 } as const;
 
@@ -68,6 +73,11 @@ export interface SettingsBridgeApi {
   pickWorkspaceDir(): Promise<string | null>;
 }
 
+export interface AppLogBridgeApi {
+  list(): Promise<AppLogEntry[]>;
+  onEntry(listener: (entry: AppLogEntry) => void): () => void;
+}
+
 export interface DesktopBridgeApi {
   platform: string;
   saveImportBatch(request: SaveImportBatchRequest): Promise<ImportBatch>;
@@ -78,4 +88,5 @@ export interface DesktopBridgeApi {
   listTasks(): Promise<TaskRecord[]>;
   settings: SettingsBridgeApi;
   imageTask: ImageTaskBridgeApi;
+  logs: AppLogBridgeApi;
 }

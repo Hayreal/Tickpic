@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { X, FolderOpen } from 'lucide-react';
+import { X, FolderOpen, RotateCcw } from 'lucide-react';
 import type { ImageRole, ImageTaskRequest, RegionInput } from '../shared/domain/imageFeatureApi';
 import type { TaskRecord } from '../shared/domain/tasks';
 import type { StoredImageRecord } from '../shared/domain/images';
@@ -14,6 +14,7 @@ interface TaskDetailDrawerProps {
   task: TaskRecord | null;
   onClose: () => void;
   onOpenDirectory?: (task: TaskRecord) => void;
+  onRestoreTask?: (task: TaskRecord) => void;
   isOpeningDirectory?: boolean;
 }
 
@@ -133,6 +134,7 @@ export default function TaskDetailDrawer({
   task,
   onClose,
   onOpenDirectory,
+  onRestoreTask,
   isOpeningDirectory = false,
 }: TaskDetailDrawerProps) {
   useEffect(() => {
@@ -255,7 +257,20 @@ export default function TaskDetailDrawer({
           ) : null}
         </div>
 
-        <div className="border-t px-5 py-4">
+        <div className="border-t px-5 py-4 space-y-2">
+          <Button
+            variant="default"
+            className="w-full gap-2"
+            disabled={!task.request?.feature}
+            onClick={(event) => {
+              event.stopPropagation();
+              onRestoreTask?.(task);
+              onClose();
+            }}
+          >
+            <RotateCcw className="h-4 w-4" />
+            还原到功能页
+          </Button>
           <Button
             variant="outline"
             className="w-full gap-2"

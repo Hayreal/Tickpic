@@ -54,5 +54,15 @@ export function createDesktopClient(bridge: DesktopBridgeApi | undefined) {
         return bridge.imageTask.onStatus(listener);
       },
     },
+    logs: {
+      list: () => {
+        if (!bridge) return Promise.resolve([]);
+        return bridge.logs.list();
+      },
+      onEntry: (listener) => {
+        if (!bridge) return () => undefined;
+        return bridge.logs.onEntry(listener);
+      },
+    },
   };
 }

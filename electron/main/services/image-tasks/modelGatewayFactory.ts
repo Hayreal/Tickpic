@@ -16,17 +16,19 @@ export function createModelGatewayFromSettings(settings: AppSettings) {
   console.log('[ModelGateway] Using baseUrl:', settings.baseUrl);
   console.log('[ModelGateway] API Key configured:', !!apiKey);
 
+  const clientOptions = { baseUrl: settings.baseUrl };
+
   return createProtocolModelGateway({
     openai: createOpenAIProtocolClient(new OpenAI({
       apiKey,
       baseURL: normalizeOpenAIBaseUrl(settings.baseUrl),
-    })),
+    }), clientOptions),
     gemini: createGeminiProtocolClient(new GoogleGenAI({
       apiKey,
       httpOptions: {
         baseUrl: normalizeGeminiBaseUrl(settings.baseUrl),
       },
-    })),
+    }), clientOptions),
   });
 }
 

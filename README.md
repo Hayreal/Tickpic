@@ -52,7 +52,6 @@ pnpm desktop
 
 首次使用前，在应用内打开 **设置**，配置 API Base URL、API Key、视觉模型、出图模型和工作目录，并执行连接测试。
 
-需要热更新的前端开发时，可开两个终端分别运行 `pnpm dev` 与 `pnpm dev:electron`。
 
 ## 常用命令
 

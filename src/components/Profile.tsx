@@ -9,11 +9,16 @@ import {
   Clock,
   FolderOpen,
   Filter,
+  RotateCcw,
+  ScrollText,
 } from 'lucide-react';
 import type { TaskRecord } from '../shared/domain/tasks';
+import type { AppLogEntry, AppLogLevel } from '../shared/domain/appLog';
 import { toTaskItem } from '../features/tasks/taskMappers';
 import { sortTasksByUpdatedAtDesc } from '../features/tasks/sortTasks';
 import { useOpenOutputDirectory } from '../hooks/useOpenOutputDirectory';
+import { useAppLogs } from '../hooks/useAppLogs';
+import { useDesktopClient } from '../hooks/useDesktopClient';
 import TaskDetailDrawer from './TaskDetailDrawer';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
@@ -23,12 +28,44 @@ import { cn } from '@/src/lib/utils';
 
 const ITEMS_PER_PAGE = 10;
 
+const LOG_SOURCE_LABELS: Record<AppLogEntry['source'], string> = {
+  app: '应用',
+  task: '任务',
+  'image-task': '作图',
+  settings: '设置',
+  storage: '存储',
+  model: '模型',
+};
+
+function formatLogTime(timestamp: string) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return timestamp;
+  }
+  return date.toLocaleTimeString('zh-CN', { hour12: false });
+}
+
+function logLevelClass(level: AppLogLevel) {
+  switch (level) {
+    case 'error':
+      return 'text-red-600';
+    case 'warn':
+      return 'text-amber-600';
+    default:
+      return 'text-muted-foreground';
+  }
+}
+
 interface ProfileProps {
   tasks: TaskRecord[];
   onRefresh: () => void;
+  onRestoreTask: (task: TaskRecord) => void;
 }
 
-export default function Profile({ tasks, onRefresh }: ProfileProps) {
+export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProps) {
+  const desktop = useDesktopClient();
+  const { logs, isLoading: isLoadingLogs, refresh: refreshLogs } = useAppLogs(desktop);
+  const logsEndRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Running' | 'Completed' | 'Failed'>('All');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -77,8 +114,15 @@ export default function Profile({ tasks, onRefresh }: ProfileProps) {
   const handleRefreshClick = () => {
     setIsRefreshing(true);
     onRefresh();
+    void refreshLogs();
     setTimeout(() => setIsRefreshing(false), 1000);
   };
+
+  useEffect(() => {
+    if (typeof logsEndRef.current?.scrollIntoView === 'function') {
+      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs]);
 
   const filteredTasks = useMemo(() => {
     const sorted = sortTasksByUpdatedAtDesc(tasks);
@@ -127,7 +171,7 @@ export default function Profile({ tasks, onRefresh }: ProfileProps) {
       <div className="mb-6 flex items-center justify-between" id="profile-header">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">个人中心</h2>
-          <p className="text-sm text-muted-foreground mt-1">任务管理与运行状态</p>
+          <p className="text-sm text-muted-foreground mt-1">任务管理与应用进程日志</p>
         </div>
         <Button id="refresh-profile-tasks" variant="outline" size="sm" onClick={handleRefreshClick}>
           <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
@@ -135,31 +179,54 @@ export default function Profile({ tasks, onRefresh }: ProfileProps) {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" id="profile-dashboard-metrics">
-        <Card id="metric-total-tasks">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">总任务数</CardTitle>
-            <Badge variant="secondary">{tasks.length}</Badge>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-primary">{tasks.length}</div>
-            <p className="text-xs text-emerald-600 mt-1">↗ 本周 +12%</p>
-          </CardContent>
-        </Card>
-
-        <Card id="metric-running-tasks">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">运行中</CardTitle>
-            <RefreshCw className="h-4 w-4 text-primary animate-spin" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-primary">
-              {tasks.filter((t) => t.status === 'Running').length}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">消耗约 1.2 积分/分钟</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="mb-6" id="profile-app-logs">
+        <CardHeader className="flex flex-row items-center justify-between pb-3 border-b">
+          <div className="flex items-center gap-2">
+            <ScrollText className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-base">应用进程日志</CardTitle>
+          </div>
+          <Badge variant="secondary">{logs.length} 条</Badge>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div
+            className="h-56 overflow-y-auto bg-muted/20 font-mono text-xs leading-relaxed"
+            id="profile-app-logs-viewport"
+          >
+            {isLoadingLogs && logs.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-muted-foreground">
+                正在加载日志...
+              </div>
+            ) : logs.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-muted-foreground">
+                暂无应用日志
+              </div>
+            ) : (
+              <div className="divide-y divide-border/60">
+                {logs.map((entry) => (
+                  <div key={entry.id} className="px-4 py-2 hover:bg-muted/40">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-muted-foreground">{formatLogTime(entry.timestamp)}</span>
+                      <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
+                        {LOG_SOURCE_LABELS[entry.source]}
+                      </Badge>
+                      <span className={cn('uppercase font-semibold', logLevelClass(entry.level))}>
+                        {entry.level}
+                      </span>
+                      <span className="text-foreground">{entry.message}</span>
+                    </div>
+                    {entry.details ? (
+                      <pre className="mt-1 whitespace-pre-wrap break-all text-[11px] text-muted-foreground pl-0">
+                        {entry.details}
+                      </pre>
+                    ) : null}
+                  </div>
+                ))}
+                <div ref={logsEndRef} />
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card id="tasks-table-container">
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b">
@@ -235,20 +302,36 @@ export default function Profile({ tasks, onRefresh }: ProfileProps) {
                         <td className="py-3 px-4">{statusBadge(task.status)}</td>
                         <td className="py-3 px-4 text-sm text-muted-foreground">{item.time}</td>
                         <td className="py-3 px-4 text-right">
-                          <Button
-                            id={`open-task-${task.taskId}`}
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 gap-1 text-xs"
-                            disabled={!canOpenDirectory || isOpening}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void handleOpenTaskDirectory(task);
-                            }}
-                          >
-                            <FolderOpen className={cn('h-3 w-3', isOpening && 'animate-pulse')} />
-                            {isOpening ? '打开中' : '打开目录'}
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              id={`restore-task-${task.taskId}`}
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1 text-xs"
+                              disabled={!task.request?.feature}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onRestoreTask(task);
+                              }}
+                            >
+                              <RotateCcw className="h-3 w-3" />
+                              还原
+                            </Button>
+                            <Button
+                              id={`open-task-${task.taskId}`}
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1 text-xs"
+                              disabled={!canOpenDirectory || isOpening}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void handleOpenTaskDirectory(task);
+                              }}
+                            >
+                              <FolderOpen className={cn('h-3 w-3', isOpening && 'animate-pulse')} />
+                              {isOpening ? '打开中' : '打开目录'}
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -314,6 +397,7 @@ export default function Profile({ tasks, onRefresh }: ProfileProps) {
         task={selectedTask}
         onClose={handleCloseDrawer}
         onOpenDirectory={handleOpenTaskDirectory}
+        onRestoreTask={onRestoreTask}
         isOpeningDirectory={selectedTask ? openingTaskId === selectedTask.taskId : false}
       />
     </div>

@@ -52,6 +52,10 @@ function createMockBridge(): DesktopBridgeApi {
         return () => listeners.delete(listener);
       },
     },
+    logs: {
+      list: async () => [],
+      onEntry: () => () => undefined,
+    },
   };
 }
 
@@ -72,8 +76,9 @@ describe('useImageTask', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.activeTask?.status).toBe('running');
+      expect(result.current.getTask('sticker_replica')?.status).toBe('running');
     });
+    expect(result.current.getTask('sticker_variation')).toBeNull();
     expect(result.current.isSubmitting).toBe(false);
   });
 
@@ -96,7 +101,7 @@ describe('useImageTask', () => {
     expect(thrown).toBeInstanceOf(Error);
     expect((thrown as Error).message).toContain('图片尚未保存到本地');
     await waitFor(() => {
-      expect(result.current.error).toContain('图片尚未保存到本地');
+      expect(result.current.getError('sticker_replica')).toContain('图片尚未保存到本地');
     });
     expect(result.current.isSubmitting).toBe(false);
   });

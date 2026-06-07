@@ -29,6 +29,18 @@ const desktopShell: DesktopBridgeApi = {
       };
     },
   },
+  logs: {
+    list: () => ipcRenderer.invoke(IPC_CHANNELS.appLog.list),
+    onEntry: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, entry: Parameters<typeof listener>[0]) => {
+        listener(entry);
+      };
+      ipcRenderer.on(IPC_CHANNELS.appLog.entry, handler);
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.appLog.entry, handler);
+      };
+    },
+  },
 };
 
 contextBridge.exposeInMainWorld('desktopShell', desktopShell);

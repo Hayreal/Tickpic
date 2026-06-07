@@ -155,6 +155,67 @@ describe('imageTaskController', () => {
     });
   });
 
+  it('emits progressive image updates while a task is running', async () => {
+    const release = createDeferred<void>();
+    const controller = createImageTaskController({
+      execute: async (_task, _signal, onProgress) => {
+        onProgress?.({
+          images: ['/outputs/task/result-1.png'],
+          progress: { completed: 1, total: 4 },
+        });
+        await release.promise;
+        return {
+          model: 'gemini-2.5-flash-image',
+          protocol: 'gemini',
+          outputDir: '/outputs/task',
+          images: ['/outputs/task/result-1.png', '/outputs/task/result-2.png'],
+          progress: { completed: 2, total: 4 },
+          requestJsonPath: '/outputs/task/request.json',
+          imageInstructionPath: '/outputs/task/image-instruction.txt',
+          outputJsonPath: '/outputs/task/result-1.json',
+          warnings: [],
+        };
+      },
+    });
+
+    const snapshots: string[] = [];
+    controller.onStatus((task) => {
+      if (task.status === 'running') {
+        snapshots.push(`${task.images.length}:${task.progress?.completed ?? 0}`);
+      }
+    });
+
+    const submitted = controller.submit({
+      feature: 'sticker_variation',
+      images: [{ role: 'source', path: '/authorized/input/sticker.png' }],
+      count: 4,
+    });
+
+    await waitFor(() => snapshots.length > 0);
+    expect(snapshots).toContain('1:1');
+
+    release.resolve();
+    await waitFor(() => controller.get(submitted.taskId)?.status === 'completed');
+  });
+
+  it('marks queued and running tasks failed on shutdown', () => {
+    const controller = createImageTaskController();
+    const submitted = controller.submit({
+      feature: 'sticker_original',
+      productCategory: 'lens cleaner',
+    });
+
+    controller.failAllActive('应用关闭，任务已终止');
+
+    expect(controller.get(submitted.taskId)).toMatchObject({
+      status: 'failed',
+      error: {
+        code: 'app_shutdown',
+        message: '应用关闭，任务已终止',
+      },
+    });
+  });
+
   it('aborts a running task when canceled', async () => {
     let aborted = false;
     const controller = createImageTaskController({

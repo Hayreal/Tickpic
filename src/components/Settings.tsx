@@ -31,7 +31,7 @@ export default function Settings() {
   const [generationModel, setGenerationModel] = useState('');
   const [visionModel, setVisionModel] = useState('');
   const [workspaceDir, setWorkspaceDir] = useState('');
-  const [defaultCount, setDefaultCount] = useState(4);
+  const [defaultCount, setDefaultCount] = useState(1);
   const [maxCount, setMaxCount] = useState(8);
   const [maxConcurrentTasks, setMaxConcurrentTasks] = useState(5);
 

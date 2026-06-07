@@ -56,6 +56,10 @@ describe('desktopClient', () => {
         },
         onStatus: () => () => undefined,
       },
+      logs: {
+        list: async () => [],
+        onEntry: () => () => undefined,
+      },
     };
 
     const client = createDesktopClient(bridge);
@@ -117,6 +121,10 @@ describe('desktopClient', () => {
         cancel: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['imageTask']['cancel'],
         get: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['imageTask']['get'],
         onStatus: () => () => undefined,
+      },
+      logs: {
+        list: async () => [],
+        onEntry: () => () => undefined,
       },
     };
 

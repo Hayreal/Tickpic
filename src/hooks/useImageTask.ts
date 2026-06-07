@@ -1,33 +1,61 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import type { ImageTaskRequest, ImageTaskSubmitResult, ImageTaskRecord } from '../shared/domain/imageFeatureApi';
+import { useState, useEffect, useRef, useCallback, type Dispatch, type SetStateAction } from 'react';
+import type {
+  ImageFeature,
+  ImageTaskRequest,
+  ImageTaskSubmitResult,
+  ImageTaskRecord,
+} from '../shared/domain/imageFeatureApi';
 import { useDesktopClient } from './useDesktopClient';
+
+type TaskMap = Partial<Record<ImageFeature, ImageTaskRecord>>;
+type ErrorMap = Partial<Record<ImageFeature, string>>;
 
 export interface UseImageTaskReturn {
   submit: (request: ImageTaskRequest) => Promise<ImageTaskSubmitResult>;
-  activeTask: ImageTaskRecord | null;
+  bindTask: (taskId: string, feature: ImageFeature) => Promise<void>;
+  restoreTask: (task: ImageTaskRecord) => void;
+  getTask: (feature: ImageFeature) => ImageTaskRecord | null;
+  getError: (feature: ImageFeature) => string | null;
   isSubmitting: boolean;
-  error: string | null;
-  reset: () => void;
+  reset: (feature?: ImageFeature) => void;
 }
 
 function applyTaskUpdate(
   task: ImageTaskRecord,
-  setActiveTask: (task: ImageTaskRecord) => void,
-  setError: (value: string | null) => void,
+  setTasksByFeature: Dispatch<SetStateAction<TaskMap>>,
+  setErrorsByFeature: Dispatch<SetStateAction<ErrorMap>>,
 ) {
-  setActiveTask(task);
+  setTasksByFeature((current) => ({
+    ...current,
+    [task.feature]: task,
+  }));
 
   if (task.status === 'failed' && task.error) {
-    setError(task.error.message);
+    setErrorsByFeature((current) => ({
+      ...current,
+      [task.feature]: task.error!.message,
+    }));
+    return;
+  }
+
+  if (task.status === 'completed' || task.status === 'canceled') {
+    setErrorsByFeature((current) => {
+      if (!current[task.feature]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[task.feature];
+      return next;
+    });
   }
 }
 
 export function useImageTask(): UseImageTaskReturn {
   const desktopClient = useDesktopClient();
-  const [activeTask, setActiveTask] = useState<ImageTaskRecord | null>(null);
+  const [tasksByFeature, setTasksByFeature] = useState<TaskMap>({});
+  const [errorsByFeature, setErrorsByFeature] = useState<ErrorMap>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const currentTaskIdRef = useRef<string | null>(null);
+  const trackedTaskIdsRef = useRef<Set<string>>(new Set());
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -42,9 +70,9 @@ export function useImageTask(): UseImageTaskReturn {
 
     const unsubscribe = desktopClient.imageTask.onStatus((task: ImageTaskRecord) => {
       if (!mountedRef.current) return;
-      if (task.taskId !== currentTaskIdRef.current) return;
+      if (!trackedTaskIdsRef.current.has(task.taskId)) return;
 
-      applyTaskUpdate(task, setActiveTask, setError);
+      applyTaskUpdate(task, setTasksByFeature, setErrorsByFeature);
     });
 
     return () => {
@@ -52,14 +80,47 @@ export function useImageTask(): UseImageTaskReturn {
     };
   }, [desktopClient]);
 
+  const trackTask = useCallback((task: ImageTaskRecord) => {
+    trackedTaskIdsRef.current.add(task.taskId);
+    applyTaskUpdate(task, setTasksByFeature, setErrorsByFeature);
+  }, []);
+
+  const bindTask = useCallback(async (taskId: string, feature: ImageFeature) => {
+    if (!desktopClient) {
+      return;
+    }
+
+    trackedTaskIdsRef.current.add(taskId);
+    const task = await desktopClient.imageTask.get(taskId);
+    if (!mountedRef.current || !task) {
+      return;
+    }
+
+    if (task.feature !== feature) {
+      return;
+    }
+
+    trackTask(task);
+  }, [desktopClient, trackTask]);
+
+  const restoreTask = useCallback((task: ImageTaskRecord) => {
+    trackTask(task);
+  }, [trackTask]);
+
   const submit = useCallback(async (request: ImageTaskRequest): Promise<ImageTaskSubmitResult> => {
     if (!desktopClient) {
       throw new Error('Desktop bridge unavailable');
     }
 
-    setError(null);
+    setErrorsByFeature((current) => {
+      if (!current[request.feature]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[request.feature];
+      return next;
+    });
     setIsSubmitting(true);
-    currentTaskIdRef.current = null;
 
     try {
       if (request.images?.some((image) => image.path.startsWith('blob:'))) {
@@ -67,32 +128,55 @@ export function useImageTask(): UseImageTaskReturn {
       }
 
       const result = await desktopClient.imageTask.submit(request);
-      currentTaskIdRef.current = result.taskId;
+      trackedTaskIdsRef.current.add(result.taskId);
 
       const task = await desktopClient.imageTask.get(result.taskId);
-      if (mountedRef.current && task && task.taskId === currentTaskIdRef.current) {
-        applyTaskUpdate(task, setActiveTask, setError);
+      if (mountedRef.current && task) {
+        trackTask(task);
       }
 
       return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Task submission failed';
-      setError(message);
-      currentTaskIdRef.current = null;
+      setErrorsByFeature((current) => ({
+        ...current,
+        [request.feature]: message,
+      }));
       throw err;
     } finally {
       if (mountedRef.current) {
         setIsSubmitting(false);
       }
     }
-  }, [desktopClient]);
+  }, [desktopClient, trackTask]);
 
-  const reset = useCallback(() => {
-    setActiveTask(null);
-    setIsSubmitting(false);
-    setError(null);
-    currentTaskIdRef.current = null;
+  const getTask = useCallback((feature: ImageFeature) => tasksByFeature[feature] ?? null, [tasksByFeature]);
+
+  const getError = useCallback((feature: ImageFeature) => errorsByFeature[feature] ?? null, [errorsByFeature]);
+
+  const reset = useCallback((feature?: ImageFeature) => {
+    if (!feature) {
+      setTasksByFeature({});
+      setErrorsByFeature({});
+      trackedTaskIdsRef.current.clear();
+      setIsSubmitting(false);
+      return;
+    }
+
+    setTasksByFeature((current) => {
+      const next = { ...current };
+      delete next[feature];
+      return next;
+    });
+    setErrorsByFeature((current) => {
+      if (!current[feature]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[feature];
+      return next;
+    });
   }, []);
 
-  return { submit, activeTask, isSubmitting, error, reset };
+  return { submit, bindTask, restoreTask, getTask, getError, isSubmitting, reset };
 }

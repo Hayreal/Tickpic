@@ -40,7 +40,7 @@ export function createProtocolModelGateway(clients: ProtocolModelClients): Image
       });
     },
 
-    async executeImage(input) {
+    async executeSingleImage(input) {
       const client = resolveClient(clients, input.plan.executionStage.protocol);
       const executionInput: ModelExecutionClientInput = {
         ...input,
@@ -51,12 +51,21 @@ export function createProtocolModelGateway(clients: ProtocolModelClients): Image
         size: input.plan.openaiImageSize,
       };
 
+      const result = await client.executeImage(executionInput);
+      if (result.images.length === 0) {
+        throw new Error('image model returned no usable image output');
+      }
+
+      return result;
+    },
+
+    async executeImage(input) {
       const images: ImageExecutionModelResult['images'] = [];
       const textNotes: string[] = [];
       const warnings: string[] = [];
 
       for (let index = 0; index < input.plan.count; index += 1) {
-        const result = await client.executeImage(executionInput);
+        const result = await this.executeSingleImage(input);
         images.push(...result.images);
         if (result.textNotes?.length) {
           textNotes.push(...result.textNotes);
@@ -64,10 +73,6 @@ export function createProtocolModelGateway(clients: ProtocolModelClients): Image
         if (result.warnings?.length) {
           warnings.push(...result.warnings);
         }
-      }
-
-      if (images.length === 0) {
-        throw new Error('image model returned no usable image output');
       }
 
       return {

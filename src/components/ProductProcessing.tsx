@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   RefreshCw,
   Sparkles,
@@ -12,6 +12,24 @@ import ImageUploader from './ImageUploader';
 import RegionSelector from './RegionSelector';
 import { UI } from '../shared/view/design';
 import GenerationResult from './GenerationResult';
+import AspectRatioSelect, { DEFAULT_IMAGE_ASPECT_RATIO } from './AspectRatioSelect';
+import type { ImageAspectRatioValue } from '../shared/view/imageAspectRatioOptions';
+import type { TaskRecord } from '../shared/domain/tasks';
+import { getFeatureRoute } from '../shared/view/featureRoutes';
+import { applyProductRestore } from '../features/tasks/applyProductRestore';
+import {
+  formatTaskProgress,
+  getTaskProgress,
+  hasPartialOrCompleteResults,
+  isTaskInProgress,
+} from '../features/tasks/taskProgress';
+import { imageTaskRecordFromTaskRecord } from '../features/tasks/taskRestoreHelpers';
+import { useDesktopClient } from '../hooks/useDesktopClient';
+
+interface ProductProcessingProps {
+  restoredTask?: TaskRecord | null;
+  onRestoreConsumed?: () => void;
+}
 
 const FEATURE_MAP: Record<ProductSubTab, ImageFeature> = {
   remove: 'remove_product',
@@ -57,9 +75,13 @@ function ShowProductToggle({
   );
 }
 
-export default function ProductProcessing() {
+export default function ProductProcessing({ restoredTask, onRestoreConsumed }: ProductProcessingProps) {
   const [subTab, setSubTab] = useState<ProductSubTab>('remove');
-  const { submit, activeTask, isSubmitting, error, reset } = useImageTask();
+  const desktopClient = useDesktopClient();
+  const { submit, bindTask, restoreTask, getTask, getError, isSubmitting } = useImageTask();
+  const currentFeature = FEATURE_MAP[subTab];
+  const activeTask = getTask(currentFeature);
+  const error = getError(currentFeature);
   const { openActiveTaskDirectory } = useOpenOutputDirectory();
 
   const handleOpenOutputDirectory = async () => {
@@ -77,12 +99,14 @@ export default function ProductProcessing() {
   const [removeBatch, setRemoveBatch] = useState<ImportBatch | null>(null);
   const [removeDesc, setRemoveDesc] = useState('');
   const [removeRegion, setRemoveRegion] = useState<RegionInput | null>(null);
+  const [removeAspectRatio, setRemoveAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
 
   // TAB 2: REPLACE PRODUCT state
   const [replaceSceneBatch, setReplaceSceneBatch] = useState<ImportBatch | null>(null);
   const [replaceProductBatch, setReplaceProductBatch] = useState<ImportBatch | null>(null);
   const [replaceDesc, setReplaceDesc] = useState('');
   const [replaceRegion, setReplaceRegion] = useState<RegionInput | null>(null);
+  const [replaceAspectRatio, setReplaceAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
 
   // TAB 3: REPLACE LOGO state
   const [logoSourceBatch, setLogoSourceBatch] = useState<ImportBatch | null>(null);
@@ -90,13 +114,14 @@ export default function ProductProcessing() {
   const [logoDesc, setLogoDesc] = useState('');
   const [logoText, setLogoText] = useState('');
   const [logoRegion, setLogoRegion] = useState<RegionInput | null>(null);
+  const [logoAspectRatio, setLogoAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
 
   // TAB 4: THEME VARIATION state
   const [themeRefBatch, setThemeRefBatch] = useState<ImportBatch | null>(null);
   const [themePrompt, setThemePrompt] = useState('');
   const [themeSellingPoints, setThemeSellingPoints] = useState('');
   const [themeColorScheme, setThemeColorScheme] = useState('');
-  const [themeAspectRatio, setThemeAspectRatio] = useState<'9:16' | '4:3' | '1:1'>('4:3');
+  const [themeAspectRatio, setThemeAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
   const [themeShowProduct, setThemeShowProduct] = useState(false);
   const [themeCount, setThemeCount] = useState<number>(4);
 
@@ -107,7 +132,8 @@ export default function ProductProcessing() {
   const [sceneVariationSellingPoints, setSceneVariationSellingPoints] = useState('');
   const [sceneVariationColorScheme, setSceneVariationColorScheme] = useState('');
   const [sceneVariationShowProduct, setSceneVariationShowProduct] = useState(false);
-  const [sceneVariationCount, setSceneVariationCount] = useState<number>(3);
+  const [sceneVariationAspectRatio, setSceneVariationAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
+  const [sceneVariationCount, setSceneVariationCount] = useState<number>(1);
 
   // TAB 6: CREATE NEW SCENE state
   const [sceneDesc, setSceneDesc] = useState('');
@@ -115,9 +141,9 @@ export default function ProductProcessing() {
   const [sceneSellingPoints, setSceneSellingPoints] = useState('');
   const [sceneColorScheme, setSceneColorScheme] = useState('');
   const [sceneShowProduct, setSceneShowProduct] = useState(true);
-  const [sceneAspectRatio, setSceneAspectRatio] = useState<'9:16' | '4:3' | '1:1'>('4:3');
+  const [sceneAspectRatio, setSceneAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
   const [sceneRefBatch, setSceneRefBatch] = useState<ImportBatch | null>(null);
-  const [sceneCount, setSceneCount] = useState<number>(2);
+  const [sceneCount, setSceneCount] = useState<number>(4);
 
   // TAB 7: PROMPT-ONLY MAIN ASSET state
   const [promptAssetBatch, setPromptAssetBatch] = useState<ImportBatch | null>(null);
@@ -125,8 +151,97 @@ export default function ProductProcessing() {
   const [promptAssetProductName, setPromptAssetProductName] = useState('');
   const [promptAssetSellingPoints, setPromptAssetSellingPoints] = useState('');
   const [promptAssetColorScheme, setPromptAssetColorScheme] = useState('');
-  const [promptAssetAspectRatio, setPromptAssetAspectRatio] = useState<'9:16' | '4:3' | '1:1'>('4:3');
-  const [promptAssetCount, setPromptAssetCount] = useState<number>(1);
+  const [promptAssetAspectRatio, setPromptAssetAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
+  const [promptAssetCount, setPromptAssetCount] = useState<number>(4);
+
+  useEffect(() => {
+    if (!restoredTask?.request?.feature) {
+      return;
+    }
+
+    const route = getFeatureRoute(restoredTask.request.feature);
+    if (route.tab !== 'product') {
+      return;
+    }
+
+    const restored = applyProductRestore(restoredTask);
+    if (!restored) {
+      return;
+    }
+
+    setSubTab(restored.subTab);
+    setRemoveBatch(restored.removeBatch);
+    setRemoveDesc(restored.removeDesc);
+    setRemoveRegion(restored.removeRegion);
+    setRemoveAspectRatio(restored.removeAspectRatio);
+    setReplaceSceneBatch(restored.replaceSceneBatch);
+    setReplaceProductBatch(restored.replaceProductBatch);
+    setReplaceDesc(restored.replaceDesc);
+    setReplaceRegion(restored.replaceRegion);
+    setReplaceAspectRatio(restored.replaceAspectRatio);
+    setLogoSourceBatch(restored.logoSourceBatch);
+    setLogoTargetBatch(restored.logoTargetBatch);
+    setLogoDesc(restored.logoDesc);
+    setLogoText(restored.logoText);
+    setLogoRegion(restored.logoRegion);
+    setLogoAspectRatio(restored.logoAspectRatio);
+    setThemeRefBatch(restored.themeRefBatch);
+    setThemePrompt(restored.themePrompt);
+    setThemeSellingPoints(restored.themeSellingPoints);
+    setThemeColorScheme(restored.themeColorScheme);
+    setThemeAspectRatio(restored.themeAspectRatio);
+    setThemeShowProduct(restored.themeShowProduct);
+    setThemeCount(restored.themeCount);
+    setSceneVariationBatch(restored.sceneVariationBatch);
+    setSceneVariationPrompt(restored.sceneVariationPrompt);
+    setSceneVariationCategory(restored.sceneVariationCategory);
+    setSceneVariationSellingPoints(restored.sceneVariationSellingPoints);
+    setSceneVariationColorScheme(restored.sceneVariationColorScheme);
+    setSceneVariationShowProduct(restored.sceneVariationShowProduct);
+    setSceneVariationAspectRatio(restored.sceneVariationAspectRatio);
+    setSceneVariationCount(restored.sceneVariationCount);
+    setSceneDesc(restored.sceneDesc);
+    setSceneProductCategory(restored.sceneProductCategory);
+    setSceneSellingPoints(restored.sceneSellingPoints);
+    setSceneColorScheme(restored.sceneColorScheme);
+    setSceneShowProduct(restored.sceneShowProduct);
+    setSceneAspectRatio(restored.sceneAspectRatio);
+    setSceneRefBatch(restored.sceneRefBatch);
+    setSceneCount(restored.sceneCount);
+    setPromptAssetBatch(restored.promptAssetBatch);
+    setPromptAssetPrompt(restored.promptAssetPrompt);
+    setPromptAssetProductName(restored.promptAssetProductName);
+    setPromptAssetSellingPoints(restored.promptAssetSellingPoints);
+    setPromptAssetColorScheme(restored.promptAssetColorScheme);
+    setPromptAssetAspectRatio(restored.promptAssetAspectRatio);
+    setPromptAssetCount(restored.promptAssetCount);
+
+    const fallbackTask = imageTaskRecordFromTaskRecord(restoredTask);
+    if (fallbackTask) {
+      restoreTask(fallbackTask);
+      void bindTask(restoredTask.taskId, restoredTask.request.feature).catch(() => undefined);
+      void desktopClient?.imageTask.get(restoredTask.taskId).then((liveTask) => {
+        if (liveTask) {
+          restoreTask(liveTask);
+        }
+      });
+    }
+
+    onRestoreConsumed?.();
+  }, [restoredTask, bindTask, restoreTask, desktopClient, onRestoreConsumed]);
+
+  const showTaskResults = hasPartialOrCompleteResults(activeTask);
+  const taskInProgress = isTaskInProgress(activeTask);
+  const activeCount = subTab === 'theme'
+    ? themeCount
+    : subTab === 'sceneVariation'
+      ? sceneVariationCount
+      : subTab === 'scene'
+        ? sceneCount
+        : subTab === 'promptAsset'
+          ? promptAssetCount
+          : 1;
+  const activeProgress = getTaskProgress(activeTask, activeCount);
 
   const runProcessing = async (type: ProductSubTab) => {
     if (type === 'remove' && !removeBatch) {
@@ -199,15 +314,18 @@ export default function ProductProcessing() {
       ...(type === 'remove' && {
         prompt: removeDesc || undefined,
         regions: regionsFrom(removeRegion),
+        aspectRatio: removeAspectRatio,
       }),
       ...(type === 'replace' && {
         prompt: replaceDesc || undefined,
         regions: regionsFrom(replaceRegion),
+        aspectRatio: replaceAspectRatio,
       }),
       ...(type === 'logo' && {
         prompt: logoDesc || undefined,
         logoText: logoText || undefined,
         regions: regionsFrom(logoRegion),
+        aspectRatio: logoAspectRatio,
       }),
       ...(type === 'theme' && {
         prompt: themePrompt || undefined,
@@ -222,6 +340,7 @@ export default function ProductProcessing() {
         sellingPoints: sellingPointsFrom(sceneVariationSellingPoints),
         colorScheme: sceneVariationColorScheme || undefined,
         showProduct: sceneVariationShowProduct,
+        aspectRatio: sceneVariationAspectRatio,
       }),
       ...(type === 'scene' && {
         prompt: sceneDesc || undefined,
@@ -356,6 +475,12 @@ export default function ProductProcessing() {
                     className="w-full h-24 bg-white rounded-lg border border-border focus:border-primary focus:outline-none p-3 text-xs text-foreground placeholder:text-muted-foreground resize-none transition-colors"
                   />
                 </div>
+
+                <AspectRatioSelect
+                  id="remove-aspect-ratio-select"
+                  value={removeAspectRatio}
+                  onChange={setRemoveAspectRatio}
+                />
               </div>
             )}
 
@@ -407,10 +532,14 @@ export default function ProductProcessing() {
                     className="w-full h-24 bg-white rounded-lg border border-border focus:border-primary focus:outline-none p-3 text-xs text-foreground placeholder:text-muted-foreground resize-none transition-colors"
                   />
                 </div>
+
+                <AspectRatioSelect
+                  id="replace-aspect-ratio-select"
+                  value={replaceAspectRatio}
+                  onChange={setReplaceAspectRatio}
+                />
               </div>
             )}
-
-            {/* TAB 3: REPLACE LOGO (替换Logo) */}
             {subTab === 'logo' && (
               <div className="space-y-5" id="parameter-product-logo">
                 <div className="space-y-4">
@@ -469,6 +598,12 @@ export default function ProductProcessing() {
                     className="ui-textarea h-20 text-xs"
                   />
                 </div>
+
+                <AspectRatioSelect
+                  id="logo-aspect-ratio-select"
+                  value={logoAspectRatio}
+                  onChange={setLogoAspectRatio}
+                />
               </div>
             )}
 
@@ -516,29 +651,19 @@ export default function ProductProcessing() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="ui-label">图片比例</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['9:16', '4:3', '1:1'] as const).map((ratio) => (
-                      <button
-                        key={ratio}
-                        type="button"
-                        onClick={() => setThemeAspectRatio(ratio)}
-                        className={`cursor-pointer py-1.5 rounded-lg text-xs font-bold font-mono transition-all border ${themeAspectRatio === ratio ? 'ui-segment-active' : 'ui-segment-inactive'}`}
-                      >
-                        {ratio}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <AspectRatioSelect
+                  id="theme-aspect-ratio-select"
+                  value={themeAspectRatio}
+                  onChange={setThemeAspectRatio}
+                />
 
                 <ShowProductToggle value={themeShowProduct} onChange={setThemeShowProduct} />
 
                 {/* Count Select */}
                 <div className="space-y-2">
                   <label className="ui-label">生成数量</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[1, 4, 8].map((num) => (
+                  <div className="grid grid-cols-2 gap-2">
+                    {[4, 8].map((num) => (
                       <button
                         key={num}
                         onClick={() => setThemeCount(num)}
@@ -608,6 +733,12 @@ export default function ProductProcessing() {
 
                 <ShowProductToggle value={sceneVariationShowProduct} onChange={setSceneVariationShowProduct} />
 
+                <AspectRatioSelect
+                  id="scene-variation-aspect-ratio-select"
+                  value={sceneVariationAspectRatio}
+                  onChange={setSceneVariationAspectRatio}
+                />
+
                 <div className="space-y-2">
                   <label className="ui-label">生成数量</label>
                   <div className="grid grid-cols-3 gap-2">
@@ -673,21 +804,11 @@ export default function ProductProcessing() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="ui-label">图片比例</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['9:16', '4:3', '1:1'] as const).map((ratio) => (
-                      <button
-                        key={ratio}
-                        type="button"
-                        onClick={() => setSceneAspectRatio(ratio)}
-                        className={`cursor-pointer py-1.5 rounded-lg text-xs font-bold font-mono transition-all border ${sceneAspectRatio === ratio ? 'ui-segment-active' : 'ui-segment-inactive'}`}
-                      >
-                        {ratio}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <AspectRatioSelect
+                  id="scene-aspect-ratio-select"
+                  value={sceneAspectRatio}
+                  onChange={setSceneAspectRatio}
+                />
 
                 <ShowProductToggle value={sceneShowProduct} onChange={setSceneShowProduct} />
 
@@ -704,8 +825,8 @@ export default function ProductProcessing() {
                 {/* Count selector slider buttons */}
                 <div className="space-y-2" id="scene-count-selector">
                   <label className="ui-label">生成数量</label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[1, 2, 4, 8].map((num) => (
+                  <div className="grid grid-cols-3 gap-2">
+                    {[2, 4, 8].map((num) => (
                       <button
                         key={num}
                         type="button"
@@ -777,26 +898,16 @@ export default function ProductProcessing() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="ui-label">图片比例</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['9:16', '4:3', '1:1'] as const).map((ratio) => (
-                      <button
-                        key={ratio}
-                        type="button"
-                        onClick={() => setPromptAssetAspectRatio(ratio)}
-                        className={`cursor-pointer py-1.5 rounded-lg text-xs font-bold font-mono transition-all border ${promptAssetAspectRatio === ratio ? 'ui-segment-active' : 'ui-segment-inactive'}`}
-                      >
-                        {ratio}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <AspectRatioSelect
+                  id="prompt-asset-aspect-ratio-select"
+                  value={promptAssetAspectRatio}
+                  onChange={setPromptAssetAspectRatio}
+                />
 
                 <div className="space-y-2">
                   <label className="ui-label">生成数量</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[1, 4, 8].map((num) => (
+                  <div className="grid grid-cols-2 gap-2">
+                    {[4, 8].map((num) => (
                       <button
                         key={num}
                         type="button"
@@ -819,13 +930,13 @@ export default function ProductProcessing() {
               onClick={() => runProcessing(subTab)}
               disabled={isSubmitting}
               className={`cursor-pointer w-full py-3.5 px-4 rounded-lg font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200  ${
-                isSubmitting 
-                  ? 'bg-muted text-muted-foreground cursor-not-allowed' 
+                isSubmitting
+                  ? 'bg-primary/80 text-primary-foreground cursor-wait'
                   : 'bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98]'
               }`}
             >
               <Sparkles className={`w-4 h-4 ${isSubmitting ? 'animate-spin' : ''}`} />
-              {isSubmitting ? '正在执行产品处理...' : '开始生成'}
+              {isSubmitting ? '提交中...' : '开始生成'}
             </button>
           </div>
 
@@ -837,16 +948,25 @@ export default function ProductProcessing() {
           <div className="h-full flex flex-col justify-between">
             
             {/* Progress overlay when task is active */}
-            {(activeTask && (activeTask.status === 'queued' || activeTask.status === 'running')) && (
+            {taskInProgress && (
               <div className="mb-6 p-4 rounded-lg bg-white border border-primary/10 shadow-sm animate-pulse" id="product-progress-overlay">
                 <div className="flex items-center justify-between text-xs text-foreground mb-2 font-mono">
                   <span className="font-sans flex items-center gap-2">
                     <RefreshCw className="w-3.5 h-3.5 text-muted-foreground animate-spin" />
                     {activeTask?.status === 'running' ? 'AI 模型正在处理...' : activeTask?.status === 'queued' ? '任务排队中...' : '正在提交任务...'}
                   </span>
+                  <span>{formatTaskProgress(activeTask, activeCount)}</span>
                 </div>
                 <div className="w-full bg-white rounded-full h-1 overflow-hidden">
-                  <div className="bg-primary h-1 transition-all duration-300 animate-pulse" style={{ width: activeTask?.status === 'running' ? '60%' : activeTask?.status === 'queued' ? '20%' : '10%' }} />
+                  <div
+                    className="bg-primary h-1 transition-all duration-300"
+                    style={{
+                      width: `${Math.max(
+                        activeTask?.status === 'queued' ? 10 : 0,
+                        (activeProgress.completed / Math.max(activeProgress.total, 1)) * 100,
+                      )}%`,
+                    }}
+                  />
                 </div>
               </div>
             )}
@@ -864,8 +984,8 @@ export default function ProductProcessing() {
             {subTab === 'remove' && (
               <GenerationResult
                 mode="single"
-                state={activeTask?.status === 'completed' && activeTask.images.length > 0 ? 'completed' : 'empty'}
-                results={activeTask?.status === 'completed' && activeTask.images.length > 0 ? [{ id: 'remove-0', imageUrl: activeTask.images[0], badge: 'Completed', taskId: activeTask.taskId }] : []}
+                state={showTaskResults ? (taskInProgress ? 'running' : 'completed') : 'empty'}
+                results={activeTask?.images[0] ? [{ id: 'remove-0', imageUrl: activeTask.images[0], badge: 'Completed', taskId: activeTask.taskId }] : []}
                 emptyDescription="请在左侧上传待处理的原图并设置相应参数。AI 将自动识别并完美去除指定目标。"
                 onOpenDirectory={() => handleOpenOutputDirectory()}
                 onOpenDirectoryAll={handleOpenOutputDirectory}
@@ -876,8 +996,8 @@ export default function ProductProcessing() {
             {subTab === 'replace' && (
               <GenerationResult
                 mode="single"
-                state={activeTask?.status === 'completed' && activeTask.images.length > 0 ? 'completed' : 'empty'}
-                results={activeTask?.status === 'completed' && activeTask.images.length > 0 ? [{ id: 'replace-0', imageUrl: activeTask.images[0], badge: 'COMPLETED-SYNTH' }] : []}
+                state={showTaskResults ? (taskInProgress ? 'running' : 'completed') : 'empty'}
+                results={activeTask?.images[0] ? [{ id: 'replace-0', imageUrl: activeTask.images[0], badge: 'COMPLETED-SYNTH' }] : []}
                 emptyDescription="上传原场景和目标产品，然后配置您的选择以生成无缝合成图。"
                 onOpenDirectory={() => handleOpenOutputDirectory()}
                 onOpenDirectoryAll={handleOpenOutputDirectory}
@@ -888,8 +1008,8 @@ export default function ProductProcessing() {
             {subTab === 'logo' && (
               <GenerationResult
                 mode="single"
-                state={activeTask?.status === 'completed' && activeTask.images.length > 0 ? 'completed' : 'empty'}
-                results={activeTask?.status === 'completed' && activeTask.images.length > 0 ? [{ id: 'logo-0', imageUrl: activeTask.images[0], badge: 'Completed', taskId: activeTask.taskId }] : []}
+                state={showTaskResults ? (taskInProgress ? 'running' : 'completed') : 'empty'}
+                results={activeTask?.images[0] ? [{ id: 'logo-0', imageUrl: activeTask.images[0], badge: 'Completed', taskId: activeTask.taskId }] : []}
                 emptyDescription="请先上传原图和透明背景新 Logo，并框选替换区域。AI 将只替换品牌标识。"
                 onOpenDirectory={() => handleOpenOutputDirectory()}
                 onOpenDirectoryAll={handleOpenOutputDirectory}
@@ -900,13 +1020,15 @@ export default function ProductProcessing() {
             {subTab === 'theme' && (
               <GenerationResult
                 mode="multi"
-                state={activeTask?.status === 'completed' && activeTask.images.length > 0 ? 'completed' : 'empty'}
-                results={(activeTask?.status === 'completed' ? activeTask.images : []).map((img, i) => ({
+                state={showTaskResults ? (taskInProgress ? 'running' : 'completed') : 'empty'}
+                results={(activeTask?.images ?? []).map((img, i) => ({
                   id: `theme-${i}`,
                   imageUrl: img,
                 }))}
-                count={activeTask?.status === 'completed' ? activeTask.images.length : themeCount}
+                placeholders={getTaskProgress(activeTask, themeCount).total}
+                count={getTaskProgress(activeTask, themeCount).total}
                 showCount
+                progressLabel={formatTaskProgress(activeTask, themeCount)}
                 emptyDescription="上传场景参考图并设置提示词，AI 将生成主图素材裂变结果。"
                 onOpenDirectory={() => handleOpenOutputDirectory()}
                 onOpenDirectoryAll={handleOpenOutputDirectory}
@@ -917,13 +1039,15 @@ export default function ProductProcessing() {
             {subTab === 'sceneVariation' && (
               <GenerationResult
                 mode="multi"
-                state={activeTask?.status === 'completed' && activeTask.images.length > 0 ? 'completed' : 'empty'}
-                results={(activeTask?.status === 'completed' ? activeTask.images : []).map((img, i) => ({
+                state={showTaskResults ? (taskInProgress ? 'running' : 'completed') : 'empty'}
+                results={(activeTask?.images ?? []).map((img, i) => ({
                   id: `scene-variation-${i}`,
                   imageUrl: img,
                 }))}
-                count={activeTask?.status === 'completed' ? activeTask.images.length : sceneVariationCount}
+                placeholders={getTaskProgress(activeTask, sceneVariationCount).total}
+                count={getTaskProgress(activeTask, sceneVariationCount).total}
                 showCount
+                progressLabel={formatTaskProgress(activeTask, sceneVariationCount)}
                 emptyDescription="上传场景参考图并配置参数，AI 将生成同品类可用的新使用场景素材。"
                 onOpenDirectory={() => handleOpenOutputDirectory()}
                 onOpenDirectoryAll={handleOpenOutputDirectory}
@@ -934,12 +1058,16 @@ export default function ProductProcessing() {
             {subTab === 'scene' && (
               <GenerationResult
                 mode="multi"
-                state={activeTask?.status === 'completed' && activeTask.images.length > 0 ? 'completed' : 'empty'}
-                results={(activeTask?.status === 'completed' ? activeTask.images : []).map((img, i) => ({
+                state={showTaskResults ? (taskInProgress ? 'running' : 'completed') : 'empty'}
+                results={(activeTask?.images ?? []).map((img, i) => ({
                   id: `scene-${i}`,
                   imageUrl: img,
                   badge: 'Completed',
                 }))}
+                placeholders={getTaskProgress(activeTask, sceneCount).total}
+                count={getTaskProgress(activeTask, sceneCount).total}
+                showCount
+                progressLabel={formatTaskProgress(activeTask, sceneCount)}
                 emptyDescription="输入产品品类/场景描述，AI 将创作全新的电商场景图。"
                 onOpenDirectory={() => handleOpenOutputDirectory()}
                 onOpenDirectoryAll={handleOpenOutputDirectory}
@@ -950,14 +1078,16 @@ export default function ProductProcessing() {
             {subTab === 'promptAsset' && (
               <GenerationResult
                 mode="multi"
-                state={activeTask?.status === 'completed' && activeTask.images.length > 0 ? 'completed' : 'empty'}
-                results={(activeTask?.status === 'completed' ? activeTask.images : []).map((img, i) => ({
+                state={showTaskResults ? (taskInProgress ? 'running' : 'completed') : 'empty'}
+                results={(activeTask?.images ?? []).map((img, i) => ({
                   id: `prompt-asset-${i}`,
                   imageUrl: img,
                   badge: 'Completed',
                 }))}
-                count={activeTask?.status === 'completed' ? activeTask.images.length : promptAssetCount}
+                placeholders={getTaskProgress(activeTask, promptAssetCount).total}
+                count={getTaskProgress(activeTask, promptAssetCount).total}
                 showCount
+                progressLabel={formatTaskProgress(activeTask, promptAssetCount)}
                 emptyDescription="输入主图/素材描述，可选上传风格参考图。图片仅用于一阶段生成执行指令。"
                 onOpenDirectory={() => handleOpenOutputDirectory()}
                 onOpenDirectoryAll={handleOpenOutputDirectory}

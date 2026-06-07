@@ -13,6 +13,17 @@ import {
   buildInstructionUserText,
   isImageGenerationModel,
 } from './instructionPrompt.js';
+import { logModelRequest } from './modelRequestLogger.js';
+import {
+  buildGeminiGenerateContentUrl,
+  buildOpenAIChatCompletionsUrl,
+  buildOpenAIImagesEditUrl,
+  buildOpenAIImagesGenerateUrl,
+} from './modelRequestUrls.js';
+
+export interface ProtocolClientOptions {
+  baseUrl: string;
+}
 
 const MAX_VISION_IMAGE_BYTES = 4 * 1024 * 1024;
 
@@ -24,11 +35,25 @@ type ImageResponseItem = {
   [key: string]: unknown;
 };
 
-export function createOpenAIProtocolClient(openai: any): ProtocolModelClient {
+export function createOpenAIProtocolClient(
+  openai: any,
+  options: ProtocolClientOptions,
+): ProtocolModelClient {
   return {
     async generateInstruction(input) {
       if (isImageGenerationModel(input.model)) {
-        return buildFallbackFinalPrompt(input);
+        const fallbackPrompt = buildFallbackFinalPrompt(input);
+        logModelRequest('instruction', {
+          protocol: 'local-fallback',
+          model: input.model,
+          finalPrompt: fallbackPrompt,
+          images: input.images.map((image) => ({
+            role: image.role,
+            path: image.path,
+            mimeType: image.mimeType,
+          })),
+        });
+        return fallbackPrompt;
       }
 
       const content: Array<
@@ -51,14 +76,26 @@ export function createOpenAIProtocolClient(openai: any): ProtocolModelClient {
         });
       }
 
-      const response = await openai.chat.completions.create({
+      const requestPayload = {
         model: input.model,
         messages: [
           { role: 'system', content: input.systemPrompt },
           { role: 'user', content },
         ],
         temperature: 0.2,
-      }, {
+      };
+      logModelRequest('instruction', {
+        protocol: 'openai',
+        url: buildOpenAIChatCompletionsUrl(options.baseUrl),
+        ...requestPayload,
+        images: input.images.map((image) => ({
+          role: image.role,
+          path: image.path,
+          mimeType: image.mimeType,
+        })),
+      });
+
+      const response = await openai.chat.completions.create(requestPayload, {
         signal: input.abortSignal,
       });
 
@@ -71,6 +108,40 @@ export function createOpenAIProtocolClient(openai: any): ProtocolModelClient {
     },
 
     async executeImage(input) {
+      const executionPayload = input.images.length > 0
+        ? {
+          operation: 'edit',
+          image: input.images.map((image) => ({
+            role: image.role,
+            path: image.path,
+            mimeType: image.mimeType,
+          })),
+          model: input.model,
+          prompt: input.finalPrompt,
+          n: input.count,
+          ...(input.size ? { size: input.size } : {}),
+          quality: 'auto',
+          background: 'opaque',
+          output_format: 'png',
+          input_fidelity: 'high',
+        }
+        : {
+          operation: 'generate',
+          model: input.model,
+          prompt: input.finalPrompt,
+          n: input.count,
+          ...(input.size ? { size: input.size } : {}),
+          quality: 'auto',
+          output_format: 'png',
+        };
+      logModelRequest('execution', {
+        protocol: 'openai',
+        url: input.images.length > 0
+          ? buildOpenAIImagesEditUrl(options.baseUrl)
+          : buildOpenAIImagesGenerateUrl(options.baseUrl),
+        ...executionPayload,
+      });
+
       const response = input.images.length > 0
         ? await openai.images.edit({
           image: input.images.map((image) => fs.createReadStream(image.path)),
@@ -104,24 +175,53 @@ export function createOpenAIProtocolClient(openai: any): ProtocolModelClient {
   };
 }
 
-export function createGeminiProtocolClient(gemini: any): ProtocolModelClient {
+export function createGeminiProtocolClient(
+  gemini: any,
+  options: ProtocolClientOptions,
+): ProtocolModelClient {
   return {
     async generateInstruction(input) {
       if (isImageGenerationModel(input.model)) {
-        return buildFallbackFinalPrompt(input);
+        const fallbackPrompt = buildFallbackFinalPrompt(input);
+        logModelRequest('instruction', {
+          protocol: 'local-fallback',
+          model: input.model,
+          finalPrompt: fallbackPrompt,
+          images: input.images.map((image) => ({
+            role: image.role,
+            path: image.path,
+            mimeType: image.mimeType,
+          })),
+        });
+        return fallbackPrompt;
       }
 
-      const response = await gemini.models.generateContent({
+      const instructionParts = await buildGeminiParts(buildInstructionUserText(input), input.images);
+      const instructionPayload = {
         model: input.model,
         contents: [
           {
             role: 'user',
-            parts: await buildGeminiParts(buildInstructionUserText(input), input.images),
+            parts: instructionParts,
           },
         ],
         config: {
           systemInstruction: input.systemPrompt,
         },
+      };
+      logModelRequest('instruction', {
+        protocol: 'gemini',
+        url: buildGeminiGenerateContentUrl(options.baseUrl, input.model),
+        ...instructionPayload,
+        images: input.images.map((image) => ({
+          role: image.role,
+          path: image.path,
+          mimeType: image.mimeType,
+        })),
+      });
+
+      const response = await gemini.models.generateContent({
+        ...instructionPayload,
         abortSignal: input.abortSignal,
       });
 
@@ -134,12 +234,13 @@ export function createGeminiProtocolClient(gemini: any): ProtocolModelClient {
     },
 
     async executeImage(input) {
-      const response = await gemini.models.generateContent({
+      const executionParts = await buildGeminiParts(input.finalPrompt, input.images);
+      const executionPayload = {
         model: input.model,
         contents: [
           {
             role: 'user',
-            parts: await buildGeminiParts(input.finalPrompt, input.images),
+            parts: executionParts,
           },
         ],
         config: {
@@ -147,6 +248,20 @@ export function createGeminiProtocolClient(gemini: any): ProtocolModelClient {
           candidateCount: input.count,
           ...(input.aspectRatio ? { aspectRatio: input.aspectRatio } : {}),
         },
+      };
+      logModelRequest('execution', {
+        protocol: 'gemini',
+        url: buildGeminiGenerateContentUrl(options.baseUrl, input.model),
+        ...executionPayload,
+        images: input.images.map((image) => ({
+          role: image.role,
+          path: image.path,
+          mimeType: image.mimeType,
+        })),
+      });
+
+      const response = await gemini.models.generateContent({
+        ...executionPayload,
         abortSignal: input.abortSignal,
       });
 

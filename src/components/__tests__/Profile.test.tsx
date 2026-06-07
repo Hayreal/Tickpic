@@ -13,6 +13,26 @@ vi.mock('../../hooks/useOpenOutputDirectory', () => ({
   }),
 }));
 
+vi.mock('../../hooks/useDesktopClient', () => ({
+  useDesktopClient: () => undefined,
+}));
+
+vi.mock('../../hooks/useAppLogs', () => ({
+  useAppLogs: () => ({
+    logs: [
+      {
+        id: 'log-1',
+        timestamp: '2026-06-07T10:00:00.000Z',
+        level: 'info',
+        source: 'app',
+        message: 'Electron 应用已就绪',
+      },
+    ],
+    isLoading: false,
+    refresh: vi.fn(),
+  }),
+}));
+
 afterEach(() => {
   cleanup();
   openTaskOutputDirectory.mockReset();
@@ -34,12 +54,22 @@ function makeTask(index: number, updatedAt: string): TaskRecord {
 }
 
 describe('Profile', () => {
+  it('shows application process logs instead of task metrics', () => {
+    render(<Profile tasks={[]} onRefresh={vi.fn()} onRestoreTask={vi.fn()} />);
+
+    expect(document.getElementById('profile-app-logs')).toBeInTheDocument();
+    expect(document.getElementById('profile-dashboard-metrics')).not.toBeInTheDocument();
+    expect(screen.getByText('应用进程日志')).toBeInTheDocument();
+    expect(screen.getByText('Electron 应用已就绪')).toBeInTheDocument();
+    expect(screen.queryByText('总任务数')).not.toBeInTheDocument();
+  });
+
   it('shows tasks in reverse chronological order with 10 rows per page', () => {
     const tasks = Array.from({ length: 12 }, (_, index) =>
       makeTask(index + 1, `2026-06-${String(index + 1).padStart(2, '0')}T10:00:00.000Z`),
     );
 
-    render(<Profile tasks={tasks} onRefresh={vi.fn()} />);
+    render(<Profile tasks={tasks} onRefresh={vi.fn()} onRestoreTask={vi.fn()} />);
 
     const tableBody = document.getElementById('tasks-table-body')!;
     const rows = within(tableBody).getAllByRole('row');
@@ -77,7 +107,7 @@ describe('Profile', () => {
       updatedAt: '2026-06-03T10:05:00.000Z',
     };
 
-    render(<Profile tasks={[task]} onRefresh={vi.fn()} />);
+    render(<Profile tasks={[task]} onRefresh={vi.fn()} onRestoreTask={vi.fn()} />);
 
     fireEvent.click(screen.getByText('贴纸复刻'));
     fireEvent.click(screen.getByText('打开输出目录'));
@@ -128,7 +158,7 @@ describe('Profile', () => {
       updatedAt: '2026-06-03T10:05:00.000Z',
     };
 
-    render(<Profile tasks={[task]} onRefresh={vi.fn()} />);
+    render(<Profile tasks={[task]} onRefresh={vi.fn()} onRestoreTask={vi.fn()} />);
 
     fireEvent.click(screen.getByText('贴纸复刻'));
 

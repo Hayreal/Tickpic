@@ -5,11 +5,30 @@ import type {
   ImageTaskSubmitResult,
 } from '../../../../src/shared/domain/imageFeatureApi.js';
 import { validateImageTaskRequest } from '../../../../src/shared/domain/imageFeatureApi.js';
+import { getAppLogger } from '../logger/appLogger.js';
 
 export type ImageTaskStatusListener = (task: ImageTaskRecord) => void;
+
+export type ImageTaskProgressUpdate = Partial<
+  Pick<
+    ImageTaskExecutionResult,
+    | 'images'
+    | 'progress'
+    | 'outputDir'
+    | 'requestJsonPath'
+    | 'imageInstructionPath'
+    | 'outputJsonPath'
+    | 'textNotes'
+    | 'warnings'
+  >
+>;
+
+export type ImageTaskProgressReporter = (update: ImageTaskProgressUpdate) => void;
+
 export type ImageTaskExecutor = (
   task: ImageTaskRecord,
   abortSignal: AbortSignal,
+  onProgress?: ImageTaskProgressReporter,
 ) => Promise<ImageTaskExecutionResult>;
 
 export type ImageTaskExecutionResult = Pick<
@@ -18,6 +37,7 @@ export type ImageTaskExecutionResult = Pick<
   | 'protocol'
   | 'outputDir'
   | 'images'
+  | 'progress'
   | 'requestJsonPath'
   | 'imageInstructionPath'
   | 'outputJsonPath'
@@ -36,9 +56,11 @@ export interface ImageTaskController {
   get(taskId: string): ImageTaskRecord | undefined;
   list(): ImageTaskRecord[];
   onStatus(listener: ImageTaskStatusListener): () => void;
+  failAllActive(message: string): void;
 }
 
 export function createImageTaskController(options: ImageTaskControllerOptions = {}): ImageTaskController {
+  const logger = getAppLogger();
   const tasks = new Map<string, ImageTaskRecord>();
   const listeners = new Set<ImageTaskStatusListener>();
   const queue: string[] = [];
@@ -74,19 +96,51 @@ export function createImageTaskController(options: ImageTaskControllerOptions = 
     }
   }
 
+  function reportProgress(taskId: string, update: ImageTaskProgressUpdate) {
+    const current = tasks.get(taskId);
+    if (!current || current.status !== 'running') return;
+
+    updateTask({
+      ...current,
+      images: update.images ?? current.images,
+      progress: update.progress ?? current.progress,
+      outputDir: update.outputDir ?? current.outputDir,
+      requestJsonPath: update.requestJsonPath ?? current.requestJsonPath,
+      imageInstructionPath: update.imageInstructionPath ?? current.imageInstructionPath,
+      outputJsonPath: update.outputJsonPath ?? current.outputJsonPath,
+      textNotes: update.textNotes ?? current.textNotes,
+      warnings: update.warnings ?? current.warnings,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
   async function runTask(task: ImageTaskRecord, abortSignal: AbortSignal) {
     const runningTask: ImageTaskRecord = {
       ...task,
       status: 'running',
       updatedAt: new Date().toISOString(),
     };
+    logger.info('image-task', '开始执行任务', {
+      taskId: task.taskId,
+      feature: task.feature,
+    });
     updateTask(runningTask);
 
     try {
-      const result = await options.execute!(runningTask, abortSignal);
+      const result = await options.execute!(
+        runningTask,
+        abortSignal,
+        (update) => reportProgress(task.taskId, update),
+      );
       const current = tasks.get(task.taskId);
       if (!current || current.status !== 'running') return;
 
+      logger.info('image-task', '任务执行完成', {
+        taskId: task.taskId,
+        feature: task.feature,
+        outputCount: result.images.length,
+        outputDir: result.outputDir,
+      });
       updateTask({
         ...current,
         ...result,
@@ -97,6 +151,12 @@ export function createImageTaskController(options: ImageTaskControllerOptions = 
       const current = tasks.get(task.taskId);
       if (!current || current.status !== 'running') return;
 
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error('image-task', '任务执行失败', {
+        taskId: task.taskId,
+        feature: task.feature,
+        message,
+      });
       updateTask({
         ...current,
         status: 'failed',
@@ -130,6 +190,11 @@ export function createImageTaskController(options: ImageTaskControllerOptions = 
       tasks.set(task.taskId, task);
       emit(task);
       queue.push(task.taskId);
+      logger.info('image-task', '任务已创建并入队', {
+        taskId: task.taskId,
+        feature: task.feature,
+        queueLength: queue.length,
+      });
       pumpQueue();
 
       return {
@@ -159,6 +224,7 @@ export function createImageTaskController(options: ImageTaskControllerOptions = 
         updatedAt: new Date().toISOString(),
       };
       abortControllers.get(taskId)?.abort();
+      logger.info('image-task', '任务已取消', { taskId, feature: task.feature });
       updateTask(next);
       return next;
     },
@@ -176,6 +242,28 @@ export function createImageTaskController(options: ImageTaskControllerOptions = 
       return () => {
         listeners.delete(listener);
       };
+    },
+
+    failAllActive(message) {
+      queue.length = 0;
+      logger.warn('image-task', '终止所有活动任务', { message });
+
+      for (const [taskId, task] of tasks) {
+        if (task.status !== 'queued' && task.status !== 'running') {
+          continue;
+        }
+
+        abortControllers.get(taskId)?.abort();
+        updateTask({
+          ...task,
+          status: 'failed',
+          error: {
+            code: 'app_shutdown',
+            message,
+          },
+          updatedAt: new Date().toISOString(),
+        });
+      }
     },
   };
 }

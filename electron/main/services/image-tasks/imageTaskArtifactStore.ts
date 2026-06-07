@@ -1,23 +1,42 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type {
+  GeneratedImageOutput,
+  ImageExecutionModelResult,
   ImageTaskArtifactStore,
   SaveImageTaskArtifactsInput,
   SavedImageTaskArtifacts,
 } from './imageTaskExecutor.js';
 
+export interface ImageTaskArtifactSession {
+  outputDir: string;
+  requestJsonPath: string;
+  imageInstructionPath: string;
+  outputJsonPath: string;
+  imagePaths: string[];
+  appendImage(image: GeneratedImageOutput, index: number): Promise<string>;
+  finalize(generated: ImageExecutionModelResult): Promise<SavedImageTaskArtifacts>;
+}
+
 export function createFileImageTaskArtifactStore(workspaceDir: string): ImageTaskArtifactStore {
   return {
+    async begin(input) {
+      return beginImageTaskArtifacts(workspaceDir, input);
+    },
     async save(input) {
-      return saveImageTaskArtifacts(workspaceDir, input);
+      const session = await beginImageTaskArtifacts(workspaceDir, input);
+      for (const [index, image] of input.generated.images.entries()) {
+        await session.appendImage(image, index);
+      }
+      return session.finalize(input.generated);
     },
   };
 }
 
-async function saveImageTaskArtifacts(
+async function beginImageTaskArtifacts(
   workspaceDir: string,
-  input: SaveImageTaskArtifactsInput,
-): Promise<SavedImageTaskArtifacts> {
+  input: Omit<SaveImageTaskArtifactsInput, 'generated'>,
+): Promise<ImageTaskArtifactSession> {
   const outputDir = path.join(
     workspaceDir,
     'outputs',
@@ -34,24 +53,35 @@ async function saveImageTaskArtifacts(
   await writeFile(requestJsonPath, JSON.stringify(createRequestSummary(input), null, 2), 'utf-8');
   await writeFile(imageInstructionPath, input.finalPrompt, 'utf-8');
 
-  for (const [index, image] of input.generated.images.entries()) {
-    const imagePath = path.join(outputDir, `result-${index + 1}${extensionForImage(image.fileName, image.mimeType)}`);
-    await writeFile(imagePath, Buffer.from(image.buffer));
-    imagePaths.push(imagePath);
-  }
-
-  await writeFile(outputJsonPath, JSON.stringify(createOutputSummary(input, imagePaths), null, 2), 'utf-8');
-
   return {
     outputDir,
-    images: imagePaths,
     requestJsonPath,
     imageInstructionPath,
     outputJsonPath,
+    imagePaths,
+    async appendImage(image, index) {
+      const imagePath = path.join(
+        outputDir,
+        `result-${index + 1}${extensionForImage(image.fileName, image.mimeType)}`,
+      );
+      await writeFile(imagePath, Buffer.from(image.buffer));
+      imagePaths.push(imagePath);
+      return imagePath;
+    },
+    async finalize(generated) {
+      await writeFile(outputJsonPath, JSON.stringify(createOutputSummary(input, imagePaths, generated), null, 2), 'utf-8');
+      return {
+        outputDir,
+        images: imagePaths,
+        requestJsonPath,
+        imageInstructionPath,
+        outputJsonPath,
+      };
+    },
   };
 }
 
-function createRequestSummary(input: SaveImageTaskArtifactsInput) {
+function createRequestSummary(input: Omit<SaveImageTaskArtifactsInput, 'generated'>) {
   return {
     taskId: input.task.taskId,
     feature: input.task.feature,
@@ -80,20 +110,24 @@ function createRequestSummary(input: SaveImageTaskArtifactsInput) {
   };
 }
 
-function createOutputSummary(input: SaveImageTaskArtifactsInput, imagePaths: string[]) {
+function createOutputSummary(
+  input: Omit<SaveImageTaskArtifactsInput, 'generated'>,
+  imagePaths: string[],
+  generated: ImageExecutionModelResult,
+) {
   return {
     taskId: input.task.taskId,
     feature: input.task.feature,
     model: input.plan.executionStage.model,
     protocol: input.plan.executionStage.protocol,
     finalPrompt: input.finalPrompt,
-    outputs: input.generated.images.map((image, index) => ({
+    outputs: generated.images.map((image, index) => ({
       path: imagePaths[index],
       mimeType: image.mimeType,
       bytes: image.buffer.byteLength,
     })),
-    textNotes: input.generated.textNotes ?? [],
-    warnings: input.generated.warnings ?? [],
+    textNotes: generated.textNotes ?? [],
+    warnings: generated.warnings ?? [],
   };
 }
 

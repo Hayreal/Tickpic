@@ -26,6 +26,10 @@ describe('desktop contract', () => {
         get: 'image-task:get',
         status: 'image-task:status',
       },
+      appLog: {
+        list: 'app-log:list',
+        entry: 'app-log:entry',
+      },
     });
   });
 });

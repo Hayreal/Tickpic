@@ -13,6 +13,8 @@ import type {
 import type { ImageTaskPlan } from '../../../../../src/shared/domain/imageTaskPlan';
 import type { ImageTaskRecord } from '../../../../../src/shared/domain/imageFeatureApi';
 
+const TEST_BASE_URL = 'https://api.n1n.ai';
+
 describe('protocolClients', () => {
   let tempDir: string;
   let imagePath: string;
@@ -41,7 +43,7 @@ describe('protocolClients', () => {
         edit: vi.fn(),
       },
     };
-    const client = createOpenAIProtocolClient(openai);
+    const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
 
     const result = await client.generateInstruction(createInstructionInput(imagePath));
 
@@ -77,7 +79,7 @@ describe('protocolClients', () => {
       chat: { completions: { create: vi.fn() } },
       images: { generate: vi.fn(), edit: vi.fn() },
     };
-    const client = createOpenAIProtocolClient(openai);
+    const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
 
     const result = await client.generateInstruction({
       ...createInstructionInput(imagePath),
@@ -98,7 +100,7 @@ describe('protocolClients', () => {
         edit: vi.fn(),
       },
     };
-    const client = createOpenAIProtocolClient(openai);
+    const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
 
     const result = await client.executeImage({
       ...createExecutionInput(imagePath),
@@ -135,7 +137,7 @@ describe('protocolClients', () => {
         }),
       },
     };
-    const client = createOpenAIProtocolClient(openai);
+    const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
 
     await client.executeImage({
       ...createExecutionInput(imagePath),
@@ -174,7 +176,7 @@ describe('protocolClients', () => {
         }),
       },
     };
-    const client = createGeminiProtocolClient(gemini);
+    const client = createGeminiProtocolClient(gemini, { baseUrl: TEST_BASE_URL });
 
     await client.executeImage({
       ...createExecutionInput(imagePath),
@@ -201,7 +203,7 @@ describe('protocolClients', () => {
         }),
       },
     };
-    const client = createOpenAIProtocolClient(openai);
+    const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
 
     const result = await client.executeImage(createExecutionInput(imagePath));
 
@@ -246,7 +248,7 @@ describe('protocolClients', () => {
           }),
       },
     };
-    const client = createGeminiProtocolClient(gemini);
+    const client = createGeminiProtocolClient(gemini, { baseUrl: TEST_BASE_URL });
 
     await expect(client.generateInstruction(createInstructionInput(imagePath))).resolves.toBe('gemini instruction');
     const result = await client.executeImage(createExecutionInput(imagePath));

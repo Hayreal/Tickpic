@@ -27,6 +27,11 @@ export type ImageExecutionModel = 'generation' | 'edit';
 export type ImageModelProtocol = 'gemini' | 'openai';
 export type ImageTaskStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled';
 
+export interface ImageTaskProgress {
+  completed: number;
+  total: number;
+}
+
 export interface ImageInput {
   role: ImageRole;
   path: string;
@@ -76,6 +81,7 @@ export interface ImageTaskResult {
   taskId: string;
   feature: ImageFeature;
   status: ImageTaskStatus;
+  progress?: ImageTaskProgress;
   model?: string;
   protocol?: ImageModelProtocol;
   outputDir?: string;
@@ -110,7 +116,7 @@ export interface ImageFeatureDefinition {
 const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   sticker_replica: {
     feature: 'sticker_replica',
-    mainPrompt: '复刻参考图中贴纸的色系、风格、排版和视觉结构，输出独立 2D 平面贴纸图。不要求像素级复刻，重点是风格与排版相似。',
+    mainPrompt: '提取当前产品上面的贴纸',
     acceptedImageRoles: ['source', 'reference'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',
