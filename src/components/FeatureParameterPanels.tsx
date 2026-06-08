@@ -27,7 +27,12 @@ function CollapsiblePanel({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+    <div
+      className={cn(
+        'rounded-xl border border-border bg-card shadow-sm',
+        open ? 'overflow-visible' : 'overflow-hidden',
+      )}
+    >
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -79,7 +84,7 @@ export default function FeatureParameterPanels({
           description="图片比例与生成数量"
           defaultOpen
         >
-          <div className={FEATURE_PANEL_GRID}>{basic}</div>
+          <div className="grid gap-3 sm:grid-cols-2">{basic}</div>
         </CollapsiblePanel>
       ) : null}
 

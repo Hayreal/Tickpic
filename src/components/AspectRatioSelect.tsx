@@ -72,11 +72,11 @@ export default function AspectRatioSelect({
   };
 
   return (
-    <div className="space-y-2" ref={containerRef}>
+    <div className={cn('min-w-0 space-y-2', open && 'relative z-20')} ref={containerRef}>
       <label className="ui-label" htmlFor={id}>
         {label}
       </label>
-      <div className="relative">
+      <div>
         <button
           type="button"
           id={id}
@@ -98,10 +98,9 @@ export default function AspectRatioSelect({
           <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
         </button>
 
-        {open && (
-          <div className="absolute z-50 mt-1 w-full min-w-[280px] overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg">
+        {open ? (
+          <div className="mt-1 w-full min-w-[280px] overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg">
             <div className="border-b border-border px-3 py-2">
-              <p className="mb-2 text-[11px] font-medium text-muted-foreground">比例</p>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                 <input
@@ -157,7 +156,7 @@ export default function AspectRatioSelect({
               )}
             </ul>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
