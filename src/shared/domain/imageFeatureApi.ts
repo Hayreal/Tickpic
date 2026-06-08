@@ -140,7 +140,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   remove_product: {
     feature: 'remove_product',
-    mainPrompt: '在原图基础上仅局部去除目标产品并补全该产品遮挡的像素。源图是固定底图，非目标区域必须与原图完全一致，包括背景、场景、道具、光影、透视、文字与构图。不要换背景、不要修饰无关区域、不要裁切或重新生成场景。',
+    mainPrompt: '只去掉目标产品（含包装、手持姿势、从产品发出的喷雾/泡沫等直接附着效果），并在产品遮挡区域补全被挡住的背景。补全区域必须与紧邻背景保持同样的材质、颜色、光影、脏污和磨损状态，不要比周围更干净或更崭新。保留原场景、道具、文字和画面中的演示效果，不要清洁、抛光、修复或美化任何非产品区域。',
     acceptedImageRoles: ['source'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',

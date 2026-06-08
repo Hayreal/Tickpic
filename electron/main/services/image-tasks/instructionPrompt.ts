@@ -2,10 +2,12 @@ import type { ImageFeature, ImageTaskRequest } from '../../../../src/shared/doma
 import type { ModelInstructionClientInput } from './modelGateway.js';
 
 const REMOVE_PRODUCT_EXECUTION_GUARDRAILS = [
-  'Use the uploaded source image as the fixed base layer.',
-  'Inpaint only the removed target product area.',
-  'Keep every pixel outside the removed target unchanged: same background, scene, props, lighting, colors, perspective, canvas, framing, and all original text and graphics.',
-  'Do not replace the background, regenerate the scene, retouch unrelated areas, crop, zoom, reframe, or add any product or object.',
+  'Use the source image as the base.',
+  'Inpaint only where the removed product blocked the scene.',
+  'Match the inpainted area to the adjacent background material, texture, color, lighting, dirt, and wear.',
+  'Preserve stains, wear, staged demonstration states, and before/after effects on the scene background.',
+  'Do not clean, polish, restore, retouch, or beautify any unrelated area.',
+  'Do not replace the background, crop, reframe, or add new objects.',
 ] as const;
 
 const IMAGE_GENERATION_MODEL_PATTERN = /gpt-image|flash-image|dall-?e/i;
@@ -67,12 +69,12 @@ export function buildInstructionUserText(input: ModelInstructionClientInput) {
 
 function buildRemoveProductDefaultInstruction(request: ImageTaskRequest) {
   if (request.prompt?.trim()) {
-    return `Remove only the specified product object from the source image: ${request.prompt.trim()}`;
+    return `Remove the target product from the source image and inpaint only the occluded area: ${request.prompt.trim()}`;
   }
   if (request.regions?.length) {
-    return 'Remove only the product object inside the user-selected rectangular region.';
+    return 'Remove the product inside the user-selected region and inpaint only the occluded area behind it.';
   }
-  return 'Remove only the specified target product from the source image.';
+  return 'Remove the target product object and any spray or hand directly attached to it. Inpaint only the occluded area to match the adjacent background. Do not clean or restore any other part of the scene.';
 }
 
 export function finalizeImageInstruction(

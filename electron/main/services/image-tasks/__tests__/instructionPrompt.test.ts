@@ -67,7 +67,7 @@ describe('instructionPrompt', () => {
         },
       },
       plan: {
-        mainPrompt: '在原图中局部去除目标产品并补全被遮挡区域。',
+        mainPrompt: '去掉目标产品并在遮挡区域自然补全背景，保留场景演示效果。',
       },
     } as unknown as ModelInstructionClientInput;
 
@@ -75,7 +75,7 @@ describe('instructionPrompt', () => {
 
     expect(text).toBe([
       'feature: remove_product',
-      'taskGoal: 在原图中局部去除目标产品并补全被遮挡区域。',
+      'taskGoal: 去掉目标产品并在遮挡区域自然补全背景，保留场景演示效果。',
       'Return only the final image instruction text for ONE standalone output image.',
     ].join('\n'));
     expect(text).not.toContain('mainPrompt');
@@ -120,7 +120,9 @@ describe('instructionPrompt', () => {
     );
 
     expect(finalized).toContain('Remove the spray bottle in the right hand only.');
-    expect(finalized).toContain('fixed base layer');
+    expect(finalized).toContain('Use the source image as the base');
+    expect(finalized).toContain('adjacent background material');
+    expect(finalized).toContain('Do not clean, polish, restore');
     expect(finalized).toContain('Do not replace the background');
   });
 
@@ -136,6 +138,7 @@ describe('instructionPrompt', () => {
     );
 
     expect(finalized).toContain('remove only the spray bottle on the right');
-    expect(finalized).toContain('Inpaint only the removed target product area');
+    expect(finalized).toContain('Inpaint only where the removed product blocked the scene');
+    expect(finalized).toContain('Do not clean, polish, restore');
   });
 });

@@ -24,14 +24,16 @@ describe('imageInstructionPrompts', () => {
     expect(prompt).toContain('Never describe a grid, contact sheet, collage');
   });
 
-  it('keeps remove-product edits local to the target area', () => {
+  it('keeps remove-product edits focused on the target product', () => {
     const prompt = buildImageInstructionSystemPrompt('remove_product');
 
-    expect(prompt).toContain('strict local inpainting');
-    expect(prompt).toContain('fixed base layer');
-    expect(prompt).toContain('Do not replace, regenerate, relight');
-    expect(prompt).toContain('background, scene, props');
+    expect(prompt).toContain('adjacent background');
+    expect(prompt).toContain('cleaner, newer, or more polished');
+    expect(prompt).toContain('Do not clean, polish, restore');
+    expect(prompt).toContain('spray, foam, or mist');
     expect(prompt).not.toContain('headlight');
-    expect(prompt).not.toContain('background repair direction');
+    expect(prompt).not.toContain('car paint');
+    expect(prompt).not.toContain('strict local inpainting');
+    expect(prompt).not.toContain('Every pixel outside');
   });
 });

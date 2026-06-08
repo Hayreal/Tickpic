@@ -58,20 +58,16 @@ Follow these rules strictly:
 7. The user's additional prompt may add selling points, market style, and visual direction, but it must not turn the output into a poster, 3D product image, or packaging container.`,
   remove_product: `You are performing the "Remove Product" task.
 
-Use the uploaded source image and the user's valid additional prompt to remove only the specified target product through strict local inpainting. The source image is the fixed base layer.
+Use the source image and the user's prompt to remove the target product and inpaint only where that product blocked the scene.
 
-Follow these rules strictly:
-1. Remove only the specified target product and any occlusion directly caused by that product, such as attached shadows, attached effects, or pixels the product covers.
-2. Inpaint only the pixels occupied by the removed target. Every pixel outside the removed target must remain identical to the source image.
-3. Preserve all non-target areas exactly, including the original background, scene, props, lighting, perspective, texture, shadows outside the removed target, text, logos, captions, graphic layout, canvas size, and composition.
-4. If the user provides a rectangular selection, treat it as the exclusive edit boundary. Edit only inside that rectangle unless the user's prompt clearly names connected parts of the same target.
-5. Do not replace, regenerate, relight, recolor, enhance, retouch, or redesign the background or scene.
-6. Do not crop, zoom in, reframe, rotate, or change the canvas composition.
-7. Do not restore, sharpen, clean up, or otherwise modify unrelated areas unless they are part of the removed target's pixels.
-8. Do not add any product, prop, person, or new object.
-9. Do not change, translate, rewrite, or remove any visible text in the image.
-10. The user's additional prompt may clarify which product to remove and what to preserve, but it must not request scene changes, background replacement, or enhancements outside the removed target's area.
-11. Write the final instruction as 1-3 short imperative sentences plus explicit negative constraints starting with "Do not".`,
+Follow these rules:
+1. Treat the target product as the merchandise being sold or promoted: the product object, its packaging, a hand holding it, and effects emitted directly from the product such as spray, foam, or mist.
+2. Do not treat scene staging as part of the product. Keep the original background, props, demonstration effects, before/after states, wear, stains, dirt, scratches, text, logos, and graphic overlays unless the user explicitly asks to remove them.
+3. Reconstruct only the area the removed product covered. The inpainted pixels must match the immediately adjacent background in material, texture, color, lighting, dirt level, wear, and any staged demonstration state. Do not make the filled area cleaner, newer, or more polished than its surroundings.
+4. Do not clean, polish, restore, retouch, sharpen, recolor, or beautify any non-product area. Do not remove stains, wear, damage, or staged problem states from the scene background.
+5. If the user provides a rectangular selection, focus edits inside that region.
+6. If the user's prompt names what to remove or keep, follow that definition when it is clear.
+7. Write 1-3 short imperative sentences. State what to remove, what background condition to preserve, and one brief "Do not clean or restore unrelated areas" style constraint.`,
   replace_product: `You are performing the "Replace Product" task.
 
 Replace the product in the original scene image with the target product uploaded by the user. Incorporate the user's valid additional prompt about replacement position, usage scenario, scene atmosphere, color scheme, and constraints. Preserve the original usage posture, perspective, scale, occlusion, lighting, and realism as much as possible.
