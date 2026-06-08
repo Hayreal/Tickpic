@@ -10,6 +10,9 @@ concurrency:
   group: build-desktop-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   verify:
     name: Lint & Test
@@ -21,7 +24,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.12.1
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -69,7 +72,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.12.1
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -107,6 +110,7 @@ jobs:
           path: release-assets
 
       - name: List release files
+        shell: bash
         run: find release-assets -type f | sort
 
       - name: Create GitHub Release

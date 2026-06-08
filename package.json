@@ -2,6 +2,7 @@
   "name": "tickpic",
   "private": true,
   "version": "0.0.0",
+  "packageManager": "pnpm@10.12.1",
   "description": "Tickpic desktop creative workspace built with React and Electron.",
   "author": "Tickpic",
   "type": "module",
