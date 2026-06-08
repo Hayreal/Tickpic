@@ -7,7 +7,7 @@ afterEach(() => {
 });
 
 describe('ImageCountSelector', () => {
-  it('renders 1/2/4/8 count options', () => {
+  it('renders 1/2/4 count options', () => {
     const onChange = vi.fn();
 
     render(
@@ -21,7 +21,7 @@ describe('ImageCountSelector', () => {
     expect(screen.getByRole('button', { name: '1 张' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '2 张' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '4 张' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '8 张' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '8 张' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '2 张' }));
     expect(onChange).toHaveBeenCalledWith(2);

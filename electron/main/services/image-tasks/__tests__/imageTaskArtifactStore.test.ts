@@ -28,7 +28,7 @@ describe('imageTaskArtifactStore', () => {
       },
       modelProtocol: 'gemini',
       defaultCount: 4,
-      maxCount: 8,
+      maxCount: 4,
     });
 
     const saved = await store.save({

@@ -11,7 +11,7 @@ describe('imageTaskExecutor', () => {
     },
     modelProtocol: 'gemini',
     defaultCount: 4,
-    maxCount: 8,
+    maxCount: 4,
   };
 
   it('runs instruction generation before image execution and returns saved artifact paths', async () => {

@@ -39,7 +39,7 @@ export function createDefaultAppSettings(workspaceDir: string): AppSettings {
       vision: '',
     },
     defaultCount: 1,
-    maxCount: 8,
+    maxCount: 4,
     maxConcurrentTasks: 5,
   };
 }

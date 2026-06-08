@@ -77,8 +77,8 @@ describe('image feature API contract', () => {
   it('defines remove-product as a local in-place edit', () => {
     const definition = getImageFeatureDefinition('remove_product');
 
-    expect(definition.mainPrompt).toContain('局部去除目标产品');
-    expect(definition.mainPrompt).toContain('演示效果');
+    expect(definition.mainPrompt).toContain('喷雾/雾气');
+    expect(definition.mainPrompt).toContain('表面状态');
     expect(definition.mainPrompt).toContain('不顺带清洁');
   });
 });

@@ -9,7 +9,7 @@ describe('imageTaskPlan', () => {
     },
     modelProtocol: 'openai',
     defaultCount: 4,
-    maxCount: 8,
+    maxCount: 4,
   } as const;
 
   it('resolves vision and edit models for an edit feature', () => {
@@ -116,7 +116,7 @@ describe('imageTaskPlan', () => {
     expect(() => buildImageTaskPlan({
       feature: 'sticker_original',
       productCategory: 'cleaning sheets',
-      count: 9,
-    }, config)).toThrow('count must be less than or equal to 8');
+      count: 5,
+    }, config)).toThrow('count must be less than or equal to 4');
   });
 });

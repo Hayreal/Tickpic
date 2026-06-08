@@ -105,14 +105,14 @@ describe('settingsStore', () => {
     const updatedSettings = {
       ...createSavableSettings(tempDir),
       n1nApiKey: '__KEEP_EXISTING__',
-      defaultCount: 5,
+      defaultCount: 3,
     };
 
     await store.save(updatedSettings);
 
     const loaded = await store.load();
     expect(loaded.n1nApiKey).toBe('sk-live-original-key');
-    expect(loaded.defaultCount).toBe(5);
+    expect(loaded.defaultCount).toBe(3);
   });
 
   it('overwrites API key when new value is provided', async () => {

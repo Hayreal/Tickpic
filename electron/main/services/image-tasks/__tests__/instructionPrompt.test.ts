@@ -80,9 +80,7 @@ describe('instructionPrompt', () => {
     ].join('\n'));
     expect(text).not.toContain('mainPrompt');
     expect(text).not.toContain('/tmp/source.png');
-    expect(text).not.toContain('"count"');
-    expect(text).not.toContain('"regions"');
-    expect(text).not.toContain('aspectRatio');
+    expect(text).not.toContain('foreground overlays');
   });
 
   it('uses generation wording for prompt-only features', () => {
@@ -129,7 +127,7 @@ describe('instructionPrompt', () => {
     expect(text).not.toContain('mainPrompt');
   });
 
-  it('appends hard guardrails to remove-product execution instructions', () => {
+  it('adds spray prefix only when the model omits spray or mist', () => {
     const finalized = finalizeImageInstruction(
       'remove_product',
       'Remove the spray bottle in the right hand only.',
@@ -140,9 +138,9 @@ describe('instructionPrompt', () => {
     );
 
     expect(finalized).toBe(
-      'Remove the spray bottle in the right hand only. Inpaint only the removed area to match adjacent background; keep everything else unchanged.',
+      'First fully erase foreground spray/mist overlays, not only behind the bottle. Remove the spray bottle in the right hand only. Inpaint removed areas to match adjacent background; keep everything else unchanged.',
     );
-    expect(finalized.split(' ').length).toBeLessThan(30);
+    expect(finalized).not.toContain('fully erase every foreground spray');
   });
 
   it('builds a safe default remove-product instruction when the model returns empty text', () => {
@@ -157,8 +155,9 @@ describe('instructionPrompt', () => {
     );
 
     expect(finalized).toContain('remove only the spray bottle on the right');
-    expect(finalized).toContain('Inpaint only the removed area to match adjacent background');
-    expect(finalized.split(' ').length).toBeLessThan(35);
+    expect(finalized).toContain('spray or mist overlays');
+    expect(finalized).not.toContain('First fully erase foreground spray');
+    expect(finalized).toContain('Inpaint removed areas to match adjacent background');
   });
 
   it('includes user note in instruction user text for remove product', () => {
@@ -178,5 +177,38 @@ describe('instructionPrompt', () => {
 
     expect(text).toContain('User note: 不要去除车灯上面的污渍');
     expect(text).not.toContain('parameters:');
+  });
+
+  it('skips spray prefix when the instruction already mentions mist', () => {
+    const finalized = finalizeImageInstruction(
+      'remove_product',
+      'Remove the spray bottle, hand, and white mist from the nozzle.',
+      {
+        feature: 'remove_product',
+        images: [{ role: 'source', path: '/tmp/source.png' }],
+      },
+    );
+
+    expect(finalized).toBe(
+      'Remove the spray bottle, hand, and white mist from the nozzle. Inpaint removed areas to match adjacent background; keep everything else unchanged.',
+    );
+    expect(finalized).not.toContain('First fully erase foreground spray');
+  });
+
+  it('resolves demonstration-effect conflict and strips legacy suffix from execution prompt', () => {
+    const finalized = finalizeImageInstruction(
+      'remove_product',
+      'Remove the spray bottle, holding hand, and mist, inpainting only their occluded areas to match the original background while preserving text, rust, stains, rails, and demonstration effects. Inpaint only the removed area to match adjacent background; keep everything else unchanged.',
+      {
+        feature: 'remove_product',
+        images: [{ role: 'source', path: '/tmp/source.png' }],
+      },
+    );
+
+    expect(finalized).toContain('spray and mist overlays are not demonstration effects');
+    expect(finalized).not.toContain('Inpaint only the removed area to match adjacent background');
+    expect(finalized).toContain('inpaint where the product blocked the background');
+    expect(finalized).not.toContain('First fully erase foreground spray');
+    expect(finalized).toContain('Inpaint removed areas to match adjacent background');
   });
 });

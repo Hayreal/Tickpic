@@ -50,9 +50,9 @@ Rules: label/sticker only—no product objects, containers, or posters; honor us
 ${GENERATION_OUTPUT_RULE}`,
   remove_product: `You are performing the "Remove Product" task.
 
-Remove the target product and inpaint only where it blocked the scene.
+Remove the target product and any spray, mist, or droplet overlays, then inpaint only removed areas.
 
-Rules: product means the merchandise, packaging, holding hand, and spray/foam/mist from the product; keep background, props, demonstration effects, wear, stains, dirt, text, and overlays unless the user says otherwise; match adjacent background in the filled area and do not clean unrelated areas.
+Rules: erase foreground spray/mist overlays, not only behind the product; keep user-requested text, surface states, and demo effects; do not clean unrelated areas.
 
 ${EDIT_OUTPUT_RULE}`,
   replace_product: `You are performing the "Replace Product" task.

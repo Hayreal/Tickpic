@@ -140,7 +140,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   remove_product: {
     feature: 'remove_product',
-    mainPrompt: '局部去除目标产品并补全遮挡区域，保留原背景、演示效果与文字，不顺带清洁或美化。',
+    mainPrompt: '去除目标产品及喷雾/雾气叠加，补全遮挡区域；保留用户要求的文字与表面状态，不顺带清洁或美化。',
     acceptedImageRoles: ['source'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',

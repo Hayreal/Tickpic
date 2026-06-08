@@ -32,7 +32,8 @@ describe('imageInstructionPrompts', () => {
     const prompt = buildImageInstructionSystemPrompt('remove_product');
 
     expect(prompt).toContain('under 35 words');
-    expect(prompt).toContain('match adjacent background');
+    expect(prompt).toContain('foreground spray/mist overlays');
+    expect(prompt).toContain('not only behind the product');
     expect(prompt).toContain('Do not stack repeated negatives');
     expect(prompt).not.toContain('strict local inpainting');
   });

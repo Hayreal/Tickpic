@@ -155,7 +155,7 @@ describe('desktopClient', () => {
               generation: 'gemini-2.5-flash-image',
             },
             defaultCount: 4,
-            maxCount: 8,
+            maxCount: 4,
             maxConcurrentTasks: 5,
             hasApiKey: false,
           };

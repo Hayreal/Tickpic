@@ -561,7 +561,7 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
                     <textarea
                       value={removeDesc}
                       onChange={(e) => setRemoveDesc(e.target.value)}
-                      placeholder="例如：只去掉手持产品，保留背景污渍、演示效果和底部文字"
+                      placeholder="例如：去掉栏杆上的雾气/液滴叠加，保留锈蚀前后对比和顶部文字"
                       className="ui-textarea h-16 text-xs"
                     />
                   </div>

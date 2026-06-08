@@ -7,6 +7,7 @@ import {
   createDefaultAppSettings,
   redactAppSettings,
 } from '../../../../src/shared/domain/settings.js';
+import { MAX_IMAGE_COUNT } from '../../../../src/shared/view/imageCountOptions.js';
 
 interface StoredSettingsPayload extends Omit<AppSettings, 'n1nApiKey'> {
   n1nApiKey: string | EncryptedSecret;
@@ -97,7 +98,9 @@ function validateSettings(settings: AppSettings): AppSettings {
   if (!Number.isInteger(settings.defaultCount) || settings.defaultCount <= 0) {
     throw new Error('defaultCount must be a positive integer');
   }
-  if (!Number.isInteger(settings.maxCount) || settings.maxCount < settings.defaultCount) {
+  const normalizedMaxCount = Math.min(settings.maxCount, MAX_IMAGE_COUNT);
+  const normalizedDefaultCount = Math.min(settings.defaultCount, normalizedMaxCount);
+  if (!Number.isInteger(normalizedMaxCount) || normalizedMaxCount < normalizedDefaultCount) {
     throw new Error('maxCount must be greater than or equal to defaultCount');
   }
   if (!Number.isInteger(settings.maxConcurrentTasks) || settings.maxConcurrentTasks <= 0) {
@@ -112,7 +115,11 @@ function validateSettings(settings: AppSettings): AppSettings {
     throw new Error('modelProtocol must be openai or gemini');
   }
 
-  return settings;
+  return {
+    ...settings,
+    defaultCount: normalizedDefaultCount,
+    maxCount: normalizedMaxCount,
+  };
 }
 
 function encryptSecret(value: string, key: Buffer): EncryptedSecret {

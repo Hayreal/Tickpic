@@ -35,7 +35,7 @@ export default function Settings() {
   const [visionModel, setVisionModel] = useState('');
   const [workspaceDir, setWorkspaceDir] = useState('');
   const [defaultCount, setDefaultCount] = useState(1);
-  const [maxCount, setMaxCount] = useState(8);
+  const [maxCount, setMaxCount] = useState(4);
   const [maxConcurrentTasks, setMaxConcurrentTasks] = useState(5);
 
   const [testState, setTestState] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
