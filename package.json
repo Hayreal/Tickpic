@@ -7,9 +7,6 @@
   "author": "Tickpic",
   "type": "module",
   "main": "dist-electron/electron/main.js",
-  "config": {
-    "electron_mirror": "https://npmmirror.com/mirrors/electron/"
-  },
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "dev:electron": "pnpm build:electron && ELECTRON_RENDERER_URL=http://127.0.0.1:3000 electron --no-sandbox dist-electron/electron/main.js",
@@ -17,8 +14,8 @@
     "build": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json && esbuild electron/preload.ts --bundle --platform=node --format=cjs --outfile=dist-electron/electron/preload.js --external:electron --sourcemap",
     "smoke:image-task": "node --env-file=.env --import tsx scripts/smoke-image-task.ts",
-    "dist:win": "pnpm build && pnpm build:electron && electron-builder --win nsis",
-    "dist:mac": "pnpm build && pnpm build:electron && electron-builder --mac dmg zip",
+    "dist:win": "pnpm build && pnpm build:electron && electron-builder --win nsis --publish never",
+    "dist:mac": "pnpm build && pnpm build:electron && electron-builder --mac dmg zip --publish never",
     "preview": "vite preview",
     "clean": "rm -rf dist dist-electron release server.js",
     "lint": "tsc --noEmit",

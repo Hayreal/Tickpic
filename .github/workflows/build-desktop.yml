@@ -58,13 +58,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       CI: true
-      # Use the official Electron CDN on GitHub-hosted runners.
-      npm_config_electron_mirror: ''
       # Unsigned macOS builds for CI artifacts.
       CSC_IDENTITY_AUTO_DISCOVERY: false
+      # Force official Electron / electron-builder CDN (repo .npmrc uses npmmirror for local dev).
+      ELECTRON_MIRROR: ''
+      ELECTRON_BUILDER_BINARIES_MIRROR: ''
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Use official Electron CDN in CI
+        shell: bash
+        run: printf '%s\n' '# Use official Electron CDN on GitHub Actions' > .npmrc
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
