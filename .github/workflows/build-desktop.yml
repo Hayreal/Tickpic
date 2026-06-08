@@ -99,8 +99,58 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Cache electron-builder binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.os == 'Windows' && format('{0}\electron-builder\Cache', env.LOCALAPPDATA) || (runner.os == 'macOS' && '~/Library/Caches/electron-builder' || '~/.cache/electron-builder') }}
+          key: electron-builder-cache-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            electron-builder-cache-${{ runner.os }}-
+
+      - name: Prefetch NSIS (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          CACHE_DIR="${LOCALAPPDATA}/electron-builder/Cache/nsis/nsis-3.0.4.1"
+          mkdir -p "$CACHE_DIR"
+          TARGET="$CACHE_DIR/nsis-3.0.4.1.7z"
+          if [ -f "$TARGET" ]; then
+            echo "NSIS archive already cached"
+            exit 0
+          fi
+          for url in \
+            "https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-3.0.4.1/nsis-3.0.4.1.7z" \
+            "https://npmmirror.com/mirrors/electron-builder-binaries/nsis-3.0.4.1/nsis-3.0.4.1.7z"; do
+            echo "Trying $url"
+            for attempt in 1 2 3; do
+              if curl -fsSL --retry 5 --retry-delay 10 --retry-all-errors -o "$TARGET" "$url"; then
+                echo "Downloaded NSIS from $url"
+                exit 0
+              fi
+              echo "Attempt $attempt failed for $url"
+              sleep 15
+            done
+          done
+          echo "Failed to prefetch NSIS"
+          exit 1
+
       - name: Build installer
-        run: pnpm ${{ matrix.script }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            echo "Build attempt ${attempt}"
+            if pnpm ${{ matrix.script }}; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Build failed, retrying in 30s..."
+              sleep 30
+            fi
+          done
+          exit 1
         env:
           ELECTRON_MIRROR: ''
           ELECTRON_BUILDER_BINARIES_MIRROR: ''
