@@ -74,15 +74,34 @@ describe('instructionPrompt', () => {
     const text = buildInstructionUserText(input);
 
     expect(text).toBe([
-      'feature: remove_product',
-      'taskGoal: 去掉目标产品并在遮挡区域自然补全背景，保留场景演示效果。',
-      'Return only the final image instruction text for ONE standalone output image.',
+      'Write one concise English image-edit instruction for "remove_product".',
+      'Goal: 去掉目标产品并在遮挡区域自然补全背景，保留场景演示效果。',
+      'Return one short executable sentence only, ideally under 35 words. No markdown or explanation.',
     ].join('\n'));
     expect(text).not.toContain('mainPrompt');
     expect(text).not.toContain('/tmp/source.png');
     expect(text).not.toContain('"count"');
     expect(text).not.toContain('"regions"');
     expect(text).not.toContain('aspectRatio');
+  });
+
+  it('uses generation wording for prompt-only features', () => {
+    const text = buildInstructionUserText({
+      task: {
+        feature: 'prompt_only_main_asset',
+        request: {
+          feature: 'prompt_only_main_asset',
+          prompt: 'pink laundry ad',
+        },
+      },
+      plan: {
+        mainPrompt: '根据用户描述完成电商主图或广告素材生成',
+      },
+    } as unknown as ModelInstructionClientInput);
+
+    expect(text).toContain('image-generation instruction');
+    expect(text).toContain('under 60 words total');
+    expect(text).toContain('User note: pink laundry ad');
   });
 
   it('includes non-empty user parameters in instruction user text', () => {
@@ -103,9 +122,10 @@ describe('instructionPrompt', () => {
 
     const text = buildInstructionUserText(input);
 
-    expect(text).toContain('feature: sticker_variation');
-    expect(text).toContain('parameters: {"prompt":"summer style","aspectRatio":"1:1"}');
-    expect(text).toContain('ONE standalone output image');
+    expect(text).toContain('Write one concise English image-edit instruction for "sticker_variation".');
+    expect(text).toContain('User note: summer style');
+    expect(text).toContain('Extra: {"aspectRatio":"1:1"}');
+    expect(text).toContain('under 35 words');
     expect(text).not.toContain('mainPrompt');
   });
 
@@ -119,11 +139,10 @@ describe('instructionPrompt', () => {
       },
     );
 
-    expect(finalized).toContain('Remove the spray bottle in the right hand only.');
-    expect(finalized).toContain('Use the source image as the base');
-    expect(finalized).toContain('adjacent background material');
-    expect(finalized).toContain('Do not clean, polish, restore');
-    expect(finalized).toContain('Do not replace the background');
+    expect(finalized).toBe(
+      'Remove the spray bottle in the right hand only. Inpaint only the removed area to match adjacent background; keep everything else unchanged.',
+    );
+    expect(finalized.split(' ').length).toBeLessThan(30);
   });
 
   it('builds a safe default remove-product instruction when the model returns empty text', () => {
@@ -138,7 +157,26 @@ describe('instructionPrompt', () => {
     );
 
     expect(finalized).toContain('remove only the spray bottle on the right');
-    expect(finalized).toContain('Inpaint only where the removed product blocked the scene');
-    expect(finalized).toContain('Do not clean, polish, restore');
+    expect(finalized).toContain('Inpaint only the removed area to match adjacent background');
+    expect(finalized.split(' ').length).toBeLessThan(35);
+  });
+
+  it('includes user note in instruction user text for remove product', () => {
+    const text = buildInstructionUserText({
+      task: {
+        feature: 'remove_product',
+        request: {
+          feature: 'remove_product',
+          prompt: '不要去除车灯上面的污渍',
+          images: [{ role: 'source', path: '/tmp/source.png' }],
+        },
+      },
+      plan: {
+        mainPrompt: '局部去除目标产品并补全遮挡区域，保留原背景、演示效果与文字，不顺带清洁或美化。',
+      },
+    } as unknown as ModelInstructionClientInput);
+
+    expect(text).toContain('User note: 不要去除车灯上面的污渍');
+    expect(text).not.toContain('parameters:');
   });
 });

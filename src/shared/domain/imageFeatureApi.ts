@@ -116,7 +116,7 @@ export interface ImageFeatureDefinition {
 const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   sticker_replica: {
     feature: 'sticker_replica',
-    mainPrompt: '提取当前产品上面的贴纸',
+    mainPrompt: '提取参考贴纸，输出相似风格的独立 2D 平面贴纸。',
     acceptedImageRoles: ['source', 'reference'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',
@@ -124,7 +124,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   sticker_variation: {
     feature: 'sticker_variation',
-    mainPrompt: '参考当前贴纸设计，生成同品类感的新款贴纸变体。可调整标题区、卖点区、图标区、背景纹理与色块比例，输出独立 2D 平面贴纸。',
+    mainPrompt: '生成同品类贴纸变体，可调整布局、标题区、卖点区与色块。',
     acceptedImageRoles: ['source', 'reference'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',
@@ -132,7 +132,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   sticker_original: {
     feature: 'sticker_original',
-    mainPrompt: '设计一张适合当前产品的原创 2D 平面贴纸初稿，可贴到包装上。根据品类与产品信息补充合适的卖点与视觉风格。',
+    mainPrompt: '设计原创 2D 平面贴纸初稿，按品类与产品信息补充卖点与视觉风格。',
     acceptedImageRoles: ['reference', 'style'],
     requiredImageRoles: [],
     executionModel: 'generation',
@@ -140,7 +140,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   remove_product: {
     feature: 'remove_product',
-    mainPrompt: '只去掉目标产品（含包装、手持姿势、从产品发出的喷雾/泡沫等直接附着效果），并在产品遮挡区域补全被挡住的背景。补全区域必须与紧邻背景保持同样的材质、颜色、光影、脏污和磨损状态，不要比周围更干净或更崭新。保留原场景、道具、文字和画面中的演示效果，不要清洁、抛光、修复或美化任何非产品区域。',
+    mainPrompt: '局部去除目标产品并补全遮挡区域，保留原背景、演示效果与文字，不顺带清洁或美化。',
     acceptedImageRoles: ['source'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',
@@ -148,7 +148,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   replace_product: {
     feature: 'replace_product',
-    mainPrompt: '用目标产品替换场景图中的原产品，尽量保持原手持姿势、透视、大小比例与光影自然。除非明确要求对比展示，否则不保留新旧产品并存。',
+    mainPrompt: '用目标产品替换场景原产品，保持姿势、透视、比例与光影自然。',
     acceptedImageRoles: ['source', 'product'],
     requiredImageRoles: ['source', 'product'],
     executionModel: 'edit',
@@ -156,7 +156,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   replace_logo: {
     feature: 'replace_logo',
-    mainPrompt: '只替换原图中明显的品牌 Logo 或品牌文字。目标 Logo 仅作标识参考，保持原位置、透视、材质与光影贴合，不改包装结构、产品形态、背景及其他文字。',
+    mainPrompt: '只替换品牌 Logo，保持原位置、透视、材质与光影。',
     acceptedImageRoles: ['source', 'logo'],
     requiredImageRoles: ['source', 'logo'],
     executionModel: 'edit',
@@ -164,7 +164,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   main_image_asset_variation: {
     feature: 'main_image_asset_variation',
-    mainPrompt: '参考当前主图，生成同类电商主图素材变体。支持不同风格、色系、构图及 Before/After 对比表达，默认不展示具体产品。',
+    mainPrompt: '生成主图素材变体，支持风格/构图/Before-After，默认无具体产品。',
     acceptedImageRoles: ['source', 'reference'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',
@@ -173,7 +173,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   scene_variation: {
     feature: 'scene_variation',
-    mainPrompt: '参考当前场景，生成同品类可用的新使用场景素材。发散不同具体使用场景，而非仅改色或构图，默认不展示具体产品。',
+    mainPrompt: '生成新的具体使用场景素材，默认无具体产品。',
     acceptedImageRoles: ['source', 'reference'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',
@@ -182,7 +182,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   create_new_scene: {
     feature: 'create_new_scene',
-    mainPrompt: '根据产品品类与场景要求，创作新的电商使用场景图。自动发散多个真实生活场景，可含使用前后对比与细节图。',
+    mainPrompt: '创作新的电商使用场景图，按品类发散真实生活场景。',
     acceptedImageRoles: ['style'],
     requiredImageRoles: [],
     executionModel: 'generation',

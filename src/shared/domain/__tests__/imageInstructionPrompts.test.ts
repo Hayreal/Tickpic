@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildImageInstructionSystemPrompt } from '../imageInstructionPrompts';
+import { IMAGE_FEATURES } from '../imageFeatureApi';
+import { getImageFeatureDefinition } from '../imageFeatureApi';
 
 describe('imageInstructionPrompts', () => {
   it('combines the generic instruction generator prompt with feature boundaries', () => {
@@ -7,7 +9,8 @@ describe('imageInstructionPrompts', () => {
 
     expect(prompt).toContain('Your task is not to generate images.');
     expect(prompt).toContain('You are performing the "Replace Logo" task.');
-    expect(prompt).toContain('Replace only the obvious brand mark or logo.');
+    expect(prompt).toContain('logo swap only');
+    expect(prompt).toContain('under 35 words');
   });
 
   it('preserves prompt-only feature restriction for second-stage image input', () => {
@@ -15,6 +18,7 @@ describe('imageInstructionPrompts', () => {
 
     expect(prompt).toContain('You are performing the "Prompt-Only Main Image / Asset Generation" task.');
     expect(prompt).toContain('Do not require those images to be passed to the downstream image model.');
+    expect(prompt).toContain('under 60 words total');
   });
 
   it('requires each instruction to target one standalone output image', () => {
@@ -27,13 +31,32 @@ describe('imageInstructionPrompts', () => {
   it('keeps remove-product edits focused on the target product', () => {
     const prompt = buildImageInstructionSystemPrompt('remove_product');
 
-    expect(prompt).toContain('adjacent background');
-    expect(prompt).toContain('cleaner, newer, or more polished');
-    expect(prompt).toContain('Do not clean, polish, restore');
-    expect(prompt).toContain('spray, foam, or mist');
-    expect(prompt).not.toContain('headlight');
-    expect(prompt).not.toContain('car paint');
+    expect(prompt).toContain('under 35 words');
+    expect(prompt).toContain('match adjacent background');
+    expect(prompt).toContain('Do not stack repeated negatives');
     expect(prompt).not.toContain('strict local inpainting');
-    expect(prompt).not.toContain('Every pixel outside');
+  });
+
+  it('requires concise single-sentence output for all edit features', () => {
+    const editFeatures = IMAGE_FEATURES.filter(
+      (feature) => getImageFeatureDefinition(feature).executionModel === 'edit',
+    );
+
+    for (const feature of editFeatures) {
+      const prompt = buildImageInstructionSystemPrompt(feature);
+      expect(prompt).toContain('under 35 words');
+      expect(prompt).toContain('Do not stack repeated negatives');
+    }
+  });
+
+  it('allows slightly longer output for generation features', () => {
+    const generationFeatures = IMAGE_FEATURES.filter(
+      (feature) => getImageFeatureDefinition(feature).executionModel === 'generation',
+    );
+
+    for (const feature of generationFeatures) {
+      const prompt = buildImageInstructionSystemPrompt(feature);
+      expect(prompt).toContain('under 60 words total');
+    }
   });
 });

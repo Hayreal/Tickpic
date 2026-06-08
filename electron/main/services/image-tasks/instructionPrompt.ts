@@ -1,14 +1,12 @@
-import type { ImageFeature, ImageTaskRequest } from '../../../../src/shared/domain/imageFeatureApi.js';
+import {
+  getImageFeatureDefinition,
+  type ImageFeature,
+  type ImageTaskRequest,
+} from '../../../../src/shared/domain/imageFeatureApi.js';
 import type { ModelInstructionClientInput } from './modelGateway.js';
 
-const REMOVE_PRODUCT_EXECUTION_GUARDRAILS = [
-  'Use the source image as the base.',
-  'Inpaint only where the removed product blocked the scene.',
-  'Match the inpainted area to the adjacent background material, texture, color, lighting, dirt, and wear.',
-  'Preserve stains, wear, staged demonstration states, and before/after effects on the scene background.',
-  'Do not clean, polish, restore, retouch, or beautify any unrelated area.',
-  'Do not replace the background, crop, reframe, or add new objects.',
-] as const;
+const REMOVE_PRODUCT_EXECUTION_SUFFIX =
+  'Inpaint only the removed area to match adjacent background; keep everything else unchanged.';
 
 const IMAGE_GENERATION_MODEL_PATTERN = /gpt-image|flash-image|dall-?e/i;
 
@@ -52,29 +50,50 @@ export function sanitizeRequestForInstruction(request: ImageTaskRequest) {
 }
 
 export function buildInstructionUserText(input: ModelInstructionClientInput) {
-  const parameters = compactInstructionParameters(input.task.request);
-  const lines = [`feature: ${input.task.feature}`];
+  const request = input.task.request;
+  const parameters = compactInstructionParameters(request);
+  const taskGoal = input.plan.mainPrompt?.trim();
+  const userPrompt = typeof parameters.prompt === 'string' ? parameters.prompt.trim() : '';
+  const { prompt: _prompt, ...otherParameters } = parameters;
+  const isEdit = getImageFeatureDefinition(input.task.feature).executionModel === 'edit';
+  const lines = [
+    isEdit
+      ? `Write one concise English image-edit instruction for "${input.task.feature}".`
+      : `Write a concise English image-generation instruction for "${input.task.feature}".`,
+  ];
 
-  if (input.plan.mainPrompt?.trim()) {
-    lines.push(`taskGoal: ${input.plan.mainPrompt.trim()}`);
+  if (taskGoal) {
+    lines.push(`Goal: ${taskGoal}`);
   }
 
-  if (Object.keys(parameters).length > 0) {
-    lines.push(`parameters: ${JSON.stringify(parameters)}`);
+  if (userPrompt) {
+    lines.push(`User note: ${userPrompt}`);
   }
 
-  lines.push('Return only the final image instruction text for ONE standalone output image.');
+  if (request.regions?.length) {
+    lines.push(`Selection: ${request.regions.length} rectangular region(s) provided.`);
+  }
+
+  if (Object.keys(otherParameters).length > 0) {
+    lines.push(`Extra: ${JSON.stringify(otherParameters)}`);
+  }
+
+  lines.push(
+    isEdit
+      ? 'Return one short executable sentence only, ideally under 35 words. No markdown or explanation.'
+      : 'Return one or two short executable sentences, ideally under 60 words total. No markdown or explanation.',
+  );
   return lines.join('\n');
 }
 
 function buildRemoveProductDefaultInstruction(request: ImageTaskRequest) {
   if (request.prompt?.trim()) {
-    return `Remove the target product from the source image and inpaint only the occluded area: ${request.prompt.trim()}`;
+    return `Remove the target product (${request.prompt.trim()}) and inpaint only the occluded area.`;
   }
   if (request.regions?.length) {
-    return 'Remove the product inside the user-selected region and inpaint only the occluded area behind it.';
+    return 'Remove the product in the selected region and inpaint only the occluded area.';
   }
-  return 'Remove the target product object and any spray or hand directly attached to it. Inpaint only the occluded area to match the adjacent background. Do not clean or restore any other part of the scene.';
+  return 'Remove the target product and inpaint only the occluded area.';
 }
 
 export function finalizeImageInstruction(
@@ -86,7 +105,10 @@ export function finalizeImageInstruction(
 
   if (feature === 'remove_product') {
     const target = trimmed || buildRemoveProductDefaultInstruction(request);
-    return `${target} ${REMOVE_PRODUCT_EXECUTION_GUARDRAILS.join(' ')}`.trim();
+    if (target.includes(REMOVE_PRODUCT_EXECUTION_SUFFIX)) {
+      return target;
+    }
+    return `${target} ${REMOVE_PRODUCT_EXECUTION_SUFFIX}`.trim();
   }
 
   return trimmed;
