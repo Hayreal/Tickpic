@@ -45,6 +45,7 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
 
   const sourceImage = getImageByRole(request, 'source');
   const referenceImage = getImageByRole(request, 'reference');
+  const logoImage = getImageByRole(request, 'logo');
   const styleImage = getImageByRole(request, 'style');
 
   const base = {
@@ -79,7 +80,9 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
         ...base,
         subTab: 'copy',
         copyBatch: sourceImage ? createImportBatch([sourceImage], 'sticker', 'sticker_replica') : null,
-        copyLogo: referenceImage ? createImportBatch([referenceImage], 'sticker', 'sticker_replica') : null,
+        copyLogo: (logoImage ?? referenceImage)
+          ? createImportBatch([logoImage ?? referenceImage!], 'sticker', 'sticker_replica')
+          : null,
         copyProductName: request.productName ?? '',
         copyLogoText: request.logoText ?? '',
         copyPrompt: request.prompt ?? '',

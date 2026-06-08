@@ -27,6 +27,12 @@ const REMOVE_PRODUCT_EMISSION_PATTERN =
 const REMOVE_PRODUCT_OCCLUSION_ONLY_PATTERN =
   /inpaint(?:ing)? only (?:their |the )?occluded/i;
 
+const STICKER_REPLICA_EXECUTION_SUFFIX =
+  'Output a flat 2D packaging sticker/label only; keep a similar rectangular layout from the source label; no box mockup, bottle, jar, or circular collage.';
+
+const STICKER_REPLICA_FLAT_OUTPUT_PATTERN =
+  /flat 2d|2d flat|packaging mockup|circular (?:badge|collage)|box mockup/i;
+
 const IMAGE_GENERATION_MODEL_PATTERN = /gpt-image|flash-image|dall-?e/i;
 
 export function isImageGenerationModel(modelId: string) {
@@ -91,10 +97,31 @@ export function buildInstructionUserText(input: ModelInstructionClientInput) {
 
   if (request.regions?.length) {
     lines.push(`Selection: ${request.regions.length} rectangular region(s) provided.`);
+    const regionHints = request.regions
+      .map((region) => region.operationHint?.trim())
+      .filter((hint): hint is string => Boolean(hint));
+    if (regionHints.length > 0) {
+      lines.push(`Region hints: ${regionHints.join('; ')}`);
+    }
+  }
+
+  if (input.task.feature === 'sticker_replica') {
+    const hasLogoImage = request.images?.some((image) => image.role === 'logo' || image.role === 'reference');
+    if (hasLogoImage) {
+      lines.push(
+        'The source image is the packaging/sticker layout reference; the separate logo image is only the brand mark to place—do not replicate the logo image as the sticker layout.',
+      );
+    }
   }
 
   if (Object.keys(otherParameters).length > 0) {
     lines.push(`Extra: ${JSON.stringify(otherParameters)}`);
+  }
+
+  if (isEdit) {
+    lines.push(
+      'The downstream model performs in-place image editing on the provided source image(s); use edit/transform/extract verbs, not create or generate.',
+    );
   }
 
   lines.push(
@@ -165,24 +192,60 @@ function needsSprayPrefix(instruction: string) {
   return !mentionsSprayOverlay(instruction);
 }
 
+const EDIT_GENERATION_VERB_PATTERN = /^(?:create|generate|design)\b/i;
+
+const EDIT_VERB_REPLACEMENTS: Partial<Record<ImageFeature, string>> = {
+  sticker_replica: 'Edit the source packaging label to extract',
+  sticker_variation: 'Edit the source sticker to produce',
+  remove_product: 'Edit the source image to remove',
+  replace_product: 'Edit the source image to replace',
+  replace_logo: 'Edit the source image to replace',
+  main_image_asset_variation: 'Edit the source main image to produce',
+  scene_variation: 'Edit the source scene to produce',
+};
+
+function normalizeEditInstructionVerbs(instruction: string, feature: ImageFeature) {
+  if (!EDIT_GENERATION_VERB_PATTERN.test(instruction)) {
+    return instruction;
+  }
+
+  const replacement = EDIT_VERB_REPLACEMENTS[feature] ?? 'Edit the source image to';
+  return instruction.replace(EDIT_GENERATION_VERB_PATTERN, replacement);
+}
+
+function finalizeStickerReplicaInstruction(instruction: string) {
+  const trimmed = instruction.trim();
+  if (STICKER_REPLICA_FLAT_OUTPUT_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
+  const core = trimmed.replace(/\s*\.?\s*$/, '').trim();
+  return `${core}. ${STICKER_REPLICA_EXECUTION_SUFFIX}`;
+}
+
 export function finalizeImageInstruction(
   feature: ImageFeature,
   instruction: string,
   request: ImageTaskRequest,
 ) {
   const trimmed = instruction.trim();
+  const isEdit = getImageFeatureDefinition(feature).executionModel === 'edit';
+  const normalized = isEdit ? normalizeEditInstructionVerbs(trimmed, feature) : trimmed;
+
+  if (feature === 'sticker_replica') {
+    return finalizeStickerReplicaInstruction(normalized);
+  }
 
   if (feature === 'remove_product') {
     const core = clarifyRemoveProductDemonstration(
       fixOcclusionOnlyWording(
-        stripLegacyRemoveProductFragments(trimmed || buildRemoveProductDefaultInstruction(request)),
+        stripLegacyRemoveProductFragments(normalized || buildRemoveProductDefaultInstruction(request)),
       ),
     );
     const prefix = needsSprayPrefix(core) ? REMOVE_PRODUCT_SPRAY_PREFIX : '';
     return `${prefix}${core}. ${REMOVE_PRODUCT_EXECUTION_SUFFIX}`.trim();
   }
 
-  return trimmed;
+  return normalized;
 }
 
 export function buildFallbackFinalPrompt(input: ModelInstructionClientInput) {

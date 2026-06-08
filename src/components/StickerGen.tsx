@@ -224,7 +224,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
             feature: FEATURE_MAP[type],
             images: [
               { role: 'source', path: source.filePath },
-              ...(logoImage ? [{ role: 'reference' as const, path: logoImage.filePath }] : []),
+              ...(logoImage ? [{ role: 'logo' as const, path: logoImage.filePath }] : []),
             ],
             count: 1,
             prompt: copyPrompt || undefined,

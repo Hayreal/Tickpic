@@ -76,6 +76,7 @@ describe('instructionPrompt', () => {
     expect(text).toBe([
       'Write one concise English image-edit instruction for "remove_product".',
       'Goal: 去掉目标产品并在遮挡区域自然补全背景，保留场景演示效果。',
+      'The downstream model performs in-place image editing on the provided source image(s); use edit/transform/extract verbs, not create or generate.',
       'Return one short executable sentence only, ideally under 35 words. No markdown or explanation.',
     ].join('\n'));
     expect(text).not.toContain('mainPrompt');
@@ -193,6 +194,62 @@ describe('instructionPrompt', () => {
       'Remove the spray bottle, hand, and white mist from the nozzle. Inpaint removed areas to match adjacent background; keep everything else unchanged.',
     );
     expect(finalized).not.toContain('First fully erase foreground spray');
+  });
+
+  it('clarifies logo image role for sticker replica instruction generation', () => {
+    const text = buildInstructionUserText({
+      task: {
+        feature: 'sticker_replica',
+        request: {
+          feature: 'sticker_replica',
+          images: [
+            { role: 'source', path: '/tmp/package.png' },
+            { role: 'logo', path: '/tmp/logo.png' },
+          ],
+          logoText: 'wkau',
+        },
+      },
+      plan: {
+        mainPrompt: '从包装参考图提取版式，输出独立 2D 平面贴纸。',
+      },
+    } as unknown as ModelInstructionClientInput);
+
+    expect(text).toContain('packaging/sticker layout reference');
+    expect(text).toContain('brand mark to place');
+    expect(text).toContain('Extra: {"logoText":"wkau"}');
+  });
+
+  it('appends flat-sticker guardrail to sticker replica execution instructions', () => {
+    const finalized = finalizeImageInstruction(
+      'sticker_replica',
+      'Replicate the pink effervescent-tablet label with bold red English typography and the wkau logo.',
+      {
+        feature: 'sticker_replica',
+        images: [
+          { role: 'source', path: '/tmp/package.png' },
+          { role: 'logo', path: '/tmp/logo.png' },
+        ],
+      },
+    );
+
+    expect(finalized).toContain('rectangular layout from the source label');
+    expect(finalized).toContain('no box mockup');
+  });
+
+  it('rewrites create wording into edit wording for sticker replica execution', () => {
+    const finalized = finalizeImageInstruction(
+      'sticker_replica',
+      'Create an independent flat 2D sticker with bold red English typography and the black wkau logo, with no packaging mockup.',
+      {
+        feature: 'sticker_replica',
+        images: [{ role: 'source', path: '/tmp/package.png' }],
+      },
+    );
+
+    expect(finalized).toBe(
+      'Edit the source packaging label to extract an independent flat 2D sticker with bold red English typography and the black wkau logo, with no packaging mockup.',
+    );
+    expect(finalized).not.toMatch(/^Create\b/i);
   });
 
   it('resolves demonstration-effect conflict and strips legacy suffix from execution prompt', () => {

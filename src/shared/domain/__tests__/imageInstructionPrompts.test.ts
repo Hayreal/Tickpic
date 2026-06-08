@@ -28,6 +28,16 @@ describe('imageInstructionPrompts', () => {
     expect(prompt).toContain('Never describe a grid, contact sheet, collage');
   });
 
+  it('keeps sticker replica focused on source layout and optional logo image', () => {
+    const prompt = buildImageInstructionSystemPrompt('sticker_replica');
+
+    expect(prompt).toContain('Edit the source packaging or sticker image');
+    expect(prompt).toContain('do not use create, generate, or design');
+    expect(prompt).toContain('do not treat the logo image as the layout reference');
+    expect(prompt).toContain('rectangular label layout');
+    expect(prompt).not.toContain('Replicate the reference sticker');
+  });
+
   it('keeps remove-product edits focused on the target product', () => {
     const prompt = buildImageInstructionSystemPrompt('remove_product');
 

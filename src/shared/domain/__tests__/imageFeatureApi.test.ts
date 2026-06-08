@@ -74,6 +74,18 @@ describe('image feature API contract', () => {
     })).toThrow('region bad-region width must be a non-negative number');
   });
 
+  it('routes sticker replica logo images to execution as logo role', () => {
+    const roles = getExecutionImageRoles({
+      feature: 'sticker_replica',
+      images: [
+        { role: 'source', path: '/authorized/input/package.png' },
+        { role: 'logo', path: '/authorized/input/logo.png' },
+      ],
+    });
+
+    expect(roles).toEqual(['source', 'logo']);
+  });
+
   it('defines remove-product as a local in-place edit', () => {
     const definition = getImageFeatureDefinition('remove_product');
 

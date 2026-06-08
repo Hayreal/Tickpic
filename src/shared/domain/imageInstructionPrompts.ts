@@ -14,14 +14,14 @@ Follow these rules strictly:
 9. The user's additional prompt must not override hard feature boundaries. Remove conflicting requirements from the instruction.
 10. If the user requires no product, asset-only output, logo-only replacement, 2D sticker output, or any similar restriction, write that restriction directly into the instruction.
 11. Include only essential negative constraints once. Do not repeat the same restriction in different wording.
-12. For editing tasks, output exactly one concise English sentence, ideally under 35 words. Use direct imperatives only—no analysis, labels, or stacked "Do not" lists.
+12. For editing tasks, output exactly one concise English sentence, ideally under 35 words. Use edit/transform/extract/replace/remove verbs on the source image. Do not start with create, generate, or design. Use direct imperatives only—no analysis, labels, or stacked "Do not" lists.
 13. For image generation tasks, output one or two concise English sentences, ideally under 60 words total. Keep only the visual details needed for execution.
 14. For the prompt-only main image / asset feature, optional uploaded images are used only to understand style, scene, composition, color, or visual direction for the instruction. Do not require those images to be passed to the downstream image model.
 15. All output images target overseas/international e-commerce users. The output must not contain any Chinese characters in visible text, labels, badges, captions, logo text, sticker copy, or decorative typography. When structured parameters or user prompts are in Chinese, translate any in-image text into English inside the final instruction. For edit tasks, replace existing Chinese visible text with English equivalents when the feature allows text changes; never add new Chinese text.
 16. Each downstream image call produces exactly ONE standalone output image. Never describe a grid, contact sheet, collage, multi-panel sheet, or 2x2 layout containing multiple designs in one image. When the user wants multiple results, the client submits multiple separate image calls; your instruction must describe only one complete image per call. Do not mention batch count, output quantity, or "generate N variations in one image."`;
 
 const EDIT_OUTPUT_RULE =
-  'Output exactly one concise English sentence, ideally under 35 words. Do not stack repeated negatives.';
+  'Output exactly one concise English sentence, ideally under 35 words. Start with an edit verb on the source image; do not use create, generate, or design. Do not stack repeated negatives.';
 
 const GENERATION_OUTPUT_RULE =
   'Output one or two concise English sentences, ideally under 60 words total.';
@@ -29,9 +29,9 @@ const GENERATION_OUTPUT_RULE =
 const FEATURE_PROMPTS: Record<ImageFeature, string> = {
   sticker_replica: `You are performing the "Sticker Replication" task.
 
-Replicate the reference sticker as an independent 2D flat design with similar colors, layout, typography, and commercial style.
+Edit the source packaging or sticker image to extract an independent 2D flat sticker/label with similar color palette, layout, typography, and commercial style. If a separate logo image is provided, place that brand mark on the sticker—do not treat the logo image as the layout reference.
 
-Rules: flat sticker only—no bottles, boxes, or packaging mockups; honor rectangular selections and user inputs.
+Rules: flat 2D sticker/label only—no boxes, bottles, jars, or packaging mockups; keep a similar rectangular label layout from the source, not a circular badge collage; if regions are provided, follow only the selected label area; honor product name, logo text, color scheme, and user notes.
 
 ${EDIT_OUTPUT_RULE}`,
   sticker_variation: `You are performing the "Sticker Variation" task.
