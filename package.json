@@ -58,6 +58,7 @@
   "build": {
     "appId": "com.tickpic.desktop",
     "productName": "Tickpic",
+    "publish": null,
     "directories": {
       "output": "release",
       "buildResources": "resources"

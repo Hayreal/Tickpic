@@ -69,7 +69,12 @@ jobs:
 
       - name: Use official Electron CDN in CI
         shell: bash
-        run: printf '%s\n' '# Use official Electron CDN on GitHub Actions' > .npmrc
+        run: |
+          cat > .npmrc <<'EOF'
+          # Use official Electron CDN on GitHub Actions (override repo mirror settings).
+          electron_mirror=
+          ELECTRON_MIRROR=
+          EOF
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -87,6 +92,10 @@ jobs:
 
       - name: Build installer
         run: pnpm ${{ matrix.script }}
+        env:
+          ELECTRON_MIRROR: ''
+          ELECTRON_BUILDER_BINARIES_MIRROR: ''
+          npm_config_electron_mirror: ''
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
