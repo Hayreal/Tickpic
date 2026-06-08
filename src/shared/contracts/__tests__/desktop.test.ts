@@ -8,6 +8,8 @@ describe('desktop contract', () => {
         saveImportBatch: 'storage:save-import-batch',
         saveTaskOutputs: 'storage:save-task-outputs',
         openOutputDirectory: 'storage:open-output-directory',
+        copyImageToClipboard: 'storage:copy-image-to-clipboard',
+        openLocalImage: 'storage:open-local-image',
       },
       tasks: {
         list: 'tasks:list',

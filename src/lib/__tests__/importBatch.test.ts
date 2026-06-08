@@ -17,7 +17,7 @@ function makeClipboardData(files: File[]) {
 }
 
 describe('collectImportFiles', () => {
-  it('keeps only the first four image files in a batch', () => {
+  it('keeps all image files in a batch', () => {
     const result = collectImportFiles([
       makeImageFile('1.png'),
       makeImageFile('2.png'),
@@ -31,9 +31,10 @@ describe('collectImportFiles', () => {
       '2.png',
       '3.png',
       '4.png',
+      '5.png',
     ]);
-    expect(result.rejectedCount).toBe(1);
-    expect(result.hasOverflow).toBe(true);
+    expect(result.rejectedCount).toBe(0);
+    expect(result.hasOverflow).toBe(false);
   });
 });
 

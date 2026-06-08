@@ -13,6 +13,8 @@ export const IPC_CHANNELS = {
     saveImportBatch: 'storage:save-import-batch',
     saveTaskOutputs: 'storage:save-task-outputs',
     openOutputDirectory: 'storage:open-output-directory',
+    copyImageToClipboard: 'storage:copy-image-to-clipboard',
+    openLocalImage: 'storage:open-local-image',
   },
   tasks: {
     list: 'tasks:list',
@@ -59,6 +61,22 @@ export interface OpenOutputDirectoryResult {
   openedDir: string;
 }
 
+export interface CopyImageToClipboardRequest {
+  filePath: string;
+}
+
+export interface CopyImageToClipboardResult {
+  copied: true;
+}
+
+export interface OpenLocalImageRequest {
+  filePath: string;
+}
+
+export interface OpenLocalImageResult {
+  opened: true;
+}
+
 export interface ImageTaskBridgeApi {
   submit(request: ImageTaskRequest): Promise<ImageTaskSubmitResult>;
   cancel(taskId: string): Promise<ImageTaskRecord>;
@@ -83,6 +101,8 @@ export interface DesktopBridgeApi {
   saveImportBatch(request: SaveImportBatchRequest): Promise<ImportBatch>;
   saveTaskOutputs(request: SaveTaskOutputsRequest): Promise<StoredImageRecord[]>;
   openOutputDirectory(request: OpenOutputDirectoryRequest): Promise<OpenOutputDirectoryResult>;
+  copyImageToClipboard(request: CopyImageToClipboardRequest): Promise<CopyImageToClipboardResult>;
+  openLocalImage(request: OpenLocalImageRequest): Promise<OpenLocalImageResult>;
   createTask(record: TaskRecord): Promise<void>;
   updateTask(record: TaskRecord): Promise<void>;
   listTasks(): Promise<TaskRecord[]>;

@@ -1,5 +1,6 @@
 import type { ImageAspectRatioValue } from '../../shared/view/imageAspectRatioOptions';
-import type { RegionInput } from '../../shared/domain/imageFeatureApi';
+import type { RegionMap } from '../../lib/regionSelection';
+import { regionMapFromTask } from '../../lib/regionSelection';
 import type { ImportBatch } from '../../shared/domain/images';
 import type { TaskRecord } from '../../shared/domain/tasks';
 import type { ProductSubTab } from '../../shared/view/ui';
@@ -9,18 +10,18 @@ export interface ProductRestoreState {
   subTab: ProductSubTab;
   removeBatch: ImportBatch | null;
   removeDesc: string;
-  removeRegion: RegionInput | null;
+  removeRegions: RegionMap;
   removeAspectRatio: ImageAspectRatioValue;
   replaceSceneBatch: ImportBatch | null;
   replaceProductBatch: ImportBatch | null;
   replaceDesc: string;
-  replaceRegion: RegionInput | null;
+  replaceRegions: RegionMap;
   replaceAspectRatio: ImageAspectRatioValue;
   logoSourceBatch: ImportBatch | null;
   logoTargetBatch: ImportBatch | null;
   logoDesc: string;
   logoText: string;
-  logoRegion: RegionInput | null;
+  logoRegions: RegionMap;
   logoAspectRatio: ImageAspectRatioValue;
   themeRefBatch: ImportBatch | null;
   themePrompt: string;
@@ -78,18 +79,18 @@ export function applyProductRestore(task: TaskRecord): ProductRestoreState | nul
     subTab: 'remove',
     removeBatch: null,
     removeDesc: '',
-    removeRegion: null,
+    removeRegions: {},
     removeAspectRatio: 'auto',
     replaceSceneBatch: null,
     replaceProductBatch: null,
     replaceDesc: '',
-    replaceRegion: null,
+    replaceRegions: {},
     replaceAspectRatio: 'auto',
     logoSourceBatch: null,
     logoTargetBatch: null,
     logoDesc: '',
     logoText: '',
-    logoRegion: null,
+    logoRegions: {},
     logoAspectRatio: 'auto',
     themeRefBatch: null,
     themePrompt: '',
@@ -130,7 +131,7 @@ export function applyProductRestore(task: TaskRecord): ProductRestoreState | nul
         subTab: 'remove',
         removeBatch: batchFromRole(request, 'source', 'product', 'remove_product'),
         removeDesc: request.prompt ?? '',
-        removeRegion: request.regions?.[0] ?? null,
+        removeRegions: regionMapFromTask(task.imports, request.regions),
         removeAspectRatio: aspectRatioFrom(request.aspectRatio),
       };
     case 'replace_product':
@@ -140,7 +141,7 @@ export function applyProductRestore(task: TaskRecord): ProductRestoreState | nul
         replaceSceneBatch: batchFromRole(request, 'source', 'product', 'replace_product'),
         replaceProductBatch: batchFromRole(request, 'product', 'product', 'replace_product'),
         replaceDesc: request.prompt ?? '',
-        replaceRegion: request.regions?.[0] ?? null,
+        replaceRegions: regionMapFromTask(task.imports, request.regions),
         replaceAspectRatio: aspectRatioFrom(request.aspectRatio),
       };
     case 'replace_logo':
@@ -151,7 +152,7 @@ export function applyProductRestore(task: TaskRecord): ProductRestoreState | nul
         logoTargetBatch: batchFromRole(request, 'logo', 'product', 'replace_logo'),
         logoDesc: request.prompt ?? '',
         logoText: request.logoText ?? '',
-        logoRegion: request.regions?.[0] ?? null,
+        logoRegions: regionMapFromTask(task.imports, request.regions),
         logoAspectRatio: aspectRatioFrom(request.aspectRatio),
       };
     case 'main_image_asset_variation':

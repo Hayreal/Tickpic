@@ -126,15 +126,6 @@ Tickpic/
 
 主要 IPC 能力包括：`imageTask.submit/cancel/get/onStatus`、`settings.get/save/testConnection`、`storage.openOutputDirectory` 等，通道名集中定义于 `src/shared/contracts/desktop.ts`。
 
-## 文档
-
-| 文档 | 内容 |
-|------|------|
-| [AGENTS.md](./AGENTS.md) | Agent 与贡献者工作规范 |
-| [docs/ai-image-feature-api.md](./docs/ai-image-feature-api.md) | AI 作图功能 API 与 IPC 契约 |
-| [docs/ai-image-api-implementation-plan.md](./docs/ai-image-api-implementation-plan.md) | 实现计划与队列/存储设计 |
-| [docs/ai-image-system-prompts.md](./docs/ai-image-system-prompts.md) | 各功能的系统提示词与硬边界 |
-
 ## 开发说明
 
 - 修改架构、IPC 或存储行为时，请同步更新 `docs/` 下对应文档。

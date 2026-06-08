@@ -13,48 +13,21 @@ import {
   ScrollText,
 } from 'lucide-react';
 import type { TaskRecord } from '../shared/domain/tasks';
-import type { AppLogEntry, AppLogLevel } from '../shared/domain/appLog';
 import { toTaskItem } from '../features/tasks/taskMappers';
 import { sortTasksByUpdatedAtDesc } from '../features/tasks/sortTasks';
 import { useOpenOutputDirectory } from '../hooks/useOpenOutputDirectory';
 import { useAppLogs } from '../hooks/useAppLogs';
 import { useDesktopClient } from '../hooks/useDesktopClient';
+import AppLogList from './AppLogList';
 import TaskDetailDrawer from './TaskDetailDrawer';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Badge } from '@/src/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { cn } from '@/src/lib/utils';
+import { UI } from '../shared/view/design';
 
 const ITEMS_PER_PAGE = 10;
-
-const LOG_SOURCE_LABELS: Record<AppLogEntry['source'], string> = {
-  app: '应用',
-  task: '任务',
-  'image-task': '作图',
-  settings: '设置',
-  storage: '存储',
-  model: '模型',
-};
-
-function formatLogTime(timestamp: string) {
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) {
-    return timestamp;
-  }
-  return date.toLocaleTimeString('zh-CN', { hour12: false });
-}
-
-function logLevelClass(level: AppLogLevel) {
-  switch (level) {
-    case 'error':
-      return 'text-red-600';
-    case 'warn':
-      return 'text-amber-600';
-    default:
-      return 'text-muted-foreground';
-  }
-}
 
 interface ProfileProps {
   tasks: TaskRecord[];
@@ -154,13 +127,33 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
   const statusBadge = (status: TaskRecord['status']) => {
     switch (status) {
       case 'Pending':
-        return <Badge variant="warning"><Clock className="h-3 w-3" />待处理</Badge>;
+        return (
+          <span className={UI.badgeWarning}>
+            <Clock className="size-3 shrink-0 opacity-80" aria-hidden />
+            待处理
+          </span>
+        );
       case 'Running':
-        return <Badge variant="info"><span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />运行中</Badge>;
+        return (
+          <span className={UI.badgeInfo}>
+            <span className="size-1.5 shrink-0 rounded-full bg-current opacity-80 animate-pulse" aria-hidden />
+            运行中
+          </span>
+        );
       case 'Completed':
-        return <Badge variant="success"><CheckCircle className="h-3 w-3" />已完成</Badge>;
+        return (
+          <span className={UI.badgeSuccess}>
+            <CheckCircle className="size-3 shrink-0 opacity-80" aria-hidden />
+            已完成
+          </span>
+        );
       case 'Failed':
-        return <Badge variant="destructive"><XCircle className="h-3 w-3" />失败</Badge>;
+        return (
+          <span className={UI.badgeError}>
+            <XCircle className="size-3 shrink-0 opacity-80" aria-hidden />
+            失败
+          </span>
+        );
       default:
         return null;
     }
@@ -187,44 +180,14 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
           </div>
           <Badge variant="secondary">{logs.length} 条</Badge>
         </CardHeader>
-        <CardContent className="p-0">
-          <div
-            className="h-56 overflow-y-auto bg-muted/20 font-mono text-xs leading-relaxed"
-            id="profile-app-logs-viewport"
-          >
-            {isLoadingLogs && logs.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-muted-foreground">
-                正在加载日志...
-              </div>
-            ) : logs.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-muted-foreground">
-                暂无应用日志
-              </div>
-            ) : (
-              <div className="divide-y divide-border/60">
-                {logs.map((entry) => (
-                  <div key={entry.id} className="px-4 py-2 hover:bg-muted/40">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="text-muted-foreground">{formatLogTime(entry.timestamp)}</span>
-                      <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
-                        {LOG_SOURCE_LABELS[entry.source]}
-                      </Badge>
-                      <span className={cn('uppercase font-semibold', logLevelClass(entry.level))}>
-                        {entry.level}
-                      </span>
-                      <span className="text-foreground">{entry.message}</span>
-                    </div>
-                    {entry.details ? (
-                      <pre className="mt-1 whitespace-pre-wrap break-all text-[11px] text-muted-foreground pl-0">
-                        {entry.details}
-                      </pre>
-                    ) : null}
-                  </div>
-                ))}
-                <div ref={logsEndRef} />
-              </div>
-            )}
-          </div>
+        <CardContent className="p-0" id="profile-app-logs-viewport">
+          <AppLogList
+            logs={logs}
+            isLoading={isLoadingLogs}
+            emptyText="暂无应用日志"
+            viewportClassName="h-56"
+            logsEndRef={logsEndRef}
+          />
         </CardContent>
       </Card>
 

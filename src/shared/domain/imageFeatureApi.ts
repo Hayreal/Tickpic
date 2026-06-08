@@ -140,7 +140,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   remove_product: {
     feature: 'remove_product',
-    mainPrompt: '去除场景图中的目标产品，并自然补全背景。保留原场景的光影、透视与环境氛围，结果可作为后续替换或裂变素材。',
+    mainPrompt: '在原图基础上仅局部去除目标产品并补全该产品遮挡的像素。源图是固定底图，非目标区域必须与原图完全一致，包括背景、场景、道具、光影、透视、文字与构图。不要换背景、不要修饰无关区域、不要裁切或重新生成场景。',
     acceptedImageRoles: ['source'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',

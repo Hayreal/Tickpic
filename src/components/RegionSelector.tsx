@@ -1,6 +1,12 @@
 import React, { useCallback, useRef, useState } from 'react';
+import { X, ZoomIn } from 'lucide-react';
 import type { ImageRole, RegionInput } from '../shared/domain/imageFeatureApi';
 import { UI } from '../shared/view/design';
+import { toDisplaySrc } from '../lib/fileUrl';
+import { useOpenLocalImage } from '../hooks/useOpenLocalImage';
+import ImagePreviewFallbackModal from './ImagePreviewFallbackModal';
+import { Button } from '@/src/components/ui/button';
+import { cn } from '@/src/lib/utils';
 
 interface RegionSelectorProps {
   imagePath: string;
@@ -9,13 +15,10 @@ interface RegionSelectorProps {
   onRegionChange: (region: RegionInput | null) => void;
   operationHint?: string;
   label?: string;
-}
-
-function toDisplaySrc(filePath: string) {
-  if (filePath.startsWith('blob:') || filePath.startsWith('file:') || filePath.startsWith('http')) {
-    return filePath;
-  }
-  return `file://${filePath}`;
+  caption?: string;
+  compact?: boolean;
+  /** 与上传组件一致的 1:1 横向瓦片布局 */
+  tile?: boolean;
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -29,7 +32,11 @@ export default function RegionSelector({
   onRegionChange,
   operationHint = 'selected area',
   label = '框选区域 (可选)',
+  caption,
+  compact = false,
+  tile = false,
 }: RegionSelectorProps) {
+  const { openPreview, fallbackPreview, closeFallbackPreview } = useOpenLocalImage();
   const containerRef = useRef<HTMLDivElement>(null);
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
   const [draftRect, setDraftRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -101,7 +108,7 @@ export default function RegionSelector({
     }
 
     onRegionChange({
-      id: region?.id ?? `${imageRole}-region`,
+      id: region?.id ?? `${imageRole}-${imagePath}`,
       imageRole,
       x,
       y,
@@ -109,28 +116,39 @@ export default function RegionSelector({
       height,
       operationHint,
     });
-  }, [clientToNatural, imageRole, onRegionChange, operationHint, region?.id]);
+  }, [clientToNatural, imagePath, imageRole, onRegionChange, operationHint, region?.id]);
 
   const activeRect = draftRect ?? (region ? { x: region.x, y: region.y, width: region.width, height: region.height } : null);
   const displayRect = activeRect ? naturalToDisplayRect(activeRect) : null;
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <label className={UI.label}>{label}</label>
-        {region && (
-          <button
-            type="button"
-            className="text-[10px] text-muted-foreground hover:text-error cursor-pointer transition-colors"
-            onClick={() => onRegionChange(null)}
-          >
-            清除框选
-          </button>
-        )}
-      </div>
+    <div className={cn(tile ? '' : 'space-y-2')}>
+      {!tile ? (
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <label className={UI.label}>{label}</label>
+            {caption ? (
+              <p className="truncate text-[10px] text-muted-foreground">{caption}</p>
+            ) : null}
+          </div>
+          {region ? (
+            <button
+              type="button"
+              className="shrink-0 text-[10px] text-muted-foreground hover:text-error cursor-pointer transition-colors"
+              onClick={() => onRegionChange(null)}
+            >
+              清除框选
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <div
         ref={containerRef}
-        className="relative h-48 rounded-lg border border-border bg-white overflow-hidden cursor-crosshair select-none"
+        className={cn(
+          'group/region relative rounded-lg border border-border bg-white overflow-hidden cursor-crosshair select-none shadow-sm',
+          tile ? 'aspect-square w-full' : compact ? 'h-40' : 'h-48',
+          tile && region && 'border-primary/50',
+        )}
         onMouseDown={(event) => {
           const point = clientToNatural(event.clientX, event.clientY);
           if (!point) return;
@@ -156,6 +174,10 @@ export default function RegionSelector({
             finishDrag(event.clientX, event.clientY);
           }
         }}
+        onDoubleClick={(event) => {
+          event.preventDefault();
+          void openPreview(imagePath, caption ?? 'image');
+        }}
       >
         <img
           src={toDisplaySrc(imagePath)}
@@ -179,8 +201,54 @@ export default function RegionSelector({
             }}
           />
         )}
+        <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover/region:opacity-100 transition-opacity">
+          {tile && region ? (
+            <Button
+              type="button"
+              variant="destructive"
+              size="icon"
+              className="h-6 w-6"
+              title="清除框选"
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                onRegionChange(null);
+              }}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            className="h-6 w-6"
+            title="预览图片"
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              void openPreview(imagePath, caption ?? 'image');
+            }}
+          >
+            <ZoomIn className="h-3 w-3" />
+          </Button>
+        </div>
+        {tile && caption ? (
+          <div className="absolute bottom-0 inset-x-0 bg-card/95 border-t px-2 py-1 pointer-events-none">
+            <span className="text-[9px] text-muted-foreground truncate block font-mono">{caption}</span>
+          </div>
+        ) : null}
       </div>
-      <p className="text-[10px] text-muted-foreground">在图片上拖拽框选目标区域，坐标将按原图像素提交。</p>
+      {!tile && !compact ? (
+        <p className="text-[10px] text-muted-foreground">在图片上拖拽框选目标区域，坐标将按原图像素提交；双击或点击右上角可系统预览。</p>
+      ) : null}
+      {fallbackPreview ? (
+        <ImagePreviewFallbackModal
+          filePath={fallbackPreview.filePath}
+          fileName={fallbackPreview.fileName}
+          onClose={closeFallbackPreview}
+        />
+      ) : null}
     </div>
   );
 }

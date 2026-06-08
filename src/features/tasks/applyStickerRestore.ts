@@ -1,5 +1,6 @@
 import type { ImageAspectRatioValue } from '../../shared/view/imageAspectRatioOptions';
-import type { RegionInput } from '../../shared/domain/imageFeatureApi';
+import type { RegionMap } from '../../lib/regionSelection';
+import { regionMapFromTask } from '../../lib/regionSelection';
 import type { ImportBatch } from '../../shared/domain/images';
 import type { TaskRecord } from '../../shared/domain/tasks';
 import type { StickerSubTab } from '../../shared/view/ui';
@@ -14,7 +15,7 @@ export interface StickerRestoreState {
   copyPrompt: string;
   copyColorScheme: string;
   copyAspectRatio: ImageAspectRatioValue;
-  copyRegion: RegionInput | null;
+  copyRegions: RegionMap;
   copyCount: number;
   variationBatch: ImportBatch | null;
   variationPrompt: string;
@@ -54,7 +55,7 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
     copyPrompt: '',
     copyColorScheme: '',
     copyAspectRatio: 'auto' as ImageAspectRatioValue,
-    copyRegion: null,
+    copyRegions: {},
     copyCount: 1,
     variationBatch: null,
     variationPrompt: '',
@@ -84,7 +85,7 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
         copyPrompt: request.prompt ?? '',
         copyColorScheme: request.colorScheme ?? '',
         copyAspectRatio: aspectRatioFrom(request.aspectRatio),
-        copyRegion: request.regions?.[0] ?? null,
+        copyRegions: regionMapFromTask(task.imports, request.regions),
         copyCount: request.count ?? 1,
       };
     case 'sticker_variation':

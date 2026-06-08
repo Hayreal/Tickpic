@@ -5,6 +5,7 @@ import Profile from '../Profile';
 
 const openTaskOutputDirectory = vi.fn();
 const resetOpenOutputDirectory = vi.fn();
+const copyImageToClipboard = vi.fn();
 
 vi.mock('../../hooks/useOpenOutputDirectory', () => ({
   useOpenOutputDirectory: () => ({
@@ -14,7 +15,9 @@ vi.mock('../../hooks/useOpenOutputDirectory', () => ({
 }));
 
 vi.mock('../../hooks/useDesktopClient', () => ({
-  useDesktopClient: () => undefined,
+  useDesktopClient: () => ({
+    copyImageToClipboard,
+  }),
 }));
 
 vi.mock('../../hooks/useAppLogs', () => ({
@@ -37,6 +40,7 @@ afterEach(() => {
   cleanup();
   openTaskOutputDirectory.mockReset();
   resetOpenOutputDirectory.mockReset();
+  copyImageToClipboard.mockReset();
 });
 
 function makeTask(index: number, updatedAt: string): TaskRecord {
@@ -166,5 +170,56 @@ describe('Profile', () => {
     expect(screen.getByText('复刻贴纸风格')).toBeInTheDocument();
     expect(screen.getByAltText('source.png')).toBeInTheDocument();
     expect(screen.getByAltText('result.png')).toBeInTheDocument();
+  });
+
+  it('copies input and output images from the task detail drawer', async () => {
+    copyImageToClipboard.mockResolvedValue({ mimeType: 'image/png' });
+
+    const task: TaskRecord = {
+      taskId: 'task-copy',
+      batchId: 'batch-copy',
+      category: '贴纸',
+      feature: '贴纸复刻',
+      status: 'Completed',
+      imports: [
+        {
+          id: 'import-1',
+          fileName: 'source.png',
+          filePath: '/tmp/source.png',
+          fileSize: 1,
+          mimeType: 'image/png',
+          createdAt: '2026-06-03T10:00:00.000Z',
+        },
+      ],
+      outputs: [
+        {
+          id: 'output-1',
+          fileName: 'result.png',
+          filePath: '/tmp/result.png',
+          fileSize: 1,
+          mimeType: 'image/png',
+          createdAt: '2026-06-03T10:05:00.000Z',
+        },
+      ],
+      createdAt: '2026-06-03T10:00:00.000Z',
+      updatedAt: '2026-06-03T10:05:00.000Z',
+    };
+
+    render(<Profile tasks={[task]} onRefresh={vi.fn()} onRestoreTask={vi.fn()} />);
+
+    fireEvent.click(screen.getByText('贴纸复刻'));
+
+    const copyButtons = screen.getAllByTitle('复制图片');
+    expect(copyButtons).toHaveLength(2);
+
+    fireEvent.click(copyButtons[0]);
+    await waitFor(() => {
+      expect(copyImageToClipboard).toHaveBeenCalledWith({ filePath: '/tmp/source.png' });
+    });
+
+    fireEvent.click(copyButtons[1]);
+    await waitFor(() => {
+      expect(copyImageToClipboard).toHaveBeenCalledWith({ filePath: '/tmp/result.png' });
+    });
   });
 });

@@ -1,5 +1,3 @@
-const MAX_IMPORT_IMAGES = 4;
-
 const IMAGE_FILE_NAME_PATTERN = /\.(png|jpe?g|webp|gif|bmp|avif|heic|heif)$/i;
 
 function isImageFile(file: File) {
@@ -39,13 +37,12 @@ export function extractClipboardImageFiles(clipboardData: DataTransfer | null): 
 }
 
 export function collectImportFiles(files: File[]) {
-  const imageFiles = files.filter((file) => file.type.startsWith('image/'));
-  const accepted = imageFiles.slice(0, MAX_IMPORT_IMAGES);
+  const imageFiles = files.filter(isImageFile);
 
   return {
-    accepted,
-    rejectedCount: imageFiles.length - accepted.length,
+    accepted: imageFiles,
+    rejectedCount: 0,
     ignoredNonImages: files.length - imageFiles.length,
-    hasOverflow: imageFiles.length > MAX_IMPORT_IMAGES,
+    hasOverflow: false,
   };
 }

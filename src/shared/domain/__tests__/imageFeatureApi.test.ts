@@ -73,4 +73,12 @@ describe('image feature API contract', () => {
       ],
     })).toThrow('region bad-region width must be a non-negative number');
   });
+
+  it('defines remove-product as a local in-place edit', () => {
+    const definition = getImageFeatureDefinition('remove_product');
+
+    expect(definition.mainPrompt).toContain('局部去除目标产品');
+    expect(definition.mainPrompt).toContain('源图是固定底图');
+    expect(definition.mainPrompt).toContain('不要换背景');
+  });
 });

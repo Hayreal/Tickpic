@@ -26,10 +26,16 @@ export const UI = {
   segmentInactive: 'ui-segment-inactive',
   alertSuccess: 'ui-alert-success',
   alertError: 'ui-alert-error',
+  badgeSuccess: 'ui-badge-success',
+  badgeWarning: 'ui-badge-warning',
+  badgeInfo: 'ui-badge-info',
+  badgeError: 'ui-badge-error',
   statCard: 'ui-stat-card',
   tableHeader: 'ui-table-header',
   tableRow: 'ui-table-row',
   uploadZone: 'ui-upload-zone',
+  /** 图片/框选横向瓦片网格：一行最多 4 张 */
+  uploadTileGrid: 'grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4',
   modalOverlay: 'ui-modal-overlay',
   modal: 'ui-modal',
 } as const;

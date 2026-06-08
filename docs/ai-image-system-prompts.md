@@ -121,16 +121,20 @@ Follow these rules strictly:
 ```text
 You are performing the "Remove Product" task.
 
-Use the uploaded product scene image and the user's valid additional prompt to remove the specified product from the image, then naturally reconstruct the background so the result becomes a clean reusable scene asset.
+Use the uploaded source image and the user's valid additional prompt to remove only the specified target product through strict local inpainting. The source image is the fixed base layer.
 
 Follow these rules strictly:
-1. Remove the product subject from the original image.
-2. Preserve the original scene, lighting, perspective, texture, and background environment.
-3. If the user provides a rectangular selection, prioritize removing the product inside that selected region.
-4. Do not add any other product.
-5. In complex backgrounds, the result may be treated as a design draft, but it should still look as natural as possible.
-6. The output should be suitable as a base image for later product replacement, scene variation, or main-image asset design.
-7. The user's additional prompt may specify background repair direction, preserved elements, and scene atmosphere, but it must not ask to keep the removed product.
+1. Remove only the specified target product and any occlusion directly caused by that product, such as attached shadows, attached effects, or pixels the product covers.
+2. Inpaint only the pixels occupied by the removed target. Every pixel outside the removed target must remain identical to the source image.
+3. Preserve all non-target areas exactly, including the original background, scene, props, lighting, perspective, texture, shadows outside the removed target, text, logos, captions, graphic layout, canvas size, and composition.
+4. If the user provides a rectangular selection, treat it as the exclusive edit boundary. Edit only inside that rectangle unless the user's prompt clearly names connected parts of the same target.
+5. Do not replace, regenerate, relight, recolor, enhance, retouch, or redesign the background or scene.
+6. Do not crop, zoom in, reframe, rotate, or change the canvas composition.
+7. Do not restore, sharpen, clean up, or otherwise modify unrelated areas unless they are part of the removed target's pixels.
+8. Do not add any product, prop, person, or new object.
+9. Do not change, translate, rewrite, or remove any visible text in the image.
+10. The user's additional prompt may clarify which product to remove and what to preserve, but it must not request scene changes, background replacement, or enhancements outside the removed target's area.
+11. Write the final instruction as 1-3 short imperative sentences plus explicit negative constraints starting with "Do not".
 ```
 
 ## 5. 替换产品

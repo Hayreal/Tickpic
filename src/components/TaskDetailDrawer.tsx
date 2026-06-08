@@ -1,10 +1,13 @@
-import { useEffect } from 'react';
-import { X, FolderOpen, RotateCcw } from 'lucide-react';
+import { useCallback, useEffect } from 'react';
+import { X, FolderOpen, RotateCcw, Copy } from 'lucide-react';
 import type { ImageRole, ImageTaskRequest, RegionInput } from '../shared/domain/imageFeatureApi';
 import type { TaskRecord } from '../shared/domain/tasks';
 import type { StoredImageRecord } from '../shared/domain/images';
 import { toTaskItem } from '../features/tasks/taskMappers';
 import { toDisplaySrc } from '../lib/fileUrl';
+import { useOpenLocalImage } from '../hooks/useOpenLocalImage';
+import ImagePreviewFallbackModal from './ImagePreviewFallbackModal';
+import { useDesktopClient } from '../hooks/useDesktopClient';
 import { Button } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
 import { Separator } from '@/src/components/ui/separator';
@@ -94,11 +97,15 @@ function ImageGrid({
   title,
   images,
   emptyText,
+  onCopyImage,
 }: {
   title: string;
   images: StoredImageRecord[];
   emptyText: string;
+  onCopyImage?: (filePath: string) => void;
 }) {
+  const { openPreview, fallbackPreview, closeFallbackPreview } = useOpenLocalImage();
+
   return (
     <section>
       <h3 className="text-sm font-medium mb-3">{title}</h3>
@@ -107,15 +114,42 @@ function ImageGrid({
           {images.map((image) => (
             <figure
               key={image.id}
-              className="rounded-lg border bg-white overflow-hidden"
+              className="rounded-lg border bg-white overflow-hidden group"
             >
-              <div className="aspect-square flex items-center justify-center p-2">
+              <div
+                className="aspect-square relative flex w-full items-center justify-center p-2 cursor-zoom-in"
+                title="预览图片"
+                role="button"
+                tabIndex={0}
+                onClick={() => void openPreview(image.filePath, image.fileName)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    void openPreview(image.filePath, image.fileName);
+                  }
+                }}
+              >
                 <img
                   src={toDisplaySrc(image.filePath)}
                   alt={image.fileName}
                   loading="lazy"
-                  className="max-h-full max-w-full object-contain"
+                  className="max-h-full max-w-full object-contain pointer-events-none"
                 />
+                {onCopyImage ? (
+                  <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onCopyImage(image.filePath);
+                      }}
+                      className="cursor-pointer rounded border border-border bg-white/95 p-1.5 text-muted-foreground hover:text-foreground"
+                      title="复制图片"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : null}
               </div>
               <figcaption className="border-t px-2 py-1.5 text-[11px] text-muted-foreground truncate">
                 {image.fileName}
@@ -126,6 +160,13 @@ function ImageGrid({
       ) : (
         <p className="text-sm text-muted-foreground">{emptyText}</p>
       )}
+      {fallbackPreview ? (
+        <ImagePreviewFallbackModal
+          filePath={fallbackPreview.filePath}
+          fileName={fallbackPreview.fileName}
+          onClose={closeFallbackPreview}
+        />
+      ) : null}
     </section>
   );
 }
@@ -137,6 +178,22 @@ export default function TaskDetailDrawer({
   onRestoreTask,
   isOpeningDirectory = false,
 }: TaskDetailDrawerProps) {
+  const desktopClient = useDesktopClient();
+
+  const handleCopyImage = useCallback(async (filePath: string) => {
+    if (!desktopClient) {
+      alert('桌面能力不可用，无法复制图片');
+      return;
+    }
+
+    try {
+      await desktopClient.copyImageToClipboard({ filePath });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '复制图片失败';
+      alert(message);
+    }
+  }, [desktopClient]);
+
   useEffect(() => {
     if (!task) return;
 
@@ -226,11 +283,21 @@ export default function TaskDetailDrawer({
 
           <Separator />
 
-          <ImageGrid title="输入图片" images={task.imports} emptyText="无输入图片" />
+          <ImageGrid
+            title="输入图片"
+            images={task.imports}
+            emptyText="无输入图片"
+            onCopyImage={handleCopyImage}
+          />
 
           <Separator />
 
-          <ImageGrid title="输出图片" images={task.outputs} emptyText="暂无输出图片" />
+          <ImageGrid
+            title="输出图片"
+            images={task.outputs}
+            emptyText="暂无输出图片"
+            onCopyImage={handleCopyImage}
+          />
 
           {task.warnings?.length ? (
             <>

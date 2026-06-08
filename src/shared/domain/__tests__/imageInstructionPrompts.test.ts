@@ -23,4 +23,15 @@ describe('imageInstructionPrompts', () => {
     expect(prompt).toContain('ONE standalone output image');
     expect(prompt).toContain('Never describe a grid, contact sheet, collage');
   });
+
+  it('keeps remove-product edits local to the target area', () => {
+    const prompt = buildImageInstructionSystemPrompt('remove_product');
+
+    expect(prompt).toContain('strict local inpainting');
+    expect(prompt).toContain('fixed base layer');
+    expect(prompt).toContain('Do not replace, regenerate, relight');
+    expect(prompt).toContain('background, scene, props');
+    expect(prompt).not.toContain('headlight');
+    expect(prompt).not.toContain('background repair direction');
+  });
 });

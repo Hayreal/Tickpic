@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import {
   registerOpenOutputDirectoryIpc,
+  registerCopyImageToClipboardIpc,
+  registerOpenLocalImageIpc,
   registerImportStorageIpc,
   registerOutputStorageIpc,
 } from '../services/storage/storageIpc.js';
@@ -34,6 +36,7 @@ function readInitialWorkspaceDir(settingsFile: string, defaultWorkspaceDir: stri
 
 export interface DesktopHandlersRegistration {
   shutdownActiveTasks: (message: string) => void;
+  resolveAuthorizedRoots: () => string[];
 }
 
 export function registerDesktopHandlers(bootstrap: BootstrapPaths): DesktopHandlersRegistration {
@@ -52,6 +55,11 @@ export function registerDesktopHandlers(bootstrap: BootstrapPaths): DesktopHandl
     return resolveWorkspacePaths(workspaceDir);
   }
 
+  function resolveAuthorizedRoots() {
+    const paths = getWorkspacePathsSync();
+    return [paths.root, paths.importsDir, paths.outputsDir];
+  }
+
   async function refreshWorkspaceDir() {
     const settings = await settingsStore.load();
     workspaceDir = settings.workspaceDir;
@@ -65,17 +73,13 @@ export function registerDesktopHandlers(bootstrap: BootstrapPaths): DesktopHandl
 
   registerImportStorageIpc(() => getWorkspacePathsSync().importsDir);
   registerOutputStorageIpc(() => getWorkspacePathsSync().outputsDir);
-  registerOpenOutputDirectoryIpc(() => {
-    const paths = getWorkspacePathsSync();
-    return [paths.root, paths.importsDir, paths.outputsDir];
-  });
+  registerOpenOutputDirectoryIpc(resolveAuthorizedRoots);
+  registerCopyImageToClipboardIpc(resolveAuthorizedRoots);
+  registerOpenLocalImageIpc(resolveAuthorizedRoots);
   registerTaskService(taskRepo);
   const imageTaskIpc = registerImageTaskIpc({
     maxConcurrency: 1,
-    resolveAuthorizedRoots: () => {
-      const paths = getWorkspacePathsSync();
-      return [paths.root, paths.importsDir, paths.outputsDir];
-    },
+    resolveAuthorizedRoots,
     taskRepo,
     execute: createSettingsBackedImageTaskExecutor(settingsStore),
   });
@@ -87,5 +91,6 @@ export function registerDesktopHandlers(bootstrap: BootstrapPaths): DesktopHandl
 
   return {
     shutdownActiveTasks: imageTaskIpc.shutdownActiveTasks,
+    resolveAuthorizedRoots,
   };
 }

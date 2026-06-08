@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, protocol } from 'electron';
 import { APP_SHUTDOWN_MESSAGE } from './services/tasks/reconcileOrphanedTasks.js';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -6,6 +6,7 @@ import { getStoragePaths } from './services/storage/storagePaths.js';
 import { registerDesktopHandlers } from './ipc/registerDesktopHandlers.js';
 import { createMainWindow } from './app/createMainWindow.js';
 import { getAppLogger } from './services/logger/appLogger.js';
+import { LOCAL_FILE_PROTOCOL, registerLocalFileProtocol } from './services/storage/localFileProtocol.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,6 +17,18 @@ const rendererIndexPath = path.join(__dirname, '../../../dist/index.html');
 const paths = getStoragePaths(app.getPath('userData'));
 let shutdownActiveTasks: ((message: string) => void) | undefined;
 
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: LOCAL_FILE_PROTOCOL,
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+    },
+  },
+]);
+
 app.whenReady().then(() => {
   const logger = getAppLogger();
   logger.info('app', 'Electron 应用已就绪', { platform: process.platform, version: app.getVersion() });
@@ -25,6 +38,7 @@ app.whenReady().then(() => {
     defaultWorkspaceDir: paths.storageBase,
   });
   shutdownActiveTasks = desktopHandlers.shutdownActiveTasks;
+  registerLocalFileProtocol({ resolveAuthorizedRoots: desktopHandlers.resolveAuthorizedRoots });
   createMainWindow(__dirname, rendererUrl, rendererIndexPath);
   logger.info('app', '主窗口已创建');
 

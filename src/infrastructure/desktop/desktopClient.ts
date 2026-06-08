@@ -18,6 +18,14 @@ export function createDesktopClient(bridge: DesktopBridgeApi | undefined) {
       if (!bridge) throw new Error('Desktop bridge unavailable');
       return bridge.openOutputDirectory(request);
     },
+    copyImageToClipboard: (request) => {
+      if (!bridge) throw new Error('Desktop bridge unavailable');
+      return bridge.copyImageToClipboard(request);
+    },
+    openLocalImage: (request) => {
+      if (!bridge) throw new Error('Desktop bridge unavailable');
+      return bridge.openLocalImage(request);
+    },
     settings: {
       get: () => {
         if (!bridge) throw new Error('Desktop bridge unavailable');

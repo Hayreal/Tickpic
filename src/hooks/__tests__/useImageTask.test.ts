@@ -19,12 +19,16 @@ const runningTask: ImageTaskRecord = {
 
 function createMockBridge(): DesktopBridgeApi {
   const listeners = new Set<(task: ImageTaskRecord) => void>();
+  const tasks = new Map<string, ImageTaskRecord>();
+  let submitIndex = 0;
 
   return {
     platform: 'linux',
     saveImportBatch: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['saveImportBatch'],
     saveTaskOutputs: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['saveTaskOutputs'],
     openOutputDirectory: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['openOutputDirectory'],
+    copyImageToClipboard: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['copyImageToClipboard'],
+    openLocalImage: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['openLocalImage'],
     createTask: async () => undefined,
     updateTask: async () => undefined,
     listTasks: async () => [],
@@ -42,11 +46,19 @@ function createMockBridge(): DesktopBridgeApi {
     },
     imageTask: {
       submit: async (request) => {
-        listeners.forEach((listener) => listener(runningTask));
-        return { taskId: 'task-1', feature: request.feature, status: 'queued' };
+        submitIndex += 1;
+        const task = {
+          ...runningTask,
+          taskId: `task-${submitIndex}`,
+          feature: request.feature,
+          request,
+        };
+        tasks.set(task.taskId, task);
+        listeners.forEach((listener) => listener(task));
+        return { taskId: task.taskId, feature: request.feature, status: 'queued' };
       },
       cancel: async () => runningTask,
-      get: async () => runningTask,
+      get: async (taskId) => tasks.get(taskId) ?? runningTask,
       onStatus: (listener) => {
         listeners.add(listener);
         return () => listeners.delete(listener);
@@ -79,6 +91,33 @@ describe('useImageTask', () => {
       expect(result.current.getTask('sticker_replica')?.status).toBe('running');
     });
     expect(result.current.getTask('sticker_variation')).toBeNull();
+    expect(result.current.getTasks('sticker_replica')).toHaveLength(1);
+    expect(result.current.isSubmitting).toBe(false);
+  });
+
+  it('tracks multiple submitted tasks for the same feature', async () => {
+    const { useImageTask } = await import('../useImageTask');
+    const { result } = renderHook(() => useImageTask());
+
+    await act(async () => {
+      await result.current.submitMany([
+        {
+          feature: 'sticker_replica',
+          images: [{ role: 'source', path: '/data/imports/sticker/copy/batch/1.png' }],
+          count: 1,
+        },
+        {
+          feature: 'sticker_replica',
+          images: [{ role: 'source', path: '/data/imports/sticker/copy/batch/2.png' }],
+          count: 1,
+        },
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(result.current.getTasks('sticker_replica')).toHaveLength(2);
+    });
+    expect(result.current.getTask('sticker_replica')?.taskId).toBe('task-2');
     expect(result.current.isSubmitting).toBe(false);
   });
 

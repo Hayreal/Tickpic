@@ -243,19 +243,19 @@ body {
   }
 
   .ui-badge-success {
-    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-700 ring-1 ring-inset ring-emerald-500/20;
   }
 
   .ui-badge-warning {
-    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-700 ring-1 ring-inset ring-amber-500/20;
   }
 
   .ui-badge-info {
-    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-500/10 text-sky-700 ring-1 ring-inset ring-sky-500/20;
   }
 
   .ui-badge-error {
-    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium bg-red-50 text-red-700 border border-red-200;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-700 ring-1 ring-inset ring-red-500/20;
   }
 
   .ui-stat-card {
@@ -271,7 +271,7 @@ body {
   }
 
   .ui-upload-zone {
-    @apply h-28 rounded-xl border-2 border-dashed border-border hover:border-primary/40 bg-card hover:bg-accent/30 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/30;
+    @apply min-h-0 rounded-xl border-2 border-dashed border-border hover:border-primary/40 bg-card hover:bg-accent/30 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/30;
   }
 
   .ui-modal-overlay {

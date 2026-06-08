@@ -15,6 +15,8 @@ describe('desktopClient', () => {
       saveImportBatch: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['saveImportBatch'],
       saveTaskOutputs: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['saveTaskOutputs'],
       openOutputDirectory: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['openOutputDirectory'],
+      copyImageToClipboard: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['copyImageToClipboard'],
+      openLocalImage: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['openLocalImage'],
       createTask: () => Promise.resolve(),
       updateTask: () => Promise.resolve(),
       listTasks: () => Promise.resolve([]),
@@ -77,6 +79,58 @@ describe('desktopClient', () => {
     ]);
   });
 
+  it('delegates image copy through the desktop bridge', async () => {
+    const calls: string[] = [];
+    const bridge: DesktopBridgeApi = {
+      platform: 'darwin',
+      saveImportBatch: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['saveImportBatch'],
+      saveTaskOutputs: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['saveTaskOutputs'],
+      openOutputDirectory: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['openOutputDirectory'],
+      copyImageToClipboard: async (request) => {
+        calls.push(`copy:${request.filePath}`);
+        return { copied: true };
+      },
+      openLocalImage: async (request) => {
+        calls.push(`preview:${request.filePath}`);
+        return { opened: true };
+      },
+      createTask: () => Promise.resolve(),
+      updateTask: () => Promise.resolve(),
+      listTasks: () => Promise.resolve([]),
+      settings: {
+        get: async () => {
+          throw new Error('not used');
+        },
+        save: async () => {
+          throw new Error('not used');
+        },
+        testConnection: async () => {
+          throw new Error('not used');
+        },
+        pickWorkspaceDir: async () => null,
+      },
+      imageTask: {
+        submit: async (request) => ({ taskId: 'task-1', feature: request.feature, status: 'queued' }),
+        cancel: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['imageTask']['cancel'],
+        get: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['imageTask']['get'],
+        onStatus: () => () => undefined,
+      },
+      logs: {
+        list: async () => [],
+        onEntry: () => () => undefined,
+      },
+    };
+
+    const client = createDesktopClient(bridge);
+    await client.copyImageToClipboard({ filePath: '/authorized/output/result.png' });
+    await client.openLocalImage({ filePath: '/authorized/output/result.png' });
+
+    expect(calls).toEqual([
+      'copy:/authorized/output/result.png',
+      'preview:/authorized/output/result.png',
+    ]);
+  });
+
   it('delegates settings operations through the desktop bridge', async () => {
     const calls: string[] = [];
     const bridge: DesktopBridgeApi = {
@@ -84,6 +138,8 @@ describe('desktopClient', () => {
       saveImportBatch: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['saveImportBatch'],
       saveTaskOutputs: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['saveTaskOutputs'],
       openOutputDirectory: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['openOutputDirectory'],
+      copyImageToClipboard: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['copyImageToClipboard'],
+      openLocalImage: (() => Promise.reject(new Error('not used'))) as DesktopBridgeApi['openLocalImage'],
       createTask: () => Promise.resolve(),
       updateTask: () => Promise.resolve(),
       listTasks: () => Promise.resolve([]),

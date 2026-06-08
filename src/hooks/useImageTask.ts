@@ -7,14 +7,16 @@ import type {
 } from '../shared/domain/imageFeatureApi';
 import { useDesktopClient } from './useDesktopClient';
 
-type TaskMap = Partial<Record<ImageFeature, ImageTaskRecord>>;
+type TaskMap = Partial<Record<ImageFeature, ImageTaskRecord[]>>;
 type ErrorMap = Partial<Record<ImageFeature, string>>;
 
 export interface UseImageTaskReturn {
   submit: (request: ImageTaskRequest) => Promise<ImageTaskSubmitResult>;
+  submitMany: (requests: ImageTaskRequest[]) => Promise<ImageTaskSubmitResult[]>;
   bindTask: (taskId: string, feature: ImageFeature) => Promise<void>;
   restoreTask: (task: ImageTaskRecord) => void;
   getTask: (feature: ImageFeature) => ImageTaskRecord | null;
+  getTasks: (feature: ImageFeature) => ImageTaskRecord[];
   getError: (feature: ImageFeature) => string | null;
   isSubmitting: boolean;
   reset: (feature?: ImageFeature) => void;
@@ -27,7 +29,7 @@ function applyTaskUpdate(
 ) {
   setTasksByFeature((current) => ({
     ...current,
-    [task.feature]: task,
+    [task.feature]: upsertTask(current[task.feature] ?? [], task),
   }));
 
   if (task.status === 'failed' && task.error) {
@@ -47,6 +49,23 @@ function applyTaskUpdate(
       delete next[task.feature];
       return next;
     });
+  }
+}
+
+function upsertTask(tasks: ImageTaskRecord[], task: ImageTaskRecord) {
+  const index = tasks.findIndex((item) => item.taskId === task.taskId);
+  if (index === -1) {
+    return [...tasks, task];
+  }
+
+  const next = [...tasks];
+  next[index] = task;
+  return next;
+}
+
+function assertNoBlobImages(request: ImageTaskRequest) {
+  if (request.images?.some((image) => image.path.startsWith('blob:'))) {
+    throw new Error('图片尚未保存到本地，请等待上传完成或重新上传');
   }
 }
 
@@ -107,7 +126,10 @@ export function useImageTask(): UseImageTaskReturn {
     trackTask(task);
   }, [trackTask]);
 
-  const submit = useCallback(async (request: ImageTaskRequest): Promise<ImageTaskSubmitResult> => {
+  const submitOne = useCallback(async (
+    request: ImageTaskRequest,
+    options: { manageSubmitting?: boolean } = { manageSubmitting: true },
+  ): Promise<ImageTaskSubmitResult> => {
     if (!desktopClient) {
       throw new Error('Desktop bridge unavailable');
     }
@@ -120,12 +142,12 @@ export function useImageTask(): UseImageTaskReturn {
       delete next[request.feature];
       return next;
     });
-    setIsSubmitting(true);
+    if (options.manageSubmitting !== false) {
+      setIsSubmitting(true);
+    }
 
     try {
-      if (request.images?.some((image) => image.path.startsWith('blob:'))) {
-        throw new Error('图片尚未保存到本地，请等待上传完成或重新上传');
-      }
+      assertNoBlobImages(request);
 
       const result = await desktopClient.imageTask.submit(request);
       trackedTaskIdsRef.current.add(result.taskId);
@@ -144,13 +166,40 @@ export function useImageTask(): UseImageTaskReturn {
       }));
       throw err;
     } finally {
-      if (mountedRef.current) {
+      if (mountedRef.current && options.manageSubmitting !== false) {
         setIsSubmitting(false);
       }
     }
   }, [desktopClient, trackTask]);
 
-  const getTask = useCallback((feature: ImageFeature) => tasksByFeature[feature] ?? null, [tasksByFeature]);
+  const submit = useCallback((request: ImageTaskRequest) => submitOne(request), [submitOne]);
+
+  const submitMany = useCallback(async (requests: ImageTaskRequest[]): Promise<ImageTaskSubmitResult[]> => {
+    if (!desktopClient) {
+      throw new Error('Desktop bridge unavailable');
+    }
+
+    setIsSubmitting(true);
+    try {
+      requests.forEach(assertNoBlobImages);
+      const results: ImageTaskSubmitResult[] = [];
+      for (const request of requests) {
+        results.push(await submitOne(request, { manageSubmitting: false }));
+      }
+      return results;
+    } finally {
+      if (mountedRef.current) {
+        setIsSubmitting(false);
+      }
+    }
+  }, [desktopClient, submitOne]);
+
+  const getTasks = useCallback((feature: ImageFeature) => tasksByFeature[feature] ?? [], [tasksByFeature]);
+
+  const getTask = useCallback((feature: ImageFeature) => {
+    const tasks = tasksByFeature[feature] ?? [];
+    return tasks.at(-1) ?? null;
+  }, [tasksByFeature]);
 
   const getError = useCallback((feature: ImageFeature) => errorsByFeature[feature] ?? null, [errorsByFeature]);
 
@@ -164,6 +213,9 @@ export function useImageTask(): UseImageTaskReturn {
     }
 
     setTasksByFeature((current) => {
+      for (const task of current[feature] ?? []) {
+        trackedTaskIdsRef.current.delete(task.taskId);
+      }
       const next = { ...current };
       delete next[feature];
       return next;
@@ -178,5 +230,5 @@ export function useImageTask(): UseImageTaskReturn {
     });
   }, []);
 
-  return { submit, bindTask, restoreTask, getTask, getError, isSubmitting, reset };
+  return { submit, submitMany, bindTask, restoreTask, getTask, getTasks, getError, isSubmitting, reset };
 }

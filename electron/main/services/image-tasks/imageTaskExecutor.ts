@@ -1,6 +1,7 @@
 import type { ImageTaskRecord } from '../../../../src/shared/domain/imageFeatureApi.js';
 import type { ImageTaskPlan, ImageTaskRuntimeConfig } from '../../../../src/shared/domain/imageTaskPlan.js';
 import { buildImageTaskPlan } from '../../../../src/shared/domain/imageTaskPlan.js';
+import { finalizeImageInstruction } from './instructionPrompt.js';
 import type { ImageTaskExecutionResult, ImageTaskExecutor } from './imageTaskController.js';
 import { getAppLogger } from '../logger/appLogger.js';
 
@@ -90,7 +91,8 @@ export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions)
     });
 
     logger.info('image-task', '开始生成图片执行指令', { taskId: task.taskId });
-    const finalPrompt = await options.modelGateway.generateInstruction({ task, plan, abortSignal });
+    const generatedInstruction = await options.modelGateway.generateInstruction({ task, plan, abortSignal });
+    const finalPrompt = finalizeImageInstruction(task.feature, generatedInstruction, task.request);
     logger.info('image-task', '图片执行指令已生成', {
       taskId: task.taskId,
       promptLength: finalPrompt.length,

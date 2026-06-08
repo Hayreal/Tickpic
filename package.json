@@ -17,6 +17,7 @@
     "build:electron": "tsc -p tsconfig.electron.json && esbuild electron/preload.ts --bundle --platform=node --format=cjs --outfile=dist-electron/electron/preload.js --external:electron --sourcemap",
     "smoke:image-task": "node --env-file=.env --import tsx scripts/smoke-image-task.ts",
     "dist:win": "pnpm build && pnpm build:electron && electron-builder --win nsis",
+    "dist:mac": "pnpm build && pnpm build:electron && electron-builder --mac dmg zip",
     "preview": "vite preview",
     "clean": "rm -rf dist dist-electron release server.js",
     "lint": "tsc --noEmit",
@@ -72,13 +73,24 @@
     "extraMetadata": {
       "main": "dist-electron/electron/main.js"
     },
-    "icon": "icon.ico",
+    "icon": "resources/icon.png",
     "win": {
-      "icon": "icon.ico",
+      "icon": "resources/icon.ico",
       "signAndEditExecutable": false,
       "target": [
         "nsis"
       ]
+    },
+    "mac": {
+      "icon": "resources/icon.png",
+      "category": "public.app-category.graphics-design",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "dmg": {
+      "writeUpdateInfo": false
     }
   },
   "pnpm": {
