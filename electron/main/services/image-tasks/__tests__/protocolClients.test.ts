@@ -6,6 +6,7 @@ import {
   createGeminiProtocolClient,
   createOpenAIProtocolClient,
 } from '../protocolClients';
+import { buildInstructionUserText } from '../instructionPrompt';
 import type {
   ModelExecutionClientInput,
   ModelInstructionClientInput,
@@ -45,18 +46,20 @@ describe('protocolClients', () => {
     };
     const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
 
-    const result = await client.generateInstruction(createInstructionInput(imagePath));
+    const input = createInstructionInput(imagePath);
+    const result = await client.generateInstruction(input);
 
     expect(result).toBe('final instruction');
     expect(openai.chat.completions.create).toHaveBeenCalledWith(
       expect.objectContaining({
         model: 'gpt-5.4-mini',
+        temperature: 0.2,
         messages: [
           { role: 'system', content: 'system prompt' },
           {
             role: 'user',
             content: [
-              { type: 'text', text: expect.stringContaining('feature: replace_product') },
+              { type: 'text', text: buildInstructionUserText(input) },
               {
                 type: 'image_url',
                 image_url: {
