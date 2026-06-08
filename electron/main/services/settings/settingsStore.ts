@@ -104,6 +104,14 @@ function validateSettings(settings: AppSettings): AppSettings {
     throw new Error('maxConcurrentTasks must be a positive integer');
   }
 
+  if (
+    settings.modelProtocol !== undefined
+    && settings.modelProtocol !== 'openai'
+    && settings.modelProtocol !== 'gemini'
+  ) {
+    throw new Error('modelProtocol must be openai or gemini');
+  }
+
   return settings;
 }
 

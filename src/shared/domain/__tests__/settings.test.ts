@@ -58,6 +58,7 @@ describe('settings domain', () => {
         generation: 'gpt-image-2-all',
         vision: 'gpt-5.4-mini',
       },
+      modelProtocol: 'gemini',
       defaultCount: 3,
       maxCount: 6,
     });
@@ -67,7 +68,7 @@ describe('settings domain', () => {
         generation: 'gpt-image-2-all',
         vision: 'gpt-5.4-mini',
       },
-      modelProtocol: 'openai',
+      modelProtocol: 'gemini',
       defaultCount: 3,
       maxCount: 6,
     });

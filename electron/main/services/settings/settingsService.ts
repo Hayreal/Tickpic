@@ -2,8 +2,9 @@ import { dialog, ipcMain } from 'electron';
 import OpenAI from 'openai';
 import { IPC_CHANNELS } from '../../../../src/shared/contracts/desktop.js';
 import type { AppSettings } from '../../../../src/shared/domain/settings.js';
+import { resolveModelProtocolFromSettings } from '../../../../src/shared/domain/settings.js';
 import type { SettingsStore } from './settingsStore.js';
-import { normalizeOpenAIBaseUrl } from '../image-tasks/modelGatewayFactory.js';
+import { normalizeGeminiBaseUrl, normalizeOpenAIBaseUrl } from '../image-tasks/modelGatewayFactory.js';
 import { getAppLogger } from '../logger/appLogger.js';
 
 export interface RegisterSettingsServiceOptions {
@@ -23,6 +24,7 @@ export function registerSettingsService(
   ipcMain.handle(IPC_CHANNELS.settings.save, async (_event, settings: AppSettings) => {
     logger.info('settings', '保存应用设置', {
       baseUrl: settings.baseUrl,
+      modelProtocol: settings.modelProtocol,
       workspaceDir: settings.workspaceDir,
       hasApiKey: Boolean(settings.n1nApiKey?.trim()),
     });
@@ -52,11 +54,10 @@ export function registerSettingsService(
       return { success: false, message: 'API Key 未配置' };
     }
 
-    const isGeminiApi =
-      settings.baseUrl.includes('google') || settings.baseUrl.includes('gemini');
+    const protocol = resolveModelProtocolFromSettings(settings);
 
-    if (isGeminiApi) {
-      const url = `${settings.baseUrl}/v1beta/models`;
+    if (protocol === 'gemini') {
+      const url = `${normalizeGeminiBaseUrl(settings.baseUrl)}/v1beta/models`;
       const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${apiKey}` },
       });

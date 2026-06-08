@@ -11,7 +11,9 @@ import {
   FolderOpen,
 } from 'lucide-react';
 import type { AppSettings, RendererAppSettings } from '../shared/domain/settings';
-import { KEEP_EXISTING_API_KEY } from '../shared/domain/settings';
+import { KEEP_EXISTING_API_KEY, resolveModelProtocolFromSettings } from '../shared/domain/settings';
+import type { ImageModelProtocol } from '../shared/domain/imageFeatureApi';
+import { cn } from '@/src/lib/utils';
 import { useDesktopClient } from '../hooks/useDesktopClient';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
@@ -22,7 +24,8 @@ import EyeCareToggle from './EyeCareToggle';
 export default function Settings() {
   const desktopClient = useDesktopClient();
 
-  const [baseUrl, setBaseUrl] = useState('https://api.openai.com/v1');
+  const [baseUrl, setBaseUrl] = useState('https://api.n1n.ai');
+  const [modelProtocol, setModelProtocol] = useState<ImageModelProtocol>('openai');
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [hasApiKey, setHasApiKey] = useState(false);
   const [apiKeyPreview, setApiKeyPreview] = useState('');
@@ -43,6 +46,7 @@ export default function Settings() {
     if (!desktopClient) return;
     desktopClient.settings.get().then((settings: RendererAppSettings) => {
       setBaseUrl(settings.baseUrl);
+      setModelProtocol(settings.modelProtocol ?? resolveModelProtocolFromSettings(settings));
       setHasApiKey(settings.hasApiKey);
       setApiKeyPreview(settings.apiKeyPreview ?? '');
       setGenerationModel(settings.defaultModels.generation);
@@ -62,6 +66,7 @@ export default function Settings() {
       schemaVersion: 1,
       n1nApiKey: apiKeyInput || (hasApiKey ? KEEP_EXISTING_API_KEY : ''),
       baseUrl,
+      modelProtocol,
       workspaceDir: workspaceDir.trim(),
       defaultModels: {
         generation: generationModel.trim(),
@@ -180,9 +185,51 @@ export default function Settings() {
               id="settings-baseurl-input"
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder="https://api.openai.com/v1"
+              placeholder="https://api.n1n.ai"
               className="font-mono"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label id="settings-model-protocol-label">接口协议</Label>
+            <p className="text-xs text-muted-foreground">
+              n1n 等平台可同时支持两种协议；请按所选协议填写对应模型 ID。
+            </p>
+            <div
+              id="settings-model-protocol"
+              role="group"
+              aria-labelledby="settings-model-protocol-label"
+              className="grid grid-cols-2 gap-2"
+            >
+              <button
+                id="settings-model-protocol-openai"
+                type="button"
+                onClick={() => setModelProtocol('openai')}
+                className={cn(
+                  'cursor-pointer rounded-lg border px-3 py-2 text-left text-xs transition-all',
+                  modelProtocol === 'openai' ? 'ui-segment-active' : 'ui-segment-inactive',
+                )}
+              >
+                <span className="block font-semibold">OpenAI 兼容</span>
+                <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                  chat.completions / images
+                </span>
+              </button>
+              <button
+                id="settings-model-protocol-gemini"
+                type="button"
+                onClick={() => setModelProtocol('gemini')}
+                className={cn(
+                  'cursor-pointer rounded-lg border px-3 py-2 text-left text-xs transition-all',
+                  modelProtocol === 'gemini' ? 'ui-segment-active' : 'ui-segment-inactive',
+                )}
+              >
+                <span className="block font-semibold">Google GenAI</span>
+                <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                  generateContent
+                </span>
+              </button>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -209,7 +256,7 @@ export default function Settings() {
                 id="settings-vision-model"
                 value={visionModel}
                 onChange={(e) => setVisionModel(e.target.value)}
-                placeholder="gpt-5.4-mini"
+                placeholder={modelProtocol === 'gemini' ? 'gemini-3.1-flash-lite' : 'gpt-5.4-mini'}
                 className="font-mono text-xs"
               />
             </div>
@@ -219,7 +266,7 @@ export default function Settings() {
                 id="settings-generation-model"
                 value={generationModel}
                 onChange={(e) => setGenerationModel(e.target.value)}
-                placeholder="gpt-image-2-all"
+                placeholder={modelProtocol === 'gemini' ? 'gemini-2.5-flash-image' : 'gpt-image-2-all'}
                 className="font-mono text-xs"
               />
             </div>

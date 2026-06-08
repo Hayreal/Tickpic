@@ -34,6 +34,24 @@ describe('settingsStore', () => {
     await expect(store.load()).resolves.toEqual(createDefaultAppSettings(tempDir));
   });
 
+  it('persists modelProtocol for n1n Gemini routing', async () => {
+    const store = createFileSettingsStore(settingsFile, tempDir);
+    const settings = {
+      ...createSavableSettings(tempDir),
+      n1nApiKey: 'sk-live-secret-value',
+      baseUrl: 'https://api.n1n.ai',
+      modelProtocol: 'gemini' as const,
+    };
+
+    await store.save(settings);
+
+    await expect(store.load()).resolves.toEqual(settings);
+    await expect(store.loadRedacted()).resolves.toMatchObject({
+      modelProtocol: 'gemini',
+      hasApiKey: true,
+    });
+  });
+
   it('saves settings without writing the raw API key to disk', async () => {
     const store = createFileSettingsStore(settingsFile, tempDir);
     const settings = {
