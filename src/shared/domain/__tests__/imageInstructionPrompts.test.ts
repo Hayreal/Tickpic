@@ -4,48 +4,55 @@ import { IMAGE_FEATURES } from '../imageFeatureApi';
 import { getImageFeatureDefinition } from '../imageFeatureApi';
 
 describe('imageInstructionPrompts', () => {
-  it('combines the generic instruction generator prompt with feature boundaries', () => {
+  it('combines the compact base prompt with feature boundaries', () => {
     const prompt = buildImageInstructionSystemPrompt('replace_logo');
 
-    expect(prompt).toContain('Your task is not to generate images.');
-    expect(prompt).toContain('You are performing the "Replace Logo" task.');
-    expect(prompt).toContain('logo swap only');
-    expect(prompt).toContain('under 35 words');
+    expect(prompt).toContain('You write concise English prompts for a downstream image model.');
+    expect(prompt).toContain('Feature: Replace Logo.');
+    expect(prompt).toContain('Replace only the visible brand logo');
+    expect(prompt).toContain('one short imperative sentence');
   });
 
   it('preserves prompt-only feature restriction for second-stage image input', () => {
     const prompt = buildImageInstructionSystemPrompt('prompt_only_main_asset');
 
-    expect(prompt).toContain('You are performing the "Prompt-Only Main Image / Asset Generation" task.');
-    expect(prompt).toContain('Do not require those images to be passed to the downstream image model.');
-    expect(prompt).toContain('under 60 words total');
+    expect(prompt).toContain('Feature: Prompt-Only Main Image / Asset Generation.');
+    expect(prompt).toContain('Use uploaded images only as optional style');
+    expect(prompt).toContain('one or two short sentences');
   });
 
   it('requires each instruction to target one standalone output image', () => {
     const prompt = buildImageInstructionSystemPrompt('sticker_variation');
 
-    expect(prompt).toContain('ONE standalone output image');
-    expect(prompt).toContain('Never describe a grid, contact sheet, collage');
+    expect(prompt).toContain('one standalone output image');
+    expect(prompt).toContain('never request grids, collages, batches');
   });
 
   it('keeps sticker replica focused on source layout and optional logo image', () => {
     const prompt = buildImageInstructionSystemPrompt('sticker_replica');
 
-    expect(prompt).toContain('Edit the source packaging or sticker image');
-    expect(prompt).toContain('do not use create, generate, or design');
-    expect(prompt).toContain('do not treat the logo image as the layout reference');
-    expect(prompt).toContain('rectangular label layout');
+    expect(prompt).toContain('Edit the source packaging or sticker into an independent flat 2D label');
+    expect(prompt).toContain('not as the layout reference');
+    expect(prompt).toContain('similar rectangular layout');
     expect(prompt).not.toContain('Replicate the reference sticker');
   });
 
   it('keeps remove-product edits focused on the target product', () => {
     const prompt = buildImageInstructionSystemPrompt('remove_product');
 
-    expect(prompt).toContain('under 35 words');
-    expect(prompt).toContain('foreground spray/mist overlays');
-    expect(prompt).toContain('not only behind the product');
-    expect(prompt).toContain('Do not stack repeated negatives');
-    expect(prompt).not.toContain('strict local inpainting');
+    expect(prompt).toContain('Feature: Remove Product.');
+    expect(prompt).toContain('product-emitted spray, mist, droplets');
+    expect(prompt).toContain('keep unrelated background');
+  });
+
+  it('keeps all feature prompts compact', () => {
+    for (const feature of IMAGE_FEATURES) {
+      const prompt = buildImageInstructionSystemPrompt(feature);
+
+      expect(prompt.length).toBeLessThan(1600);
+      expect(prompt).not.toContain('Follow these rules strictly');
+      expect(prompt).not.toContain('Use the structured parameters as input, including feature');
+    }
   });
 
   it('requires concise single-sentence output for all edit features', () => {
@@ -55,8 +62,7 @@ describe('imageInstructionPrompts', () => {
 
     for (const feature of editFeatures) {
       const prompt = buildImageInstructionSystemPrompt(feature);
-      expect(prompt).toContain('under 35 words');
-      expect(prompt).toContain('Do not stack repeated negatives');
+      expect(prompt).toContain('one short imperative sentence');
     }
   });
 
@@ -67,7 +73,7 @@ describe('imageInstructionPrompts', () => {
 
     for (const feature of generationFeatures) {
       const prompt = buildImageInstructionSystemPrompt(feature);
-      expect(prompt).toContain('under 60 words total');
+      expect(prompt).toContain('one or two short sentences');
     }
   });
 });

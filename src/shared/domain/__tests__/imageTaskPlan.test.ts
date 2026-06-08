@@ -72,8 +72,8 @@ describe('imageTaskPlan', () => {
       aspectRatio: '9:16',
     }, config);
 
-    expect(plan.instructionSystemPrompt).toContain('Your task is not to generate images.');
-    expect(plan.instructionSystemPrompt).toContain('You are performing the "Original Sticker Design" task.');
+    expect(plan.instructionSystemPrompt).toContain('You write concise English prompts for a downstream image model.');
+    expect(plan.instructionSystemPrompt).toContain('Feature: Original Sticker Design.');
     expect(plan.outputAspectRatio).toBe('9:16');
     expect(plan.openaiImageSize).toBe('1024x1536');
   });

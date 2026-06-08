@@ -35,6 +35,19 @@ const STICKER_REPLICA_FLAT_OUTPUT_PATTERN =
 
 const IMAGE_GENERATION_MODEL_PATTERN = /gpt-image|flash-image|dall-?e/i;
 
+const FEATURE_USER_TEXT_INTROS: Record<ImageFeature, string> = {
+  sticker_replica: '参考上传的包装/贴纸图，生成一张独立的 2D 平面贴纸。',
+  sticker_variation: '参考上传的贴纸图，生成一张同品类氛围的新 2D 平面贴纸。',
+  sticker_original: '根据产品信息和参考方向，生成一张原创 2D 平面包装贴纸。',
+  remove_product: '参考上传的图片，移除目标产品并自然补全背景。',
+  replace_product: '参考上传的图片，用目标产品替换画面中的原产品。',
+  replace_logo: '参考上传的图片，只替换画面中的品牌 Logo。',
+  main_image_asset_variation: '参考上传的主图素材，生成一张电商主图或广告素材变体。',
+  scene_variation: '参考上传的场景图，生成一张同品类的真实使用场景变体。',
+  create_new_scene: '根据产品品类和场景方向，创建一张真实的电商使用场景图。',
+  prompt_only_main_asset: '根据文本提示创建一张电商主图或广告素材。',
+};
+
 export function isImageGenerationModel(modelId: string) {
   return IMAGE_GENERATION_MODEL_PATTERN.test(modelId);
 }
@@ -76,60 +89,87 @@ export function sanitizeRequestForInstruction(request: ImageTaskRequest) {
 
 export function buildInstructionUserText(input: ModelInstructionClientInput) {
   const request = input.task.request;
-  const parameters = compactInstructionParameters(request);
-  const taskGoal = input.plan.mainPrompt?.trim();
-  const userPrompt = typeof parameters.prompt === 'string' ? parameters.prompt.trim() : '';
-  const { prompt: _prompt, ...otherParameters } = parameters;
-  const isEdit = getImageFeatureDefinition(input.task.feature).executionModel === 'edit';
-  const lines = [
-    isEdit
-      ? `Write one concise English image-edit instruction for "${input.task.feature}".`
-      : `Write a concise English image-generation instruction for "${input.task.feature}".`,
-  ];
-
-  if (taskGoal) {
-    lines.push(`Goal: ${taskGoal}`);
-  }
+  const lines = [FEATURE_USER_TEXT_INTROS[input.task.feature]];
+  const userPrompt = request.prompt?.trim();
 
   if (userPrompt) {
-    lines.push(`User note: ${userPrompt}`);
+    lines.push(`补充要求：${userPrompt}`);
   }
 
-  if (request.regions?.length) {
-    lines.push(`Selection: ${request.regions.length} rectangular region(s) provided.`);
-    const regionHints = request.regions
-      .map((region) => region.operationHint?.trim())
-      .filter((hint): hint is string => Boolean(hint));
-    if (regionHints.length > 0) {
-      lines.push(`Region hints: ${regionHints.join('; ')}`);
-    }
-  }
+  lines.push(...buildStructuredParameterLines(request));
 
-  if (input.task.feature === 'sticker_replica') {
-    const hasLogoImage = request.images?.some((image) => image.role === 'logo' || image.role === 'reference');
-    if (hasLogoImage) {
-      lines.push(
-        'The source image is the packaging/sticker layout reference; the separate logo image is only the brand mark to place—do not replicate the logo image as the sticker layout.',
-      );
-    }
-  }
-
-  if (Object.keys(otherParameters).length > 0) {
-    lines.push(`Extra: ${JSON.stringify(otherParameters)}`);
-  }
-
-  if (isEdit) {
+  if (input.task.feature === 'sticker_replica' && hasSeparateLogoImage(request)) {
     lines.push(
-      'The downstream model performs in-place image editing on the provided source image(s); use edit/transform/extract verbs, not create or generate.',
+      '如果提供了单独 Logo 图，只把它作为品牌标识嵌入，不要把 Logo 图当作版式参考。',
     );
   }
 
-  lines.push(
-    isEdit
-      ? 'Return one short executable sentence only, ideally under 35 words. No markdown or explanation.'
-      : 'Return one or two short executable sentences, ideally under 60 words total. No markdown or explanation.',
-  );
   return lines.join('\n');
+}
+
+function buildStructuredParameterLines(request: ImageTaskRequest) {
+  const lines: string[] = [];
+  const productName = request.productName?.trim();
+  const productCategory = request.productCategory?.trim();
+  const logoText = request.logoText?.trim();
+  const colorScheme = request.colorScheme?.trim();
+  const capacity = request.capacity?.trim();
+  const aspectRatio = request.aspectRatio?.trim();
+  const sellingPoints = request.sellingPoints
+    ?.map((point) => point.trim())
+    .filter(Boolean);
+
+  if (productName) {
+    lines.push(request.feature === 'sticker_replica'
+      ? `品牌名换成 ${productName}。`
+      : `产品名称是 ${productName}。`);
+  }
+
+  if (productCategory) {
+    lines.push(`产品品类是 ${productCategory}。`);
+  }
+
+  if (sellingPoints?.length) {
+    lines.push(`卖点包括 ${sellingPoints.join('、')}。`);
+  }
+
+  if (capacity) {
+    lines.push(`容量/规格是 ${capacity}。`);
+  }
+
+  if (logoText) {
+    lines.push(`Logo 文案是 ${logoText}。`);
+  }
+
+  if (colorScheme) {
+    lines.push(request.images?.some((image) => image.role === 'source')
+      ? `整体保留原图的 ${colorScheme} 风格。`
+      : `配色方向是 ${colorScheme}。`);
+  }
+
+  if (aspectRatio && aspectRatio !== 'auto') {
+    lines.push(`输出比例是 ${aspectRatio}。`);
+  }
+
+  if (typeof request.showProduct === 'boolean') {
+    lines.push(request.showProduct ? '需要展示产品。' : '不要展示产品。');
+  }
+
+  if (request.regions?.length) {
+    lines.push(`只处理已选择的 ${request.regions.length} 个矩形区域。`);
+    const regionHints = request.regions
+      .map((region) => region.operationHint?.trim())
+      .filter((hint): hint is string => Boolean(hint));
+    if (regionHints.length) {
+      lines.push(`选区要求：${regionHints.join('；')}。`);
+    }
+  }
+
+  return lines;
+}
+
+function hasSeparateLogoImage(request: ImageTaskRequest) {
+  return request.images?.some((image) => image.role === 'logo' || image.role === 'reference') ?? false;
 }
 
 function stripLegacyRemoveProductFragments(instruction: string) {
