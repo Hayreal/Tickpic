@@ -261,7 +261,6 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
           productCategory: originalCategory || undefined,
           sellingPoints: originalSellingPoint ? [originalSellingPoint] : undefined,
           capacity: originalVolume || undefined,
-          logoText: originalBrand || undefined,
           colorScheme: originalColorScheme || undefined,
           aspectRatio: originalAspectRatio,
           prompt: originalStyle ? `Style: ${originalStyle}` : undefined,

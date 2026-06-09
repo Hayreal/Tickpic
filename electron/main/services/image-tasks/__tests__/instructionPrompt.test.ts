@@ -131,6 +131,28 @@ describe('instructionPrompt', () => {
     expect(text).not.toContain('mainPrompt');
   });
 
+  it('does not infer original sticker logo text from product name', () => {
+    const text = buildInstructionUserText({
+      task: {
+        feature: 'sticker_original',
+        request: {
+          feature: 'sticker_original',
+          productName: 'wuku',
+          productCategory: '汽车玻璃水',
+          sellingPoints: ['清洁强'],
+        },
+      },
+      plan: {
+        mainPrompt: '设计原创 2D 平面贴纸初稿。',
+      },
+    } as unknown as ModelInstructionClientInput);
+
+    expect(text).toContain('产品名称是 wuku。');
+    expect(text).toContain('产品品类是 汽车玻璃水。');
+    expect(text).toContain('卖点包括 清洁强。');
+    expect(text).not.toContain('Logo 文案是 wuku。');
+  });
+
   it('adds spray prefix only when the model omits spray or mist', () => {
     const finalized = finalizeImageInstruction(
       'remove_product',
