@@ -27,6 +27,8 @@ export interface ProtocolClientOptions {
 
 const MAX_VISION_IMAGE_BYTES = 4 * 1024 * 1024;
 
+type OpenAIInputFidelity = 'low' | 'high';
+
 type ImageResponseItem = {
   b64_json?: string;
   base64?: string;
@@ -115,6 +117,7 @@ export function createOpenAIProtocolClient(
     },
 
     async executeImage(input) {
+      const inputFidelity = resolveOpenAIInputFidelity(input);
       const executionPayload = input.images.length > 0
         ? {
           operation: 'edit',
@@ -130,7 +133,7 @@ export function createOpenAIProtocolClient(
           quality: 'auto',
           background: 'opaque',
           output_format: 'png',
-          input_fidelity: 'high',
+          input_fidelity: inputFidelity,
         }
         : {
           operation: 'generate',
@@ -159,7 +162,7 @@ export function createOpenAIProtocolClient(
           quality: 'auto',
           background: 'opaque',
           output_format: 'png',
-          input_fidelity: 'high',
+          input_fidelity: inputFidelity,
         }, {
           signal: input.abortSignal,
         })
@@ -313,6 +316,13 @@ export function createGeminiProtocolClient(
       return result;
     },
   };
+}
+
+function resolveOpenAIInputFidelity(input: ModelExecutionClientInput): OpenAIInputFidelity {
+  if (input.task.feature === 'sticker_variation') {
+    return 'low';
+  }
+  return 'high';
 }
 
 async function readImageAsDataUrl(image: ImageInput) {

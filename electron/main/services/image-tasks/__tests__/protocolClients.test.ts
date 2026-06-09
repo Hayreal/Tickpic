@@ -227,6 +227,30 @@ describe('protocolClients', () => {
     expect(Buffer.from(result.images[0].buffer).toString()).toBe('edited');
   });
 
+  it('uses low OpenAI input fidelity for sticker variation edits', async () => {
+    const openai = {
+      chat: { completions: { create: vi.fn() } },
+      images: {
+        generate: vi.fn(),
+        edit: vi.fn().mockResolvedValue({
+          data: [{ b64_json: Buffer.from('varied').toString('base64') }],
+        }),
+      },
+    };
+    const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
+
+    await client.executeImage(createStickerVariationExecutionInput(imagePath));
+
+    expect(openai.images.edit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input_fidelity: 'low',
+      }),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      }),
+    );
+  });
+
   it('uses Gemini generateContent for instruction and image execution', async () => {
     const gemini = {
       models: {
@@ -298,6 +322,32 @@ function createExecutionInput(imagePath: string): ModelExecutionClientInput {
     aspectRatio: '9:16',
     size: '1024x1536',
     abortSignal: new AbortController().signal,
+  };
+}
+
+function createStickerVariationExecutionInput(imagePath: string): ModelExecutionClientInput {
+  const task: ImageTaskRecord = {
+    ...createTask(imagePath),
+    feature: 'sticker_variation',
+    request: {
+      feature: 'sticker_variation',
+      images: [
+        { role: 'source', path: imagePath, mimeType: 'image/png' },
+      ],
+    },
+  };
+  const plan: ImageTaskPlan = {
+    ...createPlan(imagePath),
+    request: task.request,
+    mainPrompt: 'sticker variation',
+    executionImages: task.request.images ?? [],
+  };
+
+  return {
+    ...createExecutionInput(imagePath),
+    task,
+    plan,
+    images: plan.executionImages,
   };
 }
 

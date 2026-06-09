@@ -222,7 +222,7 @@ describe('instructionPrompt', () => {
     } as unknown as ModelInstructionClientInput);
 
     expect(text).toBe([
-      '参考上传的包装/贴纸图，生成一张独立的 2D 平面贴纸。',
+      '提取上传图片中产品上的贴纸，输出独立 2D 平面贴纸。',
       '补充要求：品牌名换成 WKUA，整体保留原图的高级黑金风格。',
       '品牌名换成 WKUA。',
       '产品品类是 car belt silencer。',
@@ -234,7 +234,7 @@ describe('instructionPrompt', () => {
     expect(text).not.toContain('/tmp/logo.png');
   });
 
-  it('appends flat-sticker guardrail to sticker replica execution instructions', () => {
+  it('appends sticker-extraction guardrail to sticker replica execution instructions', () => {
     const finalized = finalizeImageInstruction(
       'sticker_replica',
       'Replicate the pink effervescent-tablet label with bold red English typography and the wkau logo.',
@@ -247,8 +247,38 @@ describe('instructionPrompt', () => {
       },
     );
 
-    expect(finalized).toContain('rectangular layout from the source label');
-    expect(finalized).toContain('no box mockup');
+    expect(finalized).toContain('Output only the extracted flat 2D sticker/label');
+    expect(finalized).toContain('no product body, bottle, box, jar, packaging mockup');
+    expect(finalized).not.toContain('similar rectangular layout');
+  });
+
+  it('appends meaningful-redesign guardrail to sticker variation execution instructions', () => {
+    const finalized = finalizeImageInstruction(
+      'sticker_variation',
+      'Edit the source sticker to produce a flat 2D black-and-white spray label with a central diamond 8 card-suit emblem and matching corner markings.',
+      {
+        feature: 'sticker_variation',
+        images: [{ role: 'source', path: '/tmp/sticker.png' }],
+      },
+    );
+
+    expect(finalized).toContain('make a clearly different layout');
+    expect(finalized).toContain('not a small text, icon, suit, or color swap');
+    expect(finalized).not.toContain('substantially rework');
+    expect(finalized).not.toContain('near-copy');
+  });
+
+  it('does not duplicate sticker variation redesign guardrail when already present', () => {
+    const finalized = finalizeImageInstruction(
+      'sticker_variation',
+      'Edit the source sticker into a new flat 2D label; make a clearly different layout.',
+      {
+        feature: 'sticker_variation',
+        images: [{ role: 'source', path: '/tmp/sticker.png' }],
+      },
+    );
+
+    expect(finalized.match(/make a clearly different layout/g)).toHaveLength(1);
   });
 
   it('rewrites create wording into edit wording for sticker replica execution', () => {
@@ -262,7 +292,7 @@ describe('instructionPrompt', () => {
     );
 
     expect(finalized).toBe(
-      'Edit the source packaging label to extract an independent flat 2D sticker with bold red English typography and the black wkau logo, with no packaging mockup.',
+      'Edit the source image to extract an independent flat 2D sticker with bold red English typography and the black wkau logo, with no packaging mockup.',
     );
     expect(finalized).not.toMatch(/^Create\b/i);
   });

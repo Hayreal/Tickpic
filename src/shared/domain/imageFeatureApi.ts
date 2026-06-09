@@ -116,7 +116,7 @@ export interface ImageFeatureDefinition {
 const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   sticker_replica: {
     feature: 'sticker_replica',
-    mainPrompt: '从包装/贴纸参考图提取版式与风格，输出相似布局的独立 2D 平面贴纸；若有 Logo 图仅作品牌标识嵌入，不要把 Logo 图当版式参考。',
+    mainPrompt: '提取产品或包装图上可见的贴纸，输出独立 2D 平面贴纸；若有 Logo 图仅作品牌标识嵌入，不要把 Logo 图当版式参考。',
     acceptedImageRoles: ['source', 'logo', 'reference'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',

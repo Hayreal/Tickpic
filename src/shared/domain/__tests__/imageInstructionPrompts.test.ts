@@ -28,13 +28,25 @@ describe('imageInstructionPrompts', () => {
     expect(prompt).toContain('never request grids, collages, batches');
   });
 
-  it('keeps sticker replica focused on source layout and optional logo image', () => {
+  it('keeps sticker replica focused on extracting the product sticker', () => {
     const prompt = buildImageInstructionSystemPrompt('sticker_replica');
 
-    expect(prompt).toContain('Edit the source packaging or sticker into an independent flat 2D label');
-    expect(prompt).toContain('not as the layout reference');
-    expect(prompt).toContain('similar rectangular layout');
-    expect(prompt).not.toContain('Replicate the reference sticker');
+    expect(prompt).toContain('Extract the visible sticker from the source product or package.');
+    expect(prompt).toContain('Output only that sticker as one standalone flat 2D label.');
+    expect(prompt).toContain('Do not redesign it');
+    expect(prompt).not.toContain('similar rectangular layout');
+    expect(prompt).not.toContain('commercial style');
+  });
+
+  it('requires sticker variation to be a meaningful redesign rather than a near copy', () => {
+    const prompt = buildImageInstructionSystemPrompt('sticker_variation');
+
+    expect(prompt).toContain('Create a new flat 2D sticker in the same product-category mood.');
+    expect(prompt).toContain('Use the source as mood reference only');
+    expect(prompt).toContain('make a clearly different layout');
+    expect(prompt).toContain('not a small text, icon, suit, or color swap');
+    expect(prompt).not.toContain('substantially rework');
+    expect(prompt).not.toContain('near-copy');
   });
 
   it('keeps remove-product edits focused on the target product', () => {

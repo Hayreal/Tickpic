@@ -8,12 +8,12 @@ Each request describes exactly one standalone output image; never request grids,
 
 const FEATURE_PROMPTS: Record<ImageFeature, string> = {
   sticker_replica: `Feature: Sticker Replication.
-Edit the source packaging or sticker into an independent flat 2D label with a similar rectangular layout, color palette, typography, and commercial style.
-If a separate logo image is provided, use it only as the brand mark, not as the layout reference.
-No boxes, bottles, jars, packaging mockups, circular badges, or multi-label collages.`,
+Extract the visible sticker from the source product or package.
+Output only that sticker as one standalone flat 2D label.
+Do not redesign it; no product body, bottle, box, jar, packaging mockup, or collage.`,
   sticker_variation: `Feature: Sticker Variation.
-Produce a new independent flat 2D sticker in the same product-category mood as the source.
-Vary layout, title treatment, selling-point hierarchy, icons, texture, or color while respecting user notes.
+Create a new flat 2D sticker in the same product-category mood.
+Use the source as mood reference only; make a clearly different layout, not a small text, icon, suit, or color swap.
 No packaging mockups or product containers.`,
   sticker_original: `Feature: Original Sticker Design.
 Design one original flat 2D packaging sticker from the product info, selling points, color scheme, and optional references.

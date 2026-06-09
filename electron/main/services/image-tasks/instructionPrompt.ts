@@ -28,15 +28,21 @@ const REMOVE_PRODUCT_OCCLUSION_ONLY_PATTERN =
   /inpaint(?:ing)? only (?:their |the )?occluded/i;
 
 const STICKER_REPLICA_EXECUTION_SUFFIX =
-  'Output a flat 2D packaging sticker/label only; keep a similar rectangular layout from the source label; no box mockup, bottle, jar, or circular collage.';
+  'Output only the extracted flat 2D sticker/label; no product body, bottle, box, jar, packaging mockup, or collage.';
 
 const STICKER_REPLICA_FLAT_OUTPUT_PATTERN =
-  /flat 2d|2d flat|packaging mockup|circular (?:badge|collage)|box mockup/i;
+  /flat 2d|2d flat|packaging mockup|product body|bottle|box|jar|collage/i;
+
+const STICKER_VARIATION_REDESIGN_SUFFIX =
+  'make a clearly different layout, not a small text, icon, suit, or color swap';
+
+const STICKER_VARIATION_REDESIGN_PATTERN =
+  /clearly different layout|not a small (?:text|icon|suit|color) swap/i;
 
 const IMAGE_GENERATION_MODEL_PATTERN = /gpt-image|flash-image|dall-?e/i;
 
 const FEATURE_USER_TEXT_INTROS: Record<ImageFeature, string> = {
-  sticker_replica: '参考上传的包装/贴纸图，生成一张独立的 2D 平面贴纸。',
+  sticker_replica: '提取上传图片中产品上的贴纸，输出独立 2D 平面贴纸。',
   sticker_variation: '参考上传的贴纸图，生成一张同品类氛围的新 2D 平面贴纸。',
   sticker_original: '根据产品信息和参考方向，生成一张原创 2D 平面包装贴纸。',
   remove_product: '参考上传的图片，移除目标产品并自然补全背景。',
@@ -235,7 +241,7 @@ function needsSprayPrefix(instruction: string) {
 const EDIT_GENERATION_VERB_PATTERN = /^(?:create|generate|design)\b/i;
 
 const EDIT_VERB_REPLACEMENTS: Partial<Record<ImageFeature, string>> = {
-  sticker_replica: 'Edit the source packaging label to extract',
+  sticker_replica: 'Edit the source image to extract',
   sticker_variation: 'Edit the source sticker to produce',
   remove_product: 'Edit the source image to remove',
   replace_product: 'Edit the source image to replace',
@@ -262,6 +268,15 @@ function finalizeStickerReplicaInstruction(instruction: string) {
   return `${core}. ${STICKER_REPLICA_EXECUTION_SUFFIX}`;
 }
 
+function finalizeStickerVariationInstruction(instruction: string) {
+  const trimmed = instruction.trim();
+  if (STICKER_VARIATION_REDESIGN_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
+  const core = trimmed.replace(/\s*\.?\s*$/, '').trim();
+  return `${core}; ${STICKER_VARIATION_REDESIGN_SUFFIX}.`;
+}
+
 export function finalizeImageInstruction(
   feature: ImageFeature,
   instruction: string,
@@ -273,6 +288,10 @@ export function finalizeImageInstruction(
 
   if (feature === 'sticker_replica') {
     return finalizeStickerReplicaInstruction(normalized);
+  }
+
+  if (feature === 'sticker_variation') {
+    return finalizeStickerVariationInstruction(normalized);
   }
 
   if (feature === 'remove_product') {
