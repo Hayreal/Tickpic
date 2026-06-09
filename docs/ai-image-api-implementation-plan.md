@@ -10,16 +10,14 @@ Electron 客户端采用三层结构：
 |---|---|
 | Renderer | 功能表单、图片上传、矩形框选、任务提交、任务状态、结果预览 |
 | Preload IPC | 暴露受控 API，隔离 Renderer 和 Main |
-| Main Process | 读取本地图片、组装请求、任务队列调度、图片执行指令生成、调用 n1n、保存结果、错误处理 |
+| Main Process | 读取本地图片、组装执行提示词、任务队列调度、调用 n1n 出图、保存结果、错误处理 |
 
 API Key 不在 Renderer 业务代码中直接使用。用户填写的 n1n API Key 存在客户端本地安全配置中，由 Main Process 读取并调用接口。
 
-所有图片生成、图片编辑和图片裂变任务都采用“两段式模型调用”：
+所有图片生成、图片编辑和图片裂变任务都采用“单段式模型调用”：
 
-1. 先调用图像理解/指令生成模型，把 `feature`、`source/reference` 图片、`prompt`、`regions`、`productName`、`logoText`、`colorScheme`、`aspectRatio`、阶段模型等结构化参数整理成图片执行指令 `finalPrompt`。
-2. 再将 `finalPrompt` 和执行阶段需要的图片交给图片生成/编辑模型执行；必要的禁止事项应已经写入这条执行指令。
-
-一阶段不要求模型输出 JSON，也不输出冗长分析报告，只输出可以直接交给第二阶段模型的执行指令文本。编辑类任务应简洁高效，默认 1-3 句；图像生成类任务可以添加更多视觉细节，用于补足主体、场景、构图、光影、风格、文字和比例等出图信息。
+1. Main Process 在本地把功能 `mainPrompt`、用户 `prompt` 和结构化参数组装成 `finalPrompt`（见 `docs/ai-image-system-prompts.md`）。
+2. 将 `finalPrompt` 和执行阶段需要的图片直接交给图片生成/编辑模型出图。
 
 ## 2. 客户端配置
 
@@ -32,7 +30,7 @@ API Key 不在 Renderer 业务代码中直接使用。用户填写的 n1n API Ke
 | 工作目录 | 生成结果保存位置 |
 | 图像生成模型 | 用于无原图生成、场景生成、纯提示词素材生成 |
 | 图像编辑模型 | 用于基于原图的编辑、替换、去除、裂变 |
-| 图像理解/指令生成模型 | 用于所有任务前置的图片理解、参数合并和图片执行指令生成 |
+| 图像理解/指令生成模型 | 已废弃，设置页字段可保留但任务执行不再使用 |
 | 模型协议映射 | 指定模型走 Gemini 协议或 OpenAI 协议 |
 | 默认出图数量 | 由批次数控制，当前默认 4 |
 | 最大同时运行任务数 | 当前固定为 5，可作为客户端配置项保留 |
@@ -44,8 +42,6 @@ API Key 不在 Renderer 业务代码中直接使用。用户填写的 n1n API Ke
 | 图片生成/编辑 | `gemini-3.1-flash-image-preview` |
 | 图片生成/编辑 | `gemini-2.5-flash-image` |
 | 图片生成/编辑 | `gpt-image-2` |
-| 图片理解/指令生成 | `gemini-3.1-flash-lite` |
-| 图片理解/指令生成 | `gpt-5.4-mini` |
 
 ## 3. 统一任务接口设计
 
@@ -106,7 +102,6 @@ API Key 不在 Renderer 业务代码中直接使用。用户填写的 n1n API Ke
 
 | 阶段 | 使用模型配置 | 说明 |
 |---|---|
-| 图片执行指令生成 | 用户配置的图像理解/指令生成模型 | 所有任务都会先调用，用于理解输入并直接生成执行指令 `finalPrompt` |
 | 图像生成 | 用户配置的图像生成模型 | 贴纸原创、创作新场景图、纯提示词主图/素材图 |
 | 图像编辑 | 用户配置的图像编辑模型 | 贴纸复刻、贴纸裂变、去除产品、替换产品、替换 Logo、主图素材裂变、场景裂变 |
 
@@ -114,24 +109,23 @@ API Key 不在 Renderer 业务代码中直接使用。用户填写的 n1n API Ke
 
 | 参数 | 说明 |
 |---|---|
-| modelOverrides.vision | 覆盖图像理解/指令生成模型 |
 | modelOverrides.generation | 覆盖图像生成模型 |
 | modelOverrides.edit | 覆盖图像编辑模型 |
 
 能力路由：
 
-| 功能 | 图像理解阶段 | 图片执行阶段 |
-|---|---|---|
-| 贴纸复刻 | 图像理解/指令生成模型 | 图像编辑模型 |
-| 贴纸裂变 | 图像理解/指令生成模型 | 图像编辑模型 |
-| 贴纸原创 | 图像理解/指令生成模型 | 图像生成模型 |
-| 去除产品 | 图像理解/指令生成模型 | 图像编辑模型 |
-| 替换产品 | 图像理解/指令生成模型 | 图像编辑模型 |
-| 替换 Logo | 图像理解/指令生成模型 | 图像编辑模型 |
-| 主图素材裂变 | 图像理解/指令生成模型 | 图像编辑模型 |
-| 场景裂变 | 图像理解/指令生成模型 | 图像编辑模型 |
-| 创作新场景图 | 图像理解/指令生成模型 | 图像生成模型 |
-| 纯提示词主图/素材图 | 图像理解/指令生成模型 | 图像生成模型 |
+| 功能 | 图片执行阶段 |
+|---|---|
+| 贴纸复刻 | 图像编辑模型 |
+| 贴纸裂变 | 图像编辑模型 |
+| 贴纸原创 | 图像生成模型 |
+| 去除产品 | 图像编辑模型 |
+| 替换产品 | 图像编辑模型 |
+| 替换 Logo | 图像编辑模型 |
+| 主图素材裂变 | 图像编辑模型 |
+| 场景裂变 | 图像编辑模型 |
+| 创作新场景图 | 图像生成模型 |
+| 纯提示词主图/素材图 | 图像生成模型 |
 
 ## 6. 协议选择规则
 
@@ -144,61 +138,35 @@ API Key 不在 Renderer 业务代码中直接使用。用户填写的 n1n API Ke
 
 调用前根据模型 ID 查询协议映射。如果用户传入模型但未配置协议，应提示用户先完成模型协议配置。
 
-## 7. 强制图片执行指令生成流程
+## 7. 图片执行提示词组装
 
-所有图片生成、图片编辑和图片裂变任务，都必须先经过图像理解/指令生成模型输出图片执行指令 `finalPrompt`，再调用图片模型。
+所有图片生成、图片编辑和图片裂变任务，都在 Main Process 本地组装 `finalPrompt` 后直接调用图片模型，不再经过单独的图像理解/指令生成模型。
 
-图像理解/指令生成模型的职责不是直接出图，也不是输出 JSON，而是把用户输入、参考图、矩形框选和功能模板整理成可执行的图片执行指令。
+组装规则见 `docs/ai-image-system-prompts.md`。核心输入是功能 `mainPrompt`、用户 `prompt` 和结构化参数；选区与 Logo 角色提示会按需追加。
 
-一阶段输入来自统一任务参数，输出只需要执行指令文本。编辑类任务的指令应短、直接、低冗余，默认 1-3 句。图像生成类任务可以更详细，允许补充主体细节、场景氛围、构图、光影、材质、风格、文字规划和比例等信息。纯提示词主图/素材图允许用户输入图片，但这些图片只用于一阶段理解、提取风格、场景或构图方向，不传入第二阶段图片生成模型作为编辑图。
-
-各功能增强重点：
-
-| 功能 | 图片执行指令生成重点 |
-|---|---|
-| 贴纸复刻 | 识别产品或包装上的贴纸区域并提取为独立 2D 平面贴纸 |
-| 贴纸裂变 | 分析原贴纸品类感和裂变方向，源图只作氛围参考，输出明显不同版式 |
-| 贴纸原创 | 根据品类确定主视觉和文字层级，产品名可突出但不应占满画面，辅助文案保持次级并给图形元素留出空间 |
-| 去除产品 | 识别产品主体、遮挡关系、局部补全范围，并强调背景图片、构图、文字和非目标元素不变 |
-| 替换产品 | 分析原产品位置、姿态、透视、比例、光影和替换约束 |
-| 替换 Logo | 分析 Logo 位置、材质、角度、透视和替换边界 |
-| 主图素材裂变 | 分析卖点表达、Before/After 结构、局部细节和视觉焦点 |
-| 场景裂变 | 根据品类和参考图发散具体使用场景 |
-| 创作新场景图 | 根据品类、卖点和场景要求生成可控场景清单 |
-| 纯提示词主图/素材图 | 将用户提示词和可选参考图整理为可执行的主图/素材生成指令，可补充必要视觉细节 |
-
-一阶段指令生成模型接收的结构化输入示例：
+组装输入示例：
 
 ```json
 {
   "feature": "sticker_replica",
-  "source": ["/authorized/input/package.png"],
-  "reference": [],
   "prompt": "换成 wkau，容量写 6PIECES，整体更清爽",
-  "regions": [
-    {
-      "id": "sticker-area",
-      "x": 120,
-      "y": 180,
-      "width": 420,
-      "height": 260
-    }
+  "images": [
+    { "role": "source", "path": "/authorized/input/package.png" }
   ],
-  "productName": "",
   "logoText": "wkau",
-  "colorScheme": "",
-  "aspectRatio": "1:1",
-  "model": "gemini-3.1-flash-lite"
+  "aspectRatio": "1:1"
 }
 ```
 
-一阶段输出示例：
+组装后的 `finalPrompt` 示例：
 
 ```text
-Create an independent 2D flat sticker design based on the sticker area in the source image. Keep a similar commercial label layout, clean visual hierarchy, and product-category feeling. Replace the brand text with wkau and include capacity text 6PIECES. Make the overall design cleaner and fresher. Output only the flat sticker artwork. Do not generate bottles, jars, boxes, packaging mockups, real product containers, or background scenes.
+提取产品或包装图上可见的贴纸，输出独立 2D 平面贴纸；若有 Logo 图仅作品牌标识嵌入，不要把 Logo 图当版式参考。
+补充要求：换成 wkau，容量写 6PIECES，整体更清爽
+Logo 文案是 wkau。
 ```
 
-图片执行指令不直接展示给用户，作为图片模型的上游输入和本地排查产物保存。用户提示词与功能边界冲突时，执行指令必须保留功能边界并移除冲突要求。所有场景面向海外用户，输出图片中不得出现中文可见文字；中文参数在一阶段转换为英文 in-image copy。
+`finalPrompt` 作为图片模型的直接输入，并保存到 `image-instruction.txt` 供排查复现。
 
 ## 8. 文件保存规则
 
@@ -217,7 +185,7 @@ Create an independent 2D flat sticker design based on the sticker area in the so
 说明：
 
 - `request.json` 保存原始请求摘要、图片角色、区域、模型覆盖和脱敏后的配置摘要。
-- `image-instruction.txt` 保存一阶段生成的图片执行指令。
+- `image-instruction.txt` 保存本地组装后的图片执行提示词。
 - 图片文件保存最终出图。
 - 出图数量默认每次任务 1 张；需要批量结果时通过任务队列多次提交，而不是单次请求放大 `count`。
 - 同名 `.json` 保存本次任务的输入、模型、用户原始提示词、图片执行指令、输出尺寸和脱敏后的模型响应摘要。

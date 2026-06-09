@@ -3,7 +3,10 @@ import {
   type ImageFeature,
   type ImageTaskRequest,
 } from '../../../../src/shared/domain/imageFeatureApi.js';
-import type { ModelInstructionClientInput } from './modelGateway.js';
+interface ExecutionPromptAssemblyInput {
+  task: { feature: ImageFeature; request: ImageTaskRequest };
+  plan: { mainPrompt: string };
+}
 
 const REMOVE_PRODUCT_SPRAY_PREFIX =
   'First fully erase foreground spray/mist overlays, not only behind the bottle. ';
@@ -40,19 +43,6 @@ const STICKER_VARIATION_REDESIGN_PATTERN =
   /clearly different layout|not a small (?:text|icon|suit|color) swap/i;
 
 const IMAGE_GENERATION_MODEL_PATTERN = /gpt-image|flash-image|dall-?e/i;
-
-const FEATURE_USER_TEXT_INTROS: Record<ImageFeature, string> = {
-  sticker_replica: '提取上传图片中产品上的贴纸，输出独立 2D 平面贴纸。',
-  sticker_variation: '参考上传的贴纸图，生成一张同品类氛围的新 2D 平面贴纸。',
-  sticker_original: '根据产品信息和参考方向，生成一张原创 2D 平面包装贴纸。',
-  remove_product: '参考上传的图片，移除目标产品并自然补全背景。',
-  replace_product: '参考上传的图片，用目标产品替换画面中的原产品。',
-  replace_logo: '参考上传的图片，只替换画面中的品牌 Logo。',
-  main_image_asset_variation: '参考上传的主图素材，生成一张电商主图或广告素材变体。',
-  scene_variation: '参考上传的场景图，生成一张同品类的真实使用场景变体。',
-  create_new_scene: '根据产品品类和场景方向，创建一张真实的电商使用场景图。',
-  prompt_only_main_asset: '根据文本提示创建一张电商主图或广告素材。',
-};
 
 export function isImageGenerationModel(modelId: string) {
   return IMAGE_GENERATION_MODEL_PATTERN.test(modelId);
@@ -93,9 +83,8 @@ export function sanitizeRequestForInstruction(request: ImageTaskRequest) {
   return compactInstructionParameters(request);
 }
 
-export function buildInstructionUserText(input: ModelInstructionClientInput) {
-  const request = input.task.request;
-  const lines = [FEATURE_USER_TEXT_INTROS[input.task.feature]];
+export function buildExecutionPrompt(request: ImageTaskRequest, mainPrompt: string) {
+  const lines = [mainPrompt.trim()];
   const userPrompt = request.prompt?.trim();
 
   if (userPrompt) {
@@ -104,7 +93,7 @@ export function buildInstructionUserText(input: ModelInstructionClientInput) {
 
   lines.push(...buildStructuredParameterLines(request));
 
-  if (input.task.feature === 'sticker_replica' && hasSeparateLogoImage(request)) {
+  if (request.feature === 'sticker_replica' && hasSeparateLogoImage(request)) {
     lines.push(
       '如果提供了单独 Logo 图，只把它作为品牌标识嵌入，不要把 Logo 图当作版式参考。',
     );
@@ -113,22 +102,31 @@ export function buildInstructionUserText(input: ModelInstructionClientInput) {
   return lines.join('\n');
 }
 
+export function buildInstructionUserText(input: ExecutionPromptAssemblyInput) {
+  return buildExecutionPrompt(input.task.request, input.plan.mainPrompt);
+}
+
 function buildStructuredParameterLines(request: ImageTaskRequest) {
   const lines: string[] = [];
   const productName = request.productName?.trim();
   const productCategory = request.productCategory?.trim();
+  const brand = request.brand?.trim();
   const logoText = request.logoText?.trim();
+  const material = request.material?.trim();
+  const style = request.style?.trim();
+  const colorBlockLayout = request.colorBlockLayout?.trim();
   const colorScheme = request.colorScheme?.trim();
   const capacity = request.capacity?.trim();
-  const aspectRatio = request.aspectRatio?.trim();
   const sellingPoints = request.sellingPoints
     ?.map((point) => point.trim())
     .filter(Boolean);
 
+  if (brand) {
+    lines.push(`品牌是 ${brand}。`);
+  }
+
   if (productName) {
-    lines.push(request.feature === 'sticker_replica'
-      ? `品牌名换成 ${productName}。`
-      : `产品名称是 ${productName}。`);
+    lines.push(`产品名称是 ${productName}。`);
   }
 
   if (productCategory) {
@@ -143,6 +141,18 @@ function buildStructuredParameterLines(request: ImageTaskRequest) {
     lines.push(`容量/规格是 ${capacity}。`);
   }
 
+  if (material) {
+    lines.push(`素材要求是 ${material}。`);
+  }
+
+  if (style) {
+    lines.push(`风格是 ${style}。`);
+  }
+
+  if (colorBlockLayout) {
+    lines.push(`色块排版要求是 ${colorBlockLayout}。`);
+  }
+
   if (logoText) {
     lines.push(`Logo 文案是 ${logoText}。`);
   }
@@ -151,10 +161,6 @@ function buildStructuredParameterLines(request: ImageTaskRequest) {
     lines.push(request.images?.some((image) => image.role === 'source')
       ? `整体保留原图的 ${colorScheme} 风格。`
       : `配色方向是 ${colorScheme}。`);
-  }
-
-  if (aspectRatio && aspectRatio !== 'auto') {
-    lines.push(`输出比例是 ${aspectRatio}。`);
   }
 
   if (typeof request.showProduct === 'boolean') {
@@ -307,31 +313,6 @@ export function finalizeImageInstruction(
   return normalized;
 }
 
-export function buildFallbackFinalPrompt(input: ModelInstructionClientInput) {
-  const request = input.task.request;
-  const segments = [input.plan.mainPrompt];
-
-  if (request.prompt?.trim()) {
-    segments.push(request.prompt.trim());
-  }
-  if (request.productName?.trim()) {
-    segments.push(`Product name: ${request.productName.trim()}`);
-  }
-  if (request.productCategory?.trim()) {
-    segments.push(`Product category: ${request.productCategory.trim()}`);
-  }
-  if (request.logoText?.trim()) {
-    segments.push(`Logo text: ${request.logoText.trim()}`);
-  }
-  if (request.colorScheme?.trim()) {
-    segments.push(`Color scheme: ${request.colorScheme.trim()}`);
-  }
-  if (request.aspectRatio?.trim()) {
-    segments.push(`Aspect ratio: ${request.aspectRatio.trim()}`);
-  }
-  if (request.sellingPoints?.length) {
-    segments.push(`Selling points: ${request.sellingPoints.join(', ')}`);
-  }
-
-  return segments.join(' ');
+export function buildFallbackFinalPrompt(input: ExecutionPromptAssemblyInput) {
+  return buildExecutionPrompt(input.task.request, input.plan.mainPrompt);
 }

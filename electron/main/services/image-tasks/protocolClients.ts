@@ -5,18 +5,11 @@ import type { ImageInput } from '../../../../src/shared/domain/imageFeatureApi.j
 import type { ImageExecutionModelResult, GeneratedImageOutput } from './imageTaskExecutor.js';
 import type {
   ModelExecutionClientInput,
-  ModelInstructionClientInput,
   ProtocolModelClient,
 } from './modelGateway.js';
-import {
-  buildFallbackFinalPrompt,
-  buildInstructionUserText,
-  isImageGenerationModel,
-} from './instructionPrompt.js';
 import { logModelRequest, logModelResponse } from './modelRequestLogger.js';
 import {
   buildGeminiGenerateContentUrl,
-  buildOpenAIChatCompletionsUrl,
   buildOpenAIImagesEditUrl,
   buildOpenAIImagesGenerateUrl,
 } from './modelRequestUrls.js';
@@ -24,8 +17,6 @@ import {
 export interface ProtocolClientOptions {
   baseUrl: string;
 }
-
-const MAX_VISION_IMAGE_BYTES = 4 * 1024 * 1024;
 
 type OpenAIInputFidelity = 'low' | 'high';
 
@@ -42,80 +33,6 @@ export function createOpenAIProtocolClient(
   options: ProtocolClientOptions,
 ): ProtocolModelClient {
   return {
-    async generateInstruction(input) {
-      if (isImageGenerationModel(input.model)) {
-        const fallbackPrompt = buildFallbackFinalPrompt(input);
-        logModelRequest('instruction', {
-          protocol: 'local-fallback',
-          model: input.model,
-          finalPrompt: fallbackPrompt,
-          images: input.images.map((image) => ({
-            role: image.role,
-            path: image.path,
-            mimeType: image.mimeType,
-          })),
-        });
-        return fallbackPrompt;
-      }
-
-      const content: Array<
-        | { type: 'text'; text: string }
-        | { type: 'image_url'; image_url: { url: string; detail: 'low' | 'auto' | 'high' } }
-      > = [
-        {
-          type: 'text',
-          text: buildInstructionUserText(input),
-        },
-      ];
-
-      for (const image of input.images) {
-        content.push({
-          type: 'image_url',
-          image_url: {
-            url: await readImageAsDataUrl(image),
-            detail: 'low',
-          },
-        });
-      }
-
-      const requestPayload = {
-        model: input.model,
-        messages: [
-          { role: 'system', content: input.systemPrompt },
-          { role: 'user', content },
-        ],
-        temperature: 0.2,
-      };
-      logModelRequest('instruction', {
-        protocol: 'openai',
-        url: buildOpenAIChatCompletionsUrl(options.baseUrl),
-        ...requestPayload,
-        images: input.images.map((image) => ({
-          role: image.role,
-          path: image.path,
-          mimeType: image.mimeType,
-        })),
-      });
-
-      const response = await openai.chat.completions.create(requestPayload, {
-        signal: input.abortSignal,
-      });
-
-      const finalPrompt = String(response.choices[0]?.message?.content ?? '').trim();
-      logModelResponse('instruction', {
-        protocol: 'openai',
-        url: buildOpenAIChatCompletionsUrl(options.baseUrl),
-        model: input.model,
-        finalPrompt,
-        response,
-      });
-      if (!finalPrompt) {
-        throw new Error('image instruction model returned empty finalPrompt');
-      }
-
-      return finalPrompt;
-    },
-
     async executeImage(input) {
       const inputFidelity = resolveOpenAIInputFidelity(input);
       const executionPayload = input.images.length > 0
@@ -206,66 +123,6 @@ export function createGeminiProtocolClient(
   options: ProtocolClientOptions,
 ): ProtocolModelClient {
   return {
-    async generateInstruction(input) {
-      if (isImageGenerationModel(input.model)) {
-        const fallbackPrompt = buildFallbackFinalPrompt(input);
-        logModelRequest('instruction', {
-          protocol: 'local-fallback',
-          model: input.model,
-          finalPrompt: fallbackPrompt,
-          images: input.images.map((image) => ({
-            role: image.role,
-            path: image.path,
-            mimeType: image.mimeType,
-          })),
-        });
-        return fallbackPrompt;
-      }
-
-      const instructionParts = await buildGeminiParts(buildInstructionUserText(input), input.images);
-      const instructionPayload = {
-        model: input.model,
-        contents: [
-          {
-            role: 'user',
-            parts: instructionParts,
-          },
-        ],
-        config: {
-          systemInstruction: input.systemPrompt,
-        },
-      };
-      logModelRequest('instruction', {
-        protocol: 'gemini',
-        url: buildGeminiGenerateContentUrl(options.baseUrl, input.model),
-        ...instructionPayload,
-        images: input.images.map((image) => ({
-          role: image.role,
-          path: image.path,
-          mimeType: image.mimeType,
-        })),
-      });
-
-      const response = await gemini.models.generateContent({
-        ...instructionPayload,
-        abortSignal: input.abortSignal,
-      });
-
-      const finalPrompt = extractGeminiText(response).trim();
-      logModelResponse('instruction', {
-        protocol: 'gemini',
-        url: buildGeminiGenerateContentUrl(options.baseUrl, input.model),
-        model: input.model,
-        finalPrompt,
-        response,
-      });
-      if (!finalPrompt) {
-        throw new Error('image instruction model returned empty finalPrompt');
-      }
-
-      return finalPrompt;
-    },
-
     async executeImage(input) {
       const executionParts = await buildGeminiParts(input.finalPrompt, input.images);
       const executionPayload = {
@@ -319,20 +176,7 @@ export function createGeminiProtocolClient(
 }
 
 function resolveOpenAIInputFidelity(input: ModelExecutionClientInput): OpenAIInputFidelity {
-  if (input.task.feature === 'sticker_variation') {
-    return 'low';
-  }
   return 'high';
-}
-
-async function readImageAsDataUrl(image: ImageInput) {
-  const buffer = await readFile(image.path);
-  if (buffer.byteLength > MAX_VISION_IMAGE_BYTES) {
-    throw new Error(
-      `image ${image.path} is too large for vision API (${Math.round(buffer.byteLength / 1024 / 1024)}MB); use an image under 4MB`,
-    );
-  }
-  return `data:${image.mimeType ?? inferMimeType(image.path)};base64,${buffer.toString('base64')}`;
 }
 
 async function buildGeminiParts(text: string, images: ImageInput[]) {
@@ -405,17 +249,6 @@ function extractGeminiExecutionResult(response: unknown): ImageExecutionModelRes
     textNotes,
     warnings: [],
   };
-}
-
-function extractGeminiText(response: unknown): string {
-  if (isRecord(response) && typeof response.text === 'string') {
-    return response.text;
-  }
-
-  return extractGeminiParts(response)
-    .map((part) => (isRecord(part) && typeof part.text === 'string' ? part.text : ''))
-    .filter(Boolean)
-    .join('\n');
 }
 
 function extractGeminiParts(response: unknown): unknown[] {

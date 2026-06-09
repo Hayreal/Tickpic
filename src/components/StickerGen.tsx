@@ -40,6 +40,7 @@ import { filterLogsForTasks } from '../lib/taskLogs';
 import GenerationTaskStatus from './GenerationTaskStatus';
 import FeatureWorkspaceLayout from './FeatureWorkspaceLayout';
 import FeatureParameterPanels, { REFERENCE_UPLOAD_STACK } from './FeatureParameterPanels';
+import StickerParameterFields from './StickerParameterFields';
 
 interface StickerGenProps {
   restoredTask?: TaskRecord | null;
@@ -96,20 +97,31 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
   
   // Copy Tab - New State
   const [copyLogo, setCopyLogo] = useState<ImportBatch | null>(null);
+  const [copyBrand, setCopyBrand] = useState('');
   const [copyProductName, setCopyProductName] = useState('');
+  const [copyMaterial, setCopyMaterial] = useState('');
+  const [copySellingPoint, setCopySellingPoint] = useState('');
+  const [copyCapacity, setCopyCapacity] = useState('');
+  const [copyStyle, setCopyStyle] = useState('');
+  const [copyColorBlockLayout, setCopyColorBlockLayout] = useState('');
   const [copyLogoText, setCopyLogoText] = useState('');
   const [copyPrompt, setCopyPrompt] = useState('');
   const [copyColorScheme, setCopyColorScheme] = useState('');
-  const [copyAspectRatio, setCopyAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
   const [copyRegions, setCopyRegions] = useState<RegionMap>({});
 
   // STICKER VARIATION (Tab 2) state
   const [variationBatch, setVariationBatch] = useState<ImportBatch | null>(null);
   const [variationPrompt, setVariationPrompt] = useState('');
   const [variationCount, setVariationCount] = useState<number>(4);
-  const [variationAspectRatio, setVariationAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
-  
+
   // Variation Tab - New State
+  const [variationBrand, setVariationBrand] = useState('');
+  const [variationProductName, setVariationProductName] = useState('');
+  const [variationMaterial, setVariationMaterial] = useState('');
+  const [variationSellingPoint, setVariationSellingPoint] = useState('');
+  const [variationCapacity, setVariationCapacity] = useState('');
+  const [variationStyle, setVariationStyle] = useState('');
+  const [variationColorBlockLayout, setVariationColorBlockLayout] = useState('');
   const [variationColorScheme, setVariationColorScheme] = useState('');
 
   // STICKER ORIGINAL (Tab 3) state
@@ -120,9 +132,12 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
   // Original Tab - New Structured State
   const [originalCategory, setOriginalCategory] = useState('');
   const [originalBrand, setOriginalBrand] = useState('');
+  const [originalProductName, setOriginalProductName] = useState('');
+  const [originalMaterial, setOriginalMaterial] = useState('');
   const [originalSellingPoint, setOriginalSellingPoint] = useState('');
   const [originalVolume, setOriginalVolume] = useState('');
   const [originalStyle, setOriginalStyle] = useState('');
+  const [originalColorBlockLayout, setOriginalColorBlockLayout] = useState('');
   const [originalColorScheme, setOriginalColorScheme] = useState('');
 
   useEffect(() => {
@@ -143,26 +158,40 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
     setSubTab(restored.subTab);
     setCopyBatch(restored.copyBatch);
     setCopyLogo(restored.copyLogo);
+    setCopyBrand(restored.copyBrand);
     setCopyProductName(restored.copyProductName);
+    setCopyMaterial(restored.copyMaterial);
+    setCopySellingPoint(restored.copySellingPoint);
+    setCopyCapacity(restored.copyCapacity);
+    setCopyStyle(restored.copyStyle);
+    setCopyColorBlockLayout(restored.copyColorBlockLayout);
     setCopyLogoText(restored.copyLogoText);
     setCopyPrompt(restored.copyPrompt);
     setCopyColorScheme(restored.copyColorScheme);
-    setCopyAspectRatio(restored.copyAspectRatio);
     setCopyRegions(restored.copyRegions);
     setCopyCount(restored.copyCount);
     setVariationBatch(restored.variationBatch);
+    setVariationBrand(restored.variationBrand);
+    setVariationProductName(restored.variationProductName);
+    setVariationMaterial(restored.variationMaterial);
+    setVariationSellingPoint(restored.variationSellingPoint);
+    setVariationCapacity(restored.variationCapacity);
+    setVariationStyle(restored.variationStyle);
+    setVariationColorBlockLayout(restored.variationColorBlockLayout);
     setVariationPrompt(restored.variationPrompt);
     setVariationCount(restored.variationCount);
-    setVariationAspectRatio(restored.variationAspectRatio);
     setVariationColorScheme(restored.variationColorScheme);
     setOriginalBatch(restored.originalBatch);
     setOriginalCount(restored.originalCount);
     setOriginalAspectRatio(restored.originalAspectRatio);
     setOriginalCategory(restored.originalCategory);
     setOriginalBrand(restored.originalBrand);
+    setOriginalProductName(restored.originalProductName);
+    setOriginalMaterial(restored.originalMaterial);
     setOriginalSellingPoint(restored.originalSellingPoint);
     setOriginalVolume(restored.originalVolume);
     setOriginalStyle(restored.originalStyle);
+    setOriginalColorBlockLayout(restored.originalColorBlockLayout);
     setOriginalColorScheme(restored.originalColorScheme);
 
     const fallbackTask = imageTaskRecordFromTaskRecord(restoredTask);
@@ -227,11 +256,17 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
               ...(logoImage ? [{ role: 'logo' as const, path: logoImage.filePath }] : []),
             ],
             count: 1,
-            prompt: copyPrompt || undefined,
+            brand: copyBrand || undefined,
             productName: copyProductName || undefined,
+            material: copyMaterial || undefined,
+            sellingPoints: copySellingPoint ? [copySellingPoint] : undefined,
+            capacity: copyCapacity || undefined,
+            style: copyStyle || undefined,
+            colorBlockLayout: copyColorBlockLayout || undefined,
+            prompt: copyPrompt || undefined,
             logoText: copyLogoText || undefined,
             colorScheme: copyColorScheme || undefined,
-            aspectRatio: copyAspectRatio,
+            aspectRatio: 'auto',
             regions: regionsFromMap(copyRegions, source.filePath),
           });
         }
@@ -243,9 +278,16 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
             feature: FEATURE_MAP[type],
             images: [{ role: 'source', path: source.filePath }],
             count: 1,
+            brand: variationBrand || undefined,
+            productName: variationProductName || undefined,
+            material: variationMaterial || undefined,
+            sellingPoints: variationSellingPoint ? [variationSellingPoint] : undefined,
+            capacity: variationCapacity || undefined,
+            style: variationStyle || undefined,
+            colorBlockLayout: variationColorBlockLayout || undefined,
             colorScheme: variationColorScheme || undefined,
             prompt: variationPrompt || undefined,
-            aspectRatio: variationAspectRatio,
+            aspectRatio: 'auto',
           });
         }
       }
@@ -257,13 +299,16 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
           feature: FEATURE_MAP[type],
           images: styleImage ? [{ role: 'style', path: styleImage.filePath }] : [],
           count: 1,
-          productName: originalBrand || undefined,
+          brand: originalBrand || undefined,
+          productName: originalProductName || undefined,
           productCategory: originalCategory || undefined,
+          material: originalMaterial || undefined,
           sellingPoints: originalSellingPoint ? [originalSellingPoint] : undefined,
           capacity: originalVolume || undefined,
+          style: originalStyle || undefined,
+          colorBlockLayout: originalColorBlockLayout || undefined,
           colorScheme: originalColorScheme || undefined,
           aspectRatio: originalAspectRatio,
-          prompt: originalStyle ? `Style: ${originalStyle}` : undefined,
         });
       }
     }
@@ -365,33 +410,33 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
                   </>
                 )}
                 basic={(
-                  <>
-                    <AspectRatioSelect
-                      id="copy-aspect-ratio-select"
-                      value={copyAspectRatio}
-                      onChange={setCopyAspectRatio}
-                      label="图片比例"
-                    />
-                    <ImageCountSelector
-                      id="copy-count-selector"
-                      value={copyCount}
-                      onChange={setCopyCount}
-                    />
-                  </>
+                  <ImageCountSelector
+                    id="copy-count-selector"
+                    value={copyCount}
+                    onChange={setCopyCount}
+                  />
                 )}
                 advanced={(
                   <>
-                    <div className="space-y-2 sm:col-span-2">
-                      <label className="ui-label">产品名称</label>
-                      <input
-                        type="text"
-                        id="copy-product-name-input"
-                        value={copyProductName}
-                        onChange={(e) => setCopyProductName(e.target.value)}
-                        placeholder="请输入产品名称"
-                        className="ui-input-compact"
-                      />
-                    </div>
+                    <StickerParameterFields
+                      prefix="copy"
+                      brand={copyBrand}
+                      onBrandChange={setCopyBrand}
+                      productName={copyProductName}
+                      onProductNameChange={setCopyProductName}
+                      material={copyMaterial}
+                      onMaterialChange={setCopyMaterial}
+                      sellingPoint={copySellingPoint}
+                      onSellingPointChange={setCopySellingPoint}
+                      capacity={copyCapacity}
+                      onCapacityChange={setCopyCapacity}
+                      colorScheme={copyColorScheme}
+                      onColorSchemeChange={setCopyColorScheme}
+                      style={copyStyle}
+                      onStyleChange={setCopyStyle}
+                      colorBlockLayout={copyColorBlockLayout}
+                      onColorBlockLayoutChange={setCopyColorBlockLayout}
+                    />
                     <div className="space-y-2">
                       <label className="ui-label">Logo 文字</label>
                       <input
@@ -413,17 +458,6 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
                         className="ui-textarea h-16 text-xs"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <label className="ui-label">色系</label>
-                      <input
-                        type="text"
-                        id="copy-color-scheme-input"
-                        value={copyColorScheme}
-                        onChange={(e) => setCopyColorScheme(e.target.value)}
-                        placeholder="例如：莫兰迪色、高对比度、黑白"
-                        className="ui-input-compact"
-                      />
-                    </div>
                   </>
                 )}
               />
@@ -441,33 +475,33 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
                   />
                 )}
                 basic={(
-                  <>
-                    <AspectRatioSelect
-                      id="variation-aspect-ratio-select"
-                      value={variationAspectRatio}
-                      onChange={setVariationAspectRatio}
-                      label="图片比例"
-                    />
-                    <ImageCountSelector
-                      id="variation-count-selector"
-                      value={variationCount}
-                      onChange={setVariationCount}
-                    />
-                  </>
+                  <ImageCountSelector
+                    id="variation-count-selector"
+                    value={variationCount}
+                    onChange={setVariationCount}
+                  />
                 )}
                 advanced={(
                   <>
-                    <div className="space-y-2">
-                      <label className="ui-label">色系</label>
-                      <input
-                        type="text"
-                        id="variation-color-scheme-input"
-                        value={variationColorScheme}
-                        onChange={(e) => setVariationColorScheme(e.target.value)}
-                        placeholder="例如：莫兰迪色、高对比度、黑白"
-                        className="ui-input-compact"
-                      />
-                    </div>
+                    <StickerParameterFields
+                      prefix="variation"
+                      brand={variationBrand}
+                      onBrandChange={setVariationBrand}
+                      productName={variationProductName}
+                      onProductNameChange={setVariationProductName}
+                      material={variationMaterial}
+                      onMaterialChange={setVariationMaterial}
+                      sellingPoint={variationSellingPoint}
+                      onSellingPointChange={setVariationSellingPoint}
+                      capacity={variationCapacity}
+                      onCapacityChange={setVariationCapacity}
+                      colorScheme={variationColorScheme}
+                      onColorSchemeChange={setVariationColorScheme}
+                      style={variationStyle}
+                      onStyleChange={setVariationStyle}
+                      colorBlockLayout={variationColorBlockLayout}
+                      onColorBlockLayoutChange={setVariationColorBlockLayout}
+                    />
                     <div className="space-y-2 sm:col-span-2">
                       <label className="ui-label">附加提示词</label>
                       <textarea
@@ -526,65 +560,34 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
                         className="ui-input-compact"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <label className="ui-label">
-                        品牌 <span className="text-red-500 font-bold">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="original-brand-input"
-                        value={originalBrand}
-                        onChange={(e) => setOriginalBrand(e.target.value)}
-                        placeholder="请输入品牌名称"
-                        className="ui-input-compact"
-                      />
-                    </div>
-                    <div className="space-y-2 sm:col-span-2">
-                      <label className="ui-label">
-                        卖点 <span className="text-red-500 font-bold">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="original-selling-point-input"
-                        value={originalSellingPoint}
-                        onChange={(e) => setOriginalSellingPoint(e.target.value)}
-                        placeholder="例如：持久保湿、0糖0卡"
-                        className="ui-input-compact"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="ui-label">容量/规格</label>
-                      <input
-                        type="text"
-                        id="original-volume-input"
-                        value={originalVolume}
-                        onChange={(e) => setOriginalVolume(e.target.value)}
-                        placeholder="例如：50ml、100g、1L"
-                        className="ui-input-compact"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="ui-label">风格</label>
-                      <input
-                        type="text"
-                        id="original-style-input"
-                        value={originalStyle}
-                        onChange={(e) => setOriginalStyle(e.target.value)}
-                        placeholder="例如：极简、赛博朋克、水彩"
-                        className="ui-input-compact"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="ui-label">色系</label>
-                      <input
-                        type="text"
-                        id="original-color-scheme-input"
-                        value={originalColorScheme}
-                        onChange={(e) => setOriginalColorScheme(e.target.value)}
-                        placeholder="例如：莫兰迪色、高对比度、黑白"
-                        className="ui-input-compact"
-                      />
-                    </div>
+                    <StickerParameterFields
+                      prefix="original"
+                      brand={originalBrand}
+                      onBrandChange={setOriginalBrand}
+                      productName={originalProductName}
+                      onProductNameChange={setOriginalProductName}
+                      material={originalMaterial}
+                      onMaterialChange={setOriginalMaterial}
+                      sellingPoint={originalSellingPoint}
+                      onSellingPointChange={setOriginalSellingPoint}
+                      capacity={originalVolume}
+                      onCapacityChange={setOriginalVolume}
+                      colorScheme={originalColorScheme}
+                      onColorSchemeChange={setOriginalColorScheme}
+                      style={originalStyle}
+                      onStyleChange={setOriginalStyle}
+                      colorBlockLayout={originalColorBlockLayout}
+                      onColorBlockLayoutChange={setOriginalColorBlockLayout}
+                      brandRequired
+                      sellingPointRequired
+                      brandField={{ id: 'original-brand-input' }}
+                      sellingPointField={{ id: 'original-selling-point-input' }}
+                      capacityField={{
+                        id: 'original-volume-input',
+                        label: '容量/规格',
+                        placeholder: '例如：50ml、100g、1L',
+                      }}
+                    />
                   </>
                 )}
               />

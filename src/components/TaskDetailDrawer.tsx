@@ -70,14 +70,18 @@ function buildRequestParams(request: ImageTaskRequest) {
     <dl>
       <ParamRow label="提示词" value={request.prompt} />
       <ParamRow label="出图数量" value={request.count} />
+      <ParamRow label="品牌" value={request.brand} />
       <ParamRow label="产品名称" value={request.productName} />
       <ParamRow label="产品品类" value={request.productCategory} />
+      <ParamRow label="素材" value={request.material} />
       <ParamRow
         label="卖点"
         value={request.sellingPoints?.length ? request.sellingPoints.join('、') : undefined}
       />
       <ParamRow label="容量/规格" value={request.capacity} />
       <ParamRow label="Logo 文字" value={request.logoText} />
+      <ParamRow label="风格" value={request.style} />
+      <ParamRow label="色块排版" value={request.colorBlockLayout} />
       <ParamRow label="配色方案" value={request.colorScheme} />
       <ParamRow label="宽高比" value={request.aspectRatio} />
       <ParamRow

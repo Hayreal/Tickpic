@@ -63,8 +63,7 @@ describe('imageTaskArtifactStore', () => {
         images: [{ role: 'source', path: '/authorized/input/package.png' }],
       },
       plan: {
-        instructionSystemPrompt: expect.stringContaining('Feature: Sticker Replication.'),
-        instructionStage: { model: 'gpt-5.4-mini', protocol: 'gemini' },
+        mainPrompt: expect.stringContaining('复刻 2D 平面贴纸'),
         executionStage: { kind: 'edit', model: 'gemini-2.5-flash-image', protocol: 'gemini' },
         outputAspectRatio: '4:3',
         openaiImageSize: '1536x1024',

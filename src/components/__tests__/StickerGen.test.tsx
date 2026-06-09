@@ -50,7 +50,7 @@ afterEach(() => {
 });
 
 describe('StickerGen', () => {
-  it('does not submit original sticker product name as logo text', async () => {
+  it('submits original sticker brand separately from logo text', async () => {
     submitMany.mockResolvedValue(undefined);
 
     render(<StickerGen />);
@@ -73,9 +73,10 @@ describe('StickerGen', () => {
     expect(requests).toHaveLength(4);
     expect(requests[0]).toMatchObject({
       feature: 'sticker_original',
-      productName: 'wuku',
+      brand: 'wuku',
       productCategory: '汽车玻璃水',
     });
+    expect(requests[0].productName).toBeUndefined();
     expect(requests[0]).not.toHaveProperty('logoText');
   });
 });

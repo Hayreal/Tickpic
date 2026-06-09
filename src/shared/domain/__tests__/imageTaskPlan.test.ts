@@ -12,7 +12,7 @@ describe('imageTaskPlan', () => {
     maxCount: 4,
   } as const;
 
-  it('resolves vision and edit models for an edit feature', () => {
+  it('resolves edit models for an edit feature', () => {
     const plan = buildImageTaskPlan({
       feature: 'replace_product',
       images: [
@@ -21,17 +21,13 @@ describe('imageTaskPlan', () => {
       ],
       prompt: 'replace the bottle',
       modelOverrides: {
-        vision: 'gpt-5.4-mini',
+        edit: 'gpt-image-2-all',
       },
     }, config);
 
-    expect(plan.instructionStage).toEqual({
-      model: 'gpt-5.4-mini',
-      protocol: 'openai',
-    });
     expect(plan.executionStage).toEqual({
       kind: 'edit',
-      model: 'gemini-2.5-flash-image',
+      model: 'gpt-image-2-all',
       protocol: 'openai',
     });
     expect(plan.executionImages).toEqual([
@@ -39,6 +35,7 @@ describe('imageTaskPlan', () => {
       { role: 'product', path: '/authorized/input/product.png' },
     ]);
     expect(plan.count).toBe(4);
+    expect(plan.mainPrompt).toContain('用目标产品替换场景原产品');
   });
 
   it('uses generation overrides and keeps prompt-only images out of execution stage', () => {
@@ -60,20 +57,17 @@ describe('imageTaskPlan', () => {
       model: 'gpt-image-2-all',
       protocol: 'openai',
     });
-    expect(plan.instructionImages).toHaveLength(2);
     expect(plan.executionImages).toEqual([]);
     expect(plan.count).toBe(2);
   });
 
-  it('builds the documented instruction system prompt and output aspect-ratio params', () => {
+  it('builds output aspect-ratio params from the request', () => {
     const plan = buildImageTaskPlan({
       feature: 'sticker_original',
       productCategory: 'cleaning sheets',
       aspectRatio: '9:16',
     }, config);
 
-    expect(plan.instructionSystemPrompt).toContain('You write concise English prompts for a downstream image model.');
-    expect(plan.instructionSystemPrompt).toContain('Feature: Original Sticker Design.');
     expect(plan.outputAspectRatio).toBe('9:16');
     expect(plan.openaiImageSize).toBe('1024x1536');
   });
@@ -90,16 +84,6 @@ describe('imageTaskPlan', () => {
 
     expect(plan.outputAspectRatio).toBe('auto');
     expect(plan.openaiImageSize).toBe('auto');
-  });
-
-  it('rejects tasks when the settings vision model is not configured', () => {
-    expect(() => buildImageTaskPlan({
-      feature: 'sticker_original',
-      productCategory: 'cleaning sheets',
-    }, {
-      ...config,
-      defaultModels: { generation: 'gpt-image-2-all', vision: '' },
-    })).toThrow('vision model is not configured in settings');
   });
 
   it('rejects tasks when the settings generation model is not configured', () => {

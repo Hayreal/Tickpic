@@ -88,18 +88,10 @@ function createRequestSummary(input: Omit<SaveImageTaskArtifactsInput, 'generate
     request: input.task.request,
     plan: {
       mainPrompt: input.plan.mainPrompt,
-      instructionSystemPrompt: input.plan.instructionSystemPrompt,
-      instructionStage: input.plan.instructionStage,
       executionStage: input.plan.executionStage,
       outputAspectRatio: input.plan.outputAspectRatio,
       openaiImageSize: input.plan.openaiImageSize,
       count: input.plan.count,
-      instructionImages: input.plan.instructionImages.map((image) => ({
-        role: image.role,
-        path: image.path,
-        mimeType: image.mimeType,
-        label: image.label,
-      })),
       executionImages: input.plan.executionImages.map((image) => ({
         role: image.role,
         path: image.path,

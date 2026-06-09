@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildExecutionPrompt,
   buildFallbackFinalPrompt,
   buildInstructionUserText,
   finalizeImageInstruction,
   isImageGenerationModel,
   sanitizeRequestForInstruction,
 } from '../instructionPrompt';
-import type { ModelInstructionClientInput } from '../modelGateway';
 
 describe('instructionPrompt', () => {
   it('detects image-only model ids', () => {
@@ -32,7 +32,7 @@ describe('instructionPrompt', () => {
         },
       },
       images: [],
-    } as unknown as ModelInstructionClientInput;
+    };
 
     expect(buildFallbackFinalPrompt(input)).toContain('extract sticker');
     expect(buildFallbackFinalPrompt(input)).toContain('keep layout');
@@ -54,7 +54,7 @@ describe('instructionPrompt', () => {
     });
   });
 
-  it('builds natural instruction user text without redundant mainPrompt or image paths', () => {
+  it('builds execution prompt from feature main prompt without image paths', () => {
     const input = {
       task: {
         feature: 'remove_product',
@@ -67,13 +67,13 @@ describe('instructionPrompt', () => {
         },
       },
       plan: {
-        mainPrompt: '去除目标产品并补全背景。',
+        mainPrompt: '去除目标产品及喷雾/雾气叠加，补全遮挡区域；保留用户要求的文字与表面状态，不顺带清洁或美化。',
       },
-    } as unknown as ModelInstructionClientInput;
+    };
 
     const text = buildInstructionUserText(input);
 
-    expect(text).toBe('参考上传的图片，移除目标产品并自然补全背景。');
+    expect(text).toBe('去除目标产品及喷雾/雾气叠加，补全遮挡区域；保留用户要求的文字与表面状态，不顺带清洁或美化。');
     expect(text).not.toContain('mainPrompt');
     expect(text).not.toContain('/tmp/source.png');
     expect(text).not.toContain('foreground overlays');
@@ -81,50 +81,31 @@ describe('instructionPrompt', () => {
     expect(text).not.toContain('Return one short');
   });
 
-  it('uses natural generation wording for prompt-only features', () => {
-    const text = buildInstructionUserText({
-      task: {
-        feature: 'prompt_only_main_asset',
-        request: {
-          feature: 'prompt_only_main_asset',
-          prompt: 'pink laundry ad',
-        },
-      },
-      plan: {
-        mainPrompt: '根据用户描述完成电商主图或广告素材生成。',
-      },
-    } as unknown as ModelInstructionClientInput);
+  it('appends user prompt for prompt-only features', () => {
+    const text = buildExecutionPrompt({
+      feature: 'prompt_only_main_asset',
+      prompt: 'pink laundry ad',
+    }, '根据用户描述完成电商主图或广告素材生成');
 
     expect(text).toBe([
-      '根据文本提示创建一张电商主图或广告素材。',
+      '根据用户描述完成电商主图或广告素材生成',
       '补充要求：pink laundry ad',
     ].join('\n'));
     expect(text).not.toContain('image-generation instruction');
     expect(text).not.toContain('under 60 words total');
   });
 
-  it('includes non-empty user parameters in natural instruction user text', () => {
-    const input = {
-      task: {
-        feature: 'sticker_variation',
-        request: {
-          feature: 'sticker_variation',
-          count: 4,
-          prompt: 'summer style',
-          aspectRatio: '1:1',
-        },
-      },
-      plan: {
-        mainPrompt: '生成贴纸变体',
-      },
-    } as unknown as ModelInstructionClientInput;
-
-    const text = buildInstructionUserText(input);
+  it('includes non-empty user parameters in execution prompt', () => {
+    const text = buildExecutionPrompt({
+      feature: 'sticker_variation',
+      count: 4,
+      prompt: 'summer style',
+      aspectRatio: '1:1',
+    }, '生成同品类贴纸变体，可调整布局、标题区、卖点区与色块。');
 
     expect(text).toBe([
-      '参考上传的贴纸图，生成一张同品类氛围的新 2D 平面贴纸。',
+      '生成同品类贴纸变体，可调整布局、标题区、卖点区与色块。',
       '补充要求：summer style',
-      '输出比例是 1:1。',
     ].join('\n'));
     expect(text).not.toContain('Write one concise');
     expect(text).not.toContain('Extra:');
@@ -145,7 +126,7 @@ describe('instructionPrompt', () => {
       plan: {
         mainPrompt: '设计原创 2D 平面贴纸初稿。',
       },
-    } as unknown as ModelInstructionClientInput);
+    });
 
     expect(text).toContain('产品名称是 wuku。');
     expect(text).toContain('产品品类是 汽车玻璃水。');
@@ -199,7 +180,7 @@ describe('instructionPrompt', () => {
       plan: {
         mainPrompt: '局部去除目标产品并补全遮挡区域。',
       },
-    } as unknown as ModelInstructionClientInput);
+    });
 
     expect(text).toContain('补充要求：不要去除车灯上面的污渍');
     expect(text).not.toContain('parameters:');
@@ -222,31 +203,25 @@ describe('instructionPrompt', () => {
     expect(finalized).not.toContain('First fully erase foreground spray');
   });
 
-  it('builds sticker-replica user text as a natural parameter summary', () => {
-    const text = buildInstructionUserText({
-      task: {
-        feature: 'sticker_replica',
-        request: {
-          feature: 'sticker_replica',
-          images: [
-            { role: 'source', path: '/tmp/package.png' },
-            { role: 'logo', path: '/tmp/logo.png' },
-          ],
-          prompt: '品牌名换成 WKUA，整体保留原图的高级黑金风格。',
-          productName: 'WKUA',
-          productCategory: 'car belt silencer',
-          colorScheme: 'black and gold',
-        },
-      },
-      plan: {
-        mainPrompt: '从包装参考图提取版式，输出独立 2D 平面贴纸。',
-      },
-    } as unknown as ModelInstructionClientInput);
+  it('builds sticker-replica execution prompt as a natural parameter summary', () => {
+    const text = buildExecutionPrompt({
+      feature: 'sticker_replica',
+      images: [
+        { role: 'source', path: '/tmp/package.png' },
+        { role: 'logo', path: '/tmp/logo.png' },
+      ],
+      prompt: '品牌名换成 WKUA，整体保留原图的高级黑金风格。',
+      brand: 'WKUA',
+      productName: 'Serum Pro',
+      productCategory: 'car belt silencer',
+      colorScheme: 'black and gold',
+    }, '提取产品或包装图上可见的贴纸，输出独立 2D 平面贴纸；若有 Logo 图仅作品牌标识嵌入，不要把 Logo 图当版式参考。');
 
     expect(text).toBe([
-      '提取上传图片中产品上的贴纸，输出独立 2D 平面贴纸。',
+      '提取产品或包装图上可见的贴纸，输出独立 2D 平面贴纸；若有 Logo 图仅作品牌标识嵌入，不要把 Logo 图当版式参考。',
       '补充要求：品牌名换成 WKUA，整体保留原图的高级黑金风格。',
-      '品牌名换成 WKUA。',
+      '品牌是 WKUA。',
+      '产品名称是 Serum Pro。',
       '产品品类是 car belt silencer。',
       '整体保留原图的 black and gold 风格。',
       '如果提供了单独 Logo 图，只把它作为品牌标识嵌入，不要把 Logo 图当作版式参考。',

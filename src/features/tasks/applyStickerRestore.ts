@@ -10,31 +10,58 @@ export interface StickerRestoreState {
   subTab: StickerSubTab;
   copyBatch: ImportBatch | null;
   copyLogo: ImportBatch | null;
+  copyBrand: string;
   copyProductName: string;
+  copyMaterial: string;
+  copySellingPoint: string;
+  copyCapacity: string;
+  copyStyle: string;
+  copyColorBlockLayout: string;
   copyLogoText: string;
   copyPrompt: string;
   copyColorScheme: string;
-  copyAspectRatio: ImageAspectRatioValue;
   copyRegions: RegionMap;
   copyCount: number;
   variationBatch: ImportBatch | null;
+  variationBrand: string;
+  variationProductName: string;
+  variationMaterial: string;
+  variationSellingPoint: string;
+  variationCapacity: string;
+  variationStyle: string;
+  variationColorBlockLayout: string;
   variationPrompt: string;
   variationCount: number;
-  variationAspectRatio: ImageAspectRatioValue;
   variationColorScheme: string;
   originalBatch: ImportBatch | null;
   originalCount: number;
   originalAspectRatio: ImageAspectRatioValue;
   originalCategory: string;
   originalBrand: string;
+  originalProductName: string;
+  originalMaterial: string;
   originalSellingPoint: string;
   originalVolume: string;
   originalStyle: string;
+  originalColorBlockLayout: string;
   originalColorScheme: string;
 }
 
 function aspectRatioFrom(value?: string): ImageAspectRatioValue {
   return (value?.trim() || 'auto') as ImageAspectRatioValue;
+}
+
+function stickerStructuredFields(request: NonNullable<TaskRecord['request']>) {
+  return {
+    brand: request.brand ?? '',
+    productName: request.productName ?? '',
+    material: request.material ?? '',
+    sellingPoint: request.sellingPoints?.join(', ') ?? '',
+    capacity: request.capacity ?? '',
+    style: request.style ?? '',
+    colorBlockLayout: request.colorBlockLayout ?? '',
+    colorScheme: request.colorScheme ?? '',
+  };
 }
 
 export function applyStickerRestore(task: TaskRecord): StickerRestoreState | null {
@@ -47,30 +74,45 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
   const referenceImage = getImageByRole(request, 'reference');
   const logoImage = getImageByRole(request, 'logo');
   const styleImage = getImageByRole(request, 'style');
+  const structured = stickerStructuredFields(request);
 
   const base = {
     copyBatch: null,
     copyLogo: null,
+    copyBrand: '',
     copyProductName: '',
+    copyMaterial: '',
+    copySellingPoint: '',
+    copyCapacity: '',
+    copyStyle: '',
+    copyColorBlockLayout: '',
     copyLogoText: '',
     copyPrompt: '',
     copyColorScheme: '',
-    copyAspectRatio: 'auto' as ImageAspectRatioValue,
     copyRegions: {},
     copyCount: 1,
     variationBatch: null,
+    variationBrand: '',
+    variationProductName: '',
+    variationMaterial: '',
+    variationSellingPoint: '',
+    variationCapacity: '',
+    variationStyle: '',
+    variationColorBlockLayout: '',
     variationPrompt: '',
     variationCount: 4,
-    variationAspectRatio: 'auto' as ImageAspectRatioValue,
     variationColorScheme: '',
     originalBatch: null,
     originalCount: 4,
     originalAspectRatio: 'auto' as ImageAspectRatioValue,
     originalCategory: '',
     originalBrand: '',
+    originalProductName: '',
+    originalMaterial: '',
     originalSellingPoint: '',
     originalVolume: '',
     originalStyle: '',
+    originalColorBlockLayout: '',
     originalColorScheme: '',
   };
 
@@ -83,11 +125,16 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
         copyLogo: (logoImage ?? referenceImage)
           ? createImportBatch([logoImage ?? referenceImage!], 'sticker', 'sticker_replica')
           : null,
-        copyProductName: request.productName ?? '',
+        copyBrand: structured.brand,
+        copyProductName: structured.productName,
+        copyMaterial: structured.material,
+        copySellingPoint: structured.sellingPoint,
+        copyCapacity: structured.capacity,
+        copyStyle: structured.style,
+        copyColorBlockLayout: structured.colorBlockLayout,
         copyLogoText: request.logoText ?? '',
         copyPrompt: request.prompt ?? '',
-        copyColorScheme: request.colorScheme ?? '',
-        copyAspectRatio: aspectRatioFrom(request.aspectRatio),
+        copyColorScheme: structured.colorScheme,
         copyRegions: regionMapFromTask(task.imports, request.regions),
         copyCount: request.count ?? 1,
       };
@@ -96,10 +143,16 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
         ...base,
         subTab: 'variation',
         variationBatch: sourceImage ? createImportBatch([sourceImage], 'sticker', 'sticker_variation') : null,
+        variationBrand: structured.brand,
+        variationProductName: structured.productName,
+        variationMaterial: structured.material,
+        variationSellingPoint: structured.sellingPoint,
+        variationCapacity: structured.capacity,
+        variationStyle: structured.style,
+        variationColorBlockLayout: structured.colorBlockLayout,
         variationPrompt: request.prompt ?? '',
         variationCount: request.count ?? 4,
-        variationAspectRatio: aspectRatioFrom(request.aspectRatio),
-        variationColorScheme: request.colorScheme ?? '',
+        variationColorScheme: structured.colorScheme,
       };
     case 'sticker_original':
       return {
@@ -113,11 +166,14 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
         originalCount: request.count ?? 4,
         originalAspectRatio: aspectRatioFrom(request.aspectRatio),
         originalCategory: request.productCategory ?? '',
-        originalBrand: request.productName ?? request.logoText ?? '',
-        originalSellingPoint: request.sellingPoints?.join(', ') ?? '',
-        originalVolume: request.capacity ?? '',
-        originalStyle: request.prompt?.replace(/^Style:\s*/i, '') ?? '',
-        originalColorScheme: request.colorScheme ?? '',
+        originalBrand: structured.brand || request.productName || request.logoText || '',
+        originalProductName: structured.productName,
+        originalMaterial: structured.material,
+        originalSellingPoint: structured.sellingPoint,
+        originalVolume: structured.capacity,
+        originalStyle: structured.style,
+        originalColorBlockLayout: structured.colorBlockLayout,
+        originalColorScheme: structured.colorScheme,
       };
     default:
       return null;

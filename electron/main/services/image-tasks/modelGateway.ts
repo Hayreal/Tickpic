@@ -2,16 +2,9 @@ import type { ImageModelProtocol } from '../../../../src/shared/domain/imageFeat
 import type { OpenAIImageSize } from '../../../../src/shared/domain/imageAspectRatio.js';
 import type {
   ExecuteImageInput,
-  GenerateInstructionInput,
   ImageExecutionModelResult,
   ImageTaskModelGateway,
 } from './imageTaskExecutor.js';
-
-export interface ModelInstructionClientInput extends GenerateInstructionInput {
-  model: string;
-  images: GenerateInstructionInput['plan']['instructionImages'];
-  systemPrompt: string;
-}
 
 export interface ModelExecutionClientInput extends ExecuteImageInput {
   model: string;
@@ -22,7 +15,6 @@ export interface ModelExecutionClientInput extends ExecuteImageInput {
 }
 
 export interface ProtocolModelClient {
-  generateInstruction(input: ModelInstructionClientInput): Promise<string>;
   executeImage(input: ModelExecutionClientInput): Promise<ImageExecutionModelResult>;
 }
 
@@ -30,16 +22,6 @@ export type ProtocolModelClients = Partial<Record<ImageModelProtocol, ProtocolMo
 
 export function createProtocolModelGateway(clients: ProtocolModelClients): ImageTaskModelGateway {
   return {
-    async generateInstruction(input) {
-      const client = resolveClient(clients, input.plan.instructionStage.protocol);
-      return client.generateInstruction({
-        ...input,
-        model: input.plan.instructionStage.model,
-        images: input.plan.instructionImages,
-        systemPrompt: input.plan.instructionSystemPrompt,
-      });
-    },
-
     async executeSingleImage(input) {
       const client = resolveClient(clients, input.plan.executionStage.protocol);
       const executionInput: ModelExecutionClientInput = {

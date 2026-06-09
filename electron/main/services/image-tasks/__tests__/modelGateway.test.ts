@@ -4,16 +4,14 @@ import type { ImageTaskPlan } from '../../../../../src/shared/domain/imageTaskPl
 import type { ImageTaskRecord } from '../../../../../src/shared/domain/imageFeatureApi';
 
 describe('modelGateway', () => {
-  it('routes instruction and execution stages to clients by configured protocol', async () => {
+  it('routes execution stage to clients by configured protocol', async () => {
     const openai = {
-      generateInstruction: vi.fn().mockResolvedValue('openai instruction'),
       executeImage: vi.fn().mockResolvedValue({
         images: [{ fileName: 'result-1.png', buffer: new Uint8Array([1]), mimeType: 'image/png' }],
         warnings: ['openai image'],
       }),
     };
     const gemini = {
-      generateInstruction: vi.fn().mockResolvedValue('gemini instruction'),
       executeImage: vi.fn().mockResolvedValue({ images: [], warnings: ['gemini image'] }),
     };
     const gateway = createProtocolModelGateway({ openai, gemini });
@@ -21,26 +19,16 @@ describe('modelGateway', () => {
     const plan = createPlan();
 
     const abortSignal = new AbortController().signal;
-    const finalPrompt = await gateway.generateInstruction({ task, plan, abortSignal });
-    const result = await gateway.executeImage({ task, plan, finalPrompt, abortSignal });
+    const result = await gateway.executeImage({ task, plan, finalPrompt: 'assembled prompt', abortSignal });
 
-    expect(finalPrompt).toBe('gemini instruction');
     expect(result.warnings).toEqual(['openai image', 'openai image']);
     expect(result.images).toHaveLength(2);
-    expect(gemini.generateInstruction).toHaveBeenCalledWith({
-      task,
-      plan,
-      model: 'gemini-3.1-flash-lite',
-      images: plan.instructionImages,
-      systemPrompt: plan.instructionSystemPrompt,
-      abortSignal,
-    });
     expect(openai.executeImage).toHaveBeenCalledTimes(2);
     expect(openai.executeImage).toHaveBeenCalledWith({
       task,
       plan,
       model: 'gpt-image-2',
-      finalPrompt: 'gemini instruction',
+      finalPrompt: 'assembled prompt',
       images: plan.executionImages,
       count: 1,
       aspectRatio: '4:3',
@@ -52,7 +40,6 @@ describe('modelGateway', () => {
   it('throws when a protocol client is not configured', async () => {
     const gateway = createProtocolModelGateway({
       gemini: {
-        generateInstruction: vi.fn().mockResolvedValue('instruction'),
         executeImage: vi.fn().mockResolvedValue({ images: [] }),
       },
     });
@@ -60,7 +47,7 @@ describe('modelGateway', () => {
     await expect(gateway.executeImage({
       task: createTask(),
       plan: createPlan(),
-      finalPrompt: 'instruction',
+      finalPrompt: 'assembled prompt',
       abortSignal: new AbortController().signal,
     })).rejects.toThrow('openai model client is not configured');
   });
@@ -88,20 +75,11 @@ function createPlan(): ImageTaskPlan {
   return {
     request: createTask().request,
     mainPrompt: '用目标产品替换原图中的产品，并保持场景自然贴合',
-    instructionSystemPrompt: 'system prompt',
-    instructionStage: {
-      model: 'gemini-3.1-flash-lite',
-      protocol: 'gemini',
-    },
     executionStage: {
       kind: 'edit',
       model: 'gpt-image-2',
       protocol: 'openai',
     },
-    instructionImages: [
-      { role: 'source', path: '/authorized/input/scene.png' },
-      { role: 'product', path: '/authorized/input/product.png' },
-    ],
     executionImages: [
       { role: 'source', path: '/authorized/input/scene.png' },
       { role: 'product', path: '/authorized/input/product.png' },

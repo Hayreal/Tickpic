@@ -11,7 +11,6 @@ import {
   getImageFeatureDefinition,
   validateImageTaskRequest,
 } from './imageFeatureApi.js';
-import { buildImageInstructionSystemPrompt } from './imageInstructionPrompts.js';
 
 export interface ImageTaskRuntimeConfig {
   defaultModels: {
@@ -23,11 +22,6 @@ export interface ImageTaskRuntimeConfig {
   maxCount: number;
 }
 
-export interface ImageInstructionStagePlan {
-  model: string;
-  protocol: ImageModelProtocol;
-}
-
 export interface ImageExecutionStagePlan {
   kind: ImageExecutionModel;
   model: string;
@@ -37,10 +31,7 @@ export interface ImageExecutionStagePlan {
 export interface ImageTaskPlan {
   request: ImageTaskRequest;
   mainPrompt: string;
-  instructionSystemPrompt: string;
-  instructionStage: ImageInstructionStagePlan;
   executionStage: ImageExecutionStagePlan;
-  instructionImages: ImageInput[];
   executionImages: ImageInput[];
   outputAspectRatio?: string;
   openaiImageSize?: OpenAIImageSize;
@@ -54,12 +45,6 @@ export function buildImageTaskPlan(
   const validated = validateImageTaskRequest(request);
   const definition = getImageFeatureDefinition(validated.feature);
   const executionModel = resolveExecutionModel(validated, definition.executionModel, config);
-  const visionModel = validated.modelOverrides?.vision
-    ?? config.defaultModels.vision
-    ?? config.defaultModels.generation;
-  if (!visionModel.trim()) {
-    throw new Error('vision model is not configured in settings');
-  }
   if (!executionModel.trim()) {
     throw new Error('generation model is not configured in settings');
   }
@@ -76,17 +61,11 @@ export function buildImageTaskPlan(
   return {
     request: validated,
     mainPrompt: definition.mainPrompt,
-    instructionSystemPrompt: buildImageInstructionSystemPrompt(validated.feature),
-    instructionStage: {
-      model: visionModel,
-      protocol: config.modelProtocol,
-    },
     executionStage: {
       kind: definition.executionModel,
       model: executionModel,
       protocol: config.modelProtocol,
     },
-    instructionImages: validated.images ?? [],
     executionImages: selectExecutionImages(validated),
     outputAspectRatio: normalizedAspectRatio?.aspectRatio,
     openaiImageSize: normalizedAspectRatio?.openaiSize,

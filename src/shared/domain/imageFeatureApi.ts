@@ -58,9 +58,13 @@ export interface ImageTaskRequest {
   count?: number;
   productName?: string;
   productCategory?: string;
+  brand?: string;
   sellingPoints?: string[];
   capacity?: string;
   logoText?: string;
+  material?: string;
+  style?: string;
+  colorBlockLayout?: string;
   colorScheme?: string;
   aspectRatio?: string;
   showProduct?: boolean;
@@ -116,7 +120,7 @@ export interface ImageFeatureDefinition {
 const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   sticker_replica: {
     feature: 'sticker_replica',
-    mainPrompt: '提取产品或包装图上可见的贴纸，输出独立 2D 平面贴纸；若有 Logo 图仅作品牌标识嵌入，不要把 Logo 图当版式参考。',
+    mainPrompt: '基于输入产品图贴纸展开， 复刻 2D 平面贴纸，：输出比例保持与输入一致，只输出平面包装图，不输出产品容器。色系、风格、排版和装饰元素保持严格一致，文案、品牌、容量可低优先级处理，可按入参替换、删除或固定为“wkau”；若无入参则默认尽量相似复刻。',
     acceptedImageRoles: ['source', 'logo', 'reference'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',
@@ -124,7 +128,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   sticker_variation: {
     feature: 'sticker_variation',
-    mainPrompt: '生成同品类贴纸变体，可调整布局、标题区、卖点区与色块。',
+    mainPrompt: '基于输入产品图贴纸，做贴纸裂变设计：适当样式，色块，输出一张独立 2D 平面产品包装贴纸。尺寸严格按照输入图贴纸展开一样，具有商业设计质感，要像真实可用的商品贴纸。',
     acceptedImageRoles: ['source', 'reference'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',
@@ -132,7 +136,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   sticker_original: {
     feature: 'sticker_original',
-    mainPrompt: '设计原创 2D 平面贴纸初稿，按品类与产品信息补充卖点与视觉风格。',
+    mainPrompt: '设计原创 2D 平面贴纸初稿，按品类与产品信息补充卖点与视觉风格。画面干净、专业、高清，具有商业设计质感，要像真实可用的商品贴纸',
     acceptedImageRoles: ['reference', 'style'],
     requiredImageRoles: [],
     executionModel: 'generation',

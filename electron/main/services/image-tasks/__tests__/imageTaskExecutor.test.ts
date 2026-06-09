@@ -14,15 +14,11 @@ describe('imageTaskExecutor', () => {
     maxCount: 4,
   };
 
-  it('runs instruction generation before image execution and returns saved artifact paths', async () => {
+  it('assembles the execution prompt locally and runs image execution', async () => {
     const calls: string[] = [];
     const executor = createImageTaskExecutor({
       runtimeConfig,
       modelGateway: {
-        generateInstruction: async ({ plan }) => {
-          calls.push(`instruction:${plan.instructionStage.model}:${plan.instructionImages.length}`);
-          return 'Replace the source product with the target product and keep lighting natural.';
-        },
         executeSingleImage: async ({ plan, finalPrompt }) => {
           calls.push(`execute:${plan.executionStage.model}:${plan.executionImages.length}:${finalPrompt}`);
           return {
@@ -78,6 +74,7 @@ describe('imageTaskExecutor', () => {
     const progressUpdates: number[] = [];
     const result = await executor(createTask({
       feature: 'replace_product',
+      prompt: '保持厨房台面光影',
       images: [
         { role: 'source', path: '/authorized/input/scene.png' },
         { role: 'product', path: '/authorized/input/product.png' },
@@ -86,19 +83,17 @@ describe('imageTaskExecutor', () => {
       progressUpdates.push(update.progress?.completed ?? 0);
     });
 
-    expect(calls).toEqual([
-      'instruction:gpt-5.4-mini:2',
-      'begin:task-1:Replace the source product with the target product and keep lighting natural.',
-      'execute:gemini-2.5-flash-image:2:Replace the source product with the target product and keep lighting natural.',
-      'append:task-1',
-      'execute:gemini-2.5-flash-image:2:Replace the source product with the target product and keep lighting natural.',
-      'append:task-1',
-      'execute:gemini-2.5-flash-image:2:Replace the source product with the target product and keep lighting natural.',
-      'append:task-1',
-      'execute:gemini-2.5-flash-image:2:Replace the source product with the target product and keep lighting natural.',
-      'append:task-1',
-      'finalize:task-1',
-    ]);
+    const expectedPrompt = [
+      '用目标产品替换场景原产品，保持姿势、透视、比例与光影自然。',
+      '补充要求：保持厨房台面光影',
+    ].join('\n');
+
+    expect(calls[0]).toBe(`begin:task-1:${expectedPrompt}`);
+    expect(calls.filter((call) => call.startsWith('execute:'))).toHaveLength(4);
+    expect(calls.filter((call) => call.startsWith('execute:'))[0]).toBe(
+      `execute:gemini-2.5-flash-image:2:${expectedPrompt}`,
+    );
+    expect(calls.at(-1)).toBe('finalize:task-1');
     expect(progressUpdates).toEqual([0, 1, 2, 3, 4]);
     expect(result).toEqual({
       model: 'gemini-2.5-flash-image',
@@ -124,7 +119,6 @@ describe('imageTaskExecutor', () => {
     const executor = createImageTaskExecutor({
       runtimeConfig,
       modelGateway: {
-        generateInstruction: async () => 'Create a fresh pink e-commerce cleaning asset.',
         executeSingleImage: async ({ plan }) => {
           executionImageCount = plan.executionImages.length;
           return {

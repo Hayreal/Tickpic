@@ -1,7 +1,7 @@
 import type { ImageTaskRecord } from '../../../../src/shared/domain/imageFeatureApi.js';
 import type { ImageTaskPlan, ImageTaskRuntimeConfig } from '../../../../src/shared/domain/imageTaskPlan.js';
 import { buildImageTaskPlan } from '../../../../src/shared/domain/imageTaskPlan.js';
-import { finalizeImageInstruction } from './instructionPrompt.js';
+import { buildExecutionPrompt } from './instructionPrompt.js';
 import type { ImageTaskExecutionResult, ImageTaskExecutor } from './imageTaskController.js';
 import { getAppLogger } from '../logger/appLogger.js';
 
@@ -17,12 +17,6 @@ export interface ImageExecutionModelResult {
   warnings?: string[];
 }
 
-export interface GenerateInstructionInput {
-  task: ImageTaskRecord;
-  plan: ImageTaskPlan;
-  abortSignal: AbortSignal;
-}
-
 export interface ExecuteImageInput {
   task: ImageTaskRecord;
   plan: ImageTaskPlan;
@@ -31,7 +25,6 @@ export interface ExecuteImageInput {
 }
 
 export interface ImageTaskModelGateway {
-  generateInstruction(input: GenerateInstructionInput): Promise<string>;
   executeImage(input: ExecuteImageInput): Promise<ImageExecutionModelResult>;
   executeSingleImage(input: ExecuteImageInput): Promise<ImageExecutionModelResult>;
 }
@@ -86,14 +79,11 @@ export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions)
       taskId: task.taskId,
       feature: task.feature,
       count: plan.count,
-      visionModel: plan.instructionStage.model,
       executionModel: plan.executionStage.model,
     });
 
-    logger.info('image-task', '开始生成图片执行指令', { taskId: task.taskId });
-    const generatedInstruction = await options.modelGateway.generateInstruction({ task, plan, abortSignal });
-    const finalPrompt = finalizeImageInstruction(task.feature, generatedInstruction, task.request);
-    logger.info('image-task', '图片执行指令已生成', {
+    const finalPrompt = buildExecutionPrompt(task.request, plan.mainPrompt);
+    logger.info('image-task', '图片执行提示词已组装', {
       taskId: task.taskId,
       promptLength: finalPrompt.length,
     });

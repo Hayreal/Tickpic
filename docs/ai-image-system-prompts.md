@@ -1,127 +1,20 @@
 # AI Image Prompt Policy
 
-This document records the current first-stage instruction-generation prompts used by the app.
-The first stage does not generate images. It turns the task request, uploaded images, and selected
-regions into one concise English instruction for the downstream image model.
+This document records how Tickpic assembles the execution prompt sent directly to the image generation/edit model.
+
+The app no longer runs a separate instruction-generation stage. Main Process combines the feature `mainPrompt`, the user `prompt`, and structured task parameters into one text prompt before calling the image model.
 
 Runtime source of truth:
 
-- `src/shared/domain/imageInstructionPrompts.ts` builds the first-stage system prompt.
-- `electron/main/services/image-tasks/instructionPrompt.ts` builds the first-stage user text.
+- `src/shared/domain/imageFeatureApi.ts` defines each feature `mainPrompt`.
+- `electron/main/services/image-tasks/instructionPrompt.ts` implements `buildExecutionPrompt()`.
 
-## First-Stage Base System Prompt
+## Execution Prompt Assembly
 
-```text
-You write concise English prompts for a downstream image model.
-Return only the final image instruction, with no JSON, Markdown, labels, or explanation.
-Use the provided task parameters, images, and selected regions only when relevant to the current feature.
-For edit features, write one short imperative sentence. For generation features, write one or two short sentences.
-Each request describes exactly one standalone output image; never request grids, collages, batches, or visible Chinese text.
-```
+Assembly order:
 
-## Feature System Prompts
-
-### Sticker Replication
-
-```text
-Feature: Sticker Replication.
-Extract the visible sticker from the source product or package.
-Output only that sticker as one standalone flat 2D label.
-Do not redesign it; no product body, bottle, box, jar, packaging mockup, or collage.
-```
-
-### Sticker Variation
-
-```text
-Feature: Sticker Variation.
-Create a new flat 2D sticker in the same product-category mood.
-Use the source as mood reference only; make a clearly different layout, not a small text, icon, suit, or color swap.
-No packaging mockups or product containers.
-```
-
-### Original Sticker Design
-
-```text
-Feature: Original Sticker Design.
-Design one original flat 2D packaging sticker from the product info, selling points, color scheme, and optional references.
-Use balanced typography: product name can be prominent but must not dominate the whole sticker.
-Keep supporting copy smaller and secondary, with readable but not oversized text blocks.
-Give icons, illustrations, shapes, and color blocks enough visual space.
-No product objects, containers, posters, or mockups.
-```
-
-### Remove Product
-
-```text
-Feature: Remove Product.
-Remove the target product and related product-emitted spray, mist, droplets, or foreground overlays.
-Inpaint removed areas naturally and keep unrelated background, text, surfaces, and demonstration effects unchanged.
-```
-
-### Replace Product
-
-```text
-Feature: Replace Product.
-Replace the visible product with the uploaded target product.
-Match scale, perspective, lighting, contact shadows, and scene realism.
-Remove or suppress the old product unless the user asks for comparison; keep unrelated areas unchanged.
-```
-
-### Replace Logo
-
-```text
-Feature: Replace Logo.
-Replace only the visible brand logo with the uploaded or specified logo.
-Match placement, perspective, material, lighting, and print style.
-Do not redesign the package, product, background, or unrelated text.
-```
-
-### Main Image Asset Variation
-
-```text
-Feature: Main Image Asset Variation.
-Edit the source into one e-commerce main-image or ad asset variation.
-Vary style, color, composition, headline area, or before/after structure while keeping the requested product/category intent.
-Do not create a detail page or unrelated scene.
-```
-
-### Scene Variation
-
-```text
-Feature: Scene Variation.
-Transform the source into one realistic usage-scene variation in the same product category.
-Change the scene meaningfully, not just color or minor decoration.
-Respect requests about showing or hiding the product.
-```
-
-### Create New Scene Image
-
-```text
-Feature: Create New Scene Image.
-Create one realistic e-commerce usage-scene image from the product category, scene direction, and optional style reference.
-Make the scene concrete, selling-focused, and internationally suitable.
-Show the product only if requested.
-```
-
-### Prompt-Only Main Image / Asset Generation
-
-```text
-Feature: Prompt-Only Main Image / Asset Generation.
-Create one e-commerce main-image or ad asset from the text prompt.
-Use uploaded images only as optional style, composition, lighting, or color references.
-Do not require image editing or describe a full detail page.
-```
-
-## First-Stage User Text Assembly
-
-The first-stage user text should be a natural-language task summary, not another system prompt.
-It must not repeat output-format rules such as "write one concise instruction" or "return no Markdown";
-those rules belong in the system prompt.
-
-Current assembly order:
-
-1. Feature-specific natural task intro.
-2. User `prompt`, if present, as a supplemental requirement.
+1. Feature `mainPrompt` from `getImageFeatureDefinition(feature).mainPrompt`.
+2. User `prompt`, if present, as `补充要求：...`.
 3. Structured parameters as short natural-language lines.
 4. Region summary and region operation hints, if present.
 5. Sticker-replication logo role warning, when a separate logo/reference image is provided.
@@ -134,16 +27,36 @@ Structured parameters are rendered as natural lines:
 - `capacity`: capacity/specification.
 - `logoText`: logo copy.
 - `colorScheme`: color/style direction.
-- `aspectRatio`: output aspect ratio, when not `auto`.
 - `showProduct`: whether to show the product.
 
-Example for sticker replication:
+`aspectRatio` is passed only as a model API parameter (`size` / Gemini `aspectRatio`), not appended to the execution prompt text.
+
+## Feature Main Prompts
+
+| Feature | mainPrompt |
+|---|---|
+| `sticker_replica` | 提取产品或包装图上可见的贴纸，输出独立 2D 平面贴纸；若有 Logo 图仅作品牌标识嵌入，不要把 Logo 图当版式参考。 |
+| `sticker_variation` | 生成同品类贴纸变体，可调整布局、标题区、卖点区与色块。 |
+| `sticker_original` | 设计原创 2D 平面贴纸初稿，按品类与产品信息补充卖点与视觉风格。 |
+| `remove_product` | 去除目标产品及喷雾/雾气叠加，补全遮挡区域；保留用户要求的文字与表面状态，不顺带清洁或美化。 |
+| `replace_product` | 用目标产品替换场景原产品，保持姿势、透视、比例与光影自然。 |
+| `replace_logo` | 只替换品牌 Logo，保持原位置、透视、材质与光影。 |
+| `main_image_asset_variation` | 生成主图素材变体，支持风格/构图/Before-After，默认无具体产品。 |
+| `scene_variation` | 生成新的具体使用场景素材，默认无具体产品。 |
+| `create_new_scene` | 创作新的电商使用场景图，按品类发散真实生活场景。 |
+| `prompt_only_main_asset` | 根据用户描述完成电商主图或广告素材生成 |
+
+## Example
+
+Sticker replication request:
 
 ```text
-Reference the uploaded packaging/sticker image and create one independent flat 2D sticker.
-Supplemental requirement: change the brand name to WKUA and keep the premium black-and-gold style.
-Brand name: WKUA.
-Product category: car belt silencer.
-Color/style direction: black and gold.
-If a separate logo image is provided, use it only as the brand mark, not as the layout reference.
+提取产品或包装图上可见的贴纸，输出独立 2D 平面贴纸；若有 Logo 图仅作品牌标识嵌入，不要把 Logo 图当版式参考。
+补充要求：品牌名换成 WKUA，整体保留原图的高级黑金风格。
+品牌名换成 WKUA。
+产品品类是 car belt silencer。
+整体保留原图的 black and gold 风格。
+如果提供了单独 Logo 图，只把它作为品牌标识嵌入，不要把 Logo 图当作版式参考。
 ```
+
+The assembled prompt is saved to `image-instruction.txt` in the task output directory for debugging and replay.

@@ -6,12 +6,12 @@
 
 本 API 是客户端内部任务 API，不是公网 HTTP API。Renderer 只负责提交结构化任务；API Key、模型调用、文件读取、任务队列和产物保存必须由 Main Process 完成。
 
-所有功能都必须走两阶段流程：
+所有功能都走单阶段出图流程：
 
-1. 图片执行指令生成阶段：把 `feature`、`source/reference` 图片、`prompt`、`regions`、`productName`、`logoText`、`colorScheme`、`aspectRatio`、阶段模型等结构化参数交给图像理解/指令生成模型，直接输出图片执行指令 `finalPrompt`。
-2. 图片生成/编辑阶段：使用 `finalPrompt` 和执行阶段需要的图片执行出图。
+1. Main Process 在本地组装图片执行提示词 `finalPrompt`：功能 `mainPrompt` + 用户 `prompt` + 结构化参数（产品名、品类、卖点、比例、选区等）。
+2. 将 `finalPrompt` 和执行阶段需要的图片直接提交给图片生成/编辑模型出图。
 
-纯提示词主图/素材图支持用户输入图片，但图片只用于第一阶段理解、提取风格、场景、构图或视觉方向；第二阶段仍按文本生成任务执行，不把这些图片传给图片编辑模型。
+纯提示词主图/素材图（`prompt_only_main_asset`）即使传入参考图，当前也不会把这些图片传给图片模型；仅通过文本提示词描述风格或构图方向。
 
 ## 2. IPC API
 
@@ -68,7 +68,7 @@ type ImageTaskRequest = {
 | `colorScheme` | 否 | 色系方向，例如 `蓝绿色`、`科技感蓝白色` |
 | `aspectRatio` | 否 | 图片比例，例如 `1:1`、`4:3`、`9:16` |
 | `showProduct` | 否 | 是否展示具体产品；仅用于支持该开关的素材/场景功能 |
-| `modelOverrides` | 否 | 阶段级模型覆盖；不传时使用用户配置模型 |
+| `modelOverrides` | 否 | 执行阶段模型覆盖；`generation` / `edit` 按功能路由，`vision` 已废弃 |
 
 ## 4. 功能枚举
 
@@ -116,9 +116,9 @@ type ImageRole =
 
 默认规则：
 
-- 图片编辑和裂变功能的 `source`、`product`、`logo` 既用于一阶段生成图片执行指令，也用于第二阶段执行。
-- 纯提示词主图/素材图中的 `source`、`reference`、`style` 只用于一阶段生成图片执行指令，不传入第二阶段。
-- 如果某个模型协议不支持执行阶段图片输入，Main Process 必须降级为一阶段理解输入或提示用户调整功能。
+- 图片编辑和裂变功能的 `source`、`product`、`logo` 会传入图片模型作为编辑输入。
+- 纯提示词主图/素材图中的 `source`、`reference`、`style` 当前不传入图片模型，仅通过组装后的文本提示词表达意图。
+- 如果某个模型协议不支持执行阶段图片输入，Main Process 应提示用户调整功能或模型配置。
 
 `path` 必须是 Main Process 可读取的本地授权路径。Renderer 上传或选择图片后，只能把受控文件引用交给 Main Process，不能自行读取 API Key 或调用模型。
 
@@ -187,40 +187,37 @@ type ImageTaskResult = {
 | 主图素材裂变 | `main_image_asset_variation` | 参考当前主图，生成同类电商主图素材变体。支持不同风格、色系、构图及 Before/After 对比表达，默认不展示具体产品。 | `source`、`reference` | `prompt`、`productName`、`sellingPoints`、`colorScheme`、`aspectRatio`、`count`、`showProduct` | edit |
 | 场景裂变 | `scene_variation` | 参考当前场景，生成同品类可用的新使用场景素材。发散不同具体使用场景，而非仅改色或构图，默认不展示具体产品。 | `source`、`reference` | `prompt`、`productCategory`、`colorScheme`、`showProduct`、`count` | edit |
 | 创作新场景图 | `create_new_scene` | 根据产品品类与场景要求，创作新的电商使用场景图。自动发散多个真实生活场景，可含使用前后对比与细节图。 | `style` | `prompt`、`productCategory`、`sellingPoints`、`colorScheme`、`aspectRatio`、`showProduct` | generation |
-| 纯提示词主图/素材图 | `prompt_only_main_asset` | 根据用户描述完成电商主图或广告素材生成 | `source`、`reference`、`style`，仅一阶段使用 | `prompt`、`productName`、`sellingPoints`、`colorScheme`、`aspectRatio`、`count` | generation |
+| 纯提示词主图/素材图 | `prompt_only_main_asset` | 根据用户描述完成电商主图或广告素材生成 | `source`、`reference`、`style`（当前不参与出图） | `prompt`、`productName`、`sellingPoints`、`colorScheme`、`aspectRatio`、`count` | generation |
 
 说明：
 
-- 所有功能都先走 `modelOverrides.vision` 或用户配置的图像理解模型。
-- `执行模型` 为第二阶段模型类型，对应 `modelOverrides.generation` 或 `modelOverrides.edit`。
+- `执行模型` 按功能路由到 `modelOverrides.generation` 或 `modelOverrides.edit`，未覆盖时使用用户配置的图像生成/编辑模型。
 - 贴纸类功能必须输出独立 2D 平面贴纸，不输出瓶、罐、盒或包装 mockup。
 - 主图素材裂变和场景裂变默认不展示具体产品，除非 `showProduct: true` 或用户明确要求展示产品。
-- 纯提示词主图/素材图即使传入图片，也只用图片辅助生成图片执行指令，第二阶段仍是文本生成。
+- 纯提示词主图/素材图当前为纯文本生成，参考图不会传入图片模型。
 - 纯提示词主图/素材图的 Renderer 提交时，`prompt` 会带固定前缀 `生成电商主图或广告素材：`，再接用户输入的主描述。
 
-## 9. 图片执行指令生成
+## 9. 图片执行提示词组装
 
-一阶段输入是统一任务参数，输出是图片执行指令纯文本，不要求模型输出 JSON。编辑类任务默认控制在 1-3 句，避免冗余分析和长段营销描述；图像生成类任务可以添加更多视觉细节，用于补足主体、场景、构图、光影、风格、文字和比例等出图信息。
+Main Process 不再调用图像理解/指令生成模型。`finalPrompt` 在本地由 `buildExecutionPrompt()` 组装，规则见 `docs/ai-image-system-prompts.md`。
+
+组装输入示例：
 
 ```json
 {
   "feature": "prompt_only_main_asset",
-  "source": [],
-  "reference": ["/authorized/input/style-reference.png"],
   "prompt": "生成一张洗衣清洁片广告素材，粉色背景，泡泡、水流、清新感",
-  "regions": [],
-  "productName": "",
-  "logoText": "",
   "colorScheme": "粉色背景",
-  "aspectRatio": "4:3",
-  "model": "gemini-3.1-flash-lite"
+  "aspectRatio": "4:3"
 }
 ```
 
-一阶段输出示例：
+组装后的 `finalPrompt` 示例：
 
 ```text
-Create a 4:3 e-commerce advertising asset for laundry cleaning sheets. Use a fresh pink background with bubbles, flowing water, clean highlights, and a light refreshing commercial visual style. Use the optional reference image only as visual style inspiration. Make it suitable for a main image or reusable promotional asset. Do not include unrelated products, packaging mockups, or product detail page layouts.
+根据用户描述完成电商主图或广告素材生成
+补充要求：生成一张洗衣清洁片广告素材，粉色背景，泡泡、水流、清新感
+配色方向是 粉色背景。
 ```
 
 ## 10. 请求示例
@@ -456,7 +453,7 @@ Main Process 必须在入队前完成请求校验：
 | 比例 | `aspectRatio` 必须转换为模型支持的尺寸或比例参数 |
 | 功能边界 | 用户 `prompt` 与功能边界冲突时，以功能边界为准 |
 | 模型协议 | 选定模型必须能在用户配置中找到协议映射 |
-| 纯提示词图片 | 纯提示词主图/素材图传入的图片只进入图片执行指令生成阶段，不得进入第二阶段编辑输入 |
+| 纯提示词图片 | 纯提示词主图/素材图传入的参考图当前不参与图片模型调用 |
 
 ## 12. 产物要求
 
@@ -465,7 +462,7 @@ Main Process 必须在入队前完成请求校验：
 | 产物 | 说明 |
 |---|---|
 | `request.json` | 保存原始请求、功能类型、图片角色、区域、模型覆盖和脱敏后的配置摘要 |
-| `image-instruction.txt` | 保存一阶段生成的图片执行指令 |
+| `image-instruction.txt` | 保存本地组装后的图片执行提示词 |
 | 输出图片 | `result-{index}.png` 或模型返回的实际格式 |
 | 输出 JSON | 同名 `.json`，保存输入摘要、实际模型、协议、图片执行指令、输出尺寸、脱敏响应摘要和 warnings |
 

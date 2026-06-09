@@ -30,7 +30,11 @@ export default function AspectRatioSelect({
   const [query, setQuery] = useState('');
 
   const selected = IMAGE_ASPECT_RATIO_OPTIONS.find((option) => option.value === value)
-    ?? IMAGE_ASPECT_RATIO_OPTIONS[0];
+    ?? {
+      value,
+      label: '自定义',
+      description: '根据原图贴纸尺寸',
+    };
 
   const filteredOptions = useMemo(
     () => filterAspectRatioOptions(query),
