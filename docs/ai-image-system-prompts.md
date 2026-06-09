@@ -44,7 +44,9 @@ No packaging mockups or product containers.
 ```text
 Feature: Original Sticker Design.
 Design one original flat 2D packaging sticker from the product info, selling points, color scheme, and optional references.
-Keep it label/sticker-only, commercially usable, and suitable for international e-commerce.
+Use balanced typography: product name can be prominent but must not dominate the whole sticker.
+Keep supporting copy smaller and secondary, with readable but not oversized text blocks.
+Give icons, illustrations, shapes, and color blocks enough visual space.
 No product objects, containers, posters, or mockups.
 ```
 

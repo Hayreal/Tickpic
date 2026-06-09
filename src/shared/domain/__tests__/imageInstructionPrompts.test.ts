@@ -49,6 +49,17 @@ describe('imageInstructionPrompts', () => {
     expect(prompt).not.toContain('near-copy');
   });
 
+  it('keeps original sticker typography proportional instead of oversized', () => {
+    const prompt = buildImageInstructionSystemPrompt('sticker_original');
+
+    expect(prompt).toContain('Use balanced typography');
+    expect(prompt).toContain('product name can be prominent but must not dominate the whole sticker');
+    expect(prompt).toContain('Keep supporting copy smaller and secondary');
+    expect(prompt).toContain('Give icons, illustrations, shapes, and color blocks enough visual space');
+    expect(prompt).not.toContain('Use sparse visible text');
+    expect(prompt).not.toContain('at most one short category or benefit line');
+  });
+
   it('keeps remove-product edits focused on the target product', () => {
     const prompt = buildImageInstructionSystemPrompt('remove_product');
 

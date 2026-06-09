@@ -17,7 +17,9 @@ Use the source as mood reference only; make a clearly different layout, not a sm
 No packaging mockups or product containers.`,
   sticker_original: `Feature: Original Sticker Design.
 Design one original flat 2D packaging sticker from the product info, selling points, color scheme, and optional references.
-Keep it label/sticker-only, commercially usable, and suitable for international e-commerce.
+Use balanced typography: product name can be prominent but must not dominate the whole sticker.
+Keep supporting copy smaller and secondary, with readable but not oversized text blocks.
+Give icons, illustrations, shapes, and color blocks enough visual space.
 No product objects, containers, posters, or mockups.`,
   remove_product: `Feature: Remove Product.
 Remove the target product and related product-emitted spray, mist, droplets, or foreground overlays.
