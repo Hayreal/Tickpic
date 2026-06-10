@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { ENGLISH_ONLY_VISIBLE_TEXT_RULE } from '../../../../../src/shared/domain/imageOutputRules';
 import { createImageTaskExecutor } from '../imageTaskExecutor';
 import type { ImageTaskRecord } from '../../../../../src/shared/domain/imageFeatureApi';
 import type { ImageTaskRuntimeConfig } from '../../../../../src/shared/domain/imageTaskPlan';
+
+function withEnglishOnlyRule(...lines: string[]) {
+  return [...lines, ENGLISH_ONLY_VISIBLE_TEXT_RULE].join('\n');
+}
 
 describe('imageTaskExecutor', () => {
   const runtimeConfig: ImageTaskRuntimeConfig = {
@@ -83,10 +88,10 @@ describe('imageTaskExecutor', () => {
       progressUpdates.push(update.progress?.completed ?? 0);
     });
 
-    const expectedPrompt = [
+    const expectedPrompt = withEnglishOnlyRule(
       '用目标产品替换场景原产品，保持姿势、透视、比例与光影自然。',
       '补充要求：保持厨房台面光影',
-    ].join('\n');
+    );
 
     expect(calls[0]).toBe(`begin:task-1:${expectedPrompt}`);
     expect(calls.filter((call) => call.startsWith('execute:'))).toHaveLength(4);
