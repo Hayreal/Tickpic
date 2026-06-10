@@ -11,7 +11,7 @@ export interface TaskListGroup {
 }
 
 export function resolveTaskOutputBatchId(
-  task: Pick<TaskRecord, 'request' | 'taskId'>,
+  task: Pick<TaskRecord, 'request'>,
 ): string | undefined {
   const batchId = task.request?.outputBatchId?.trim();
   return batchId || undefined;

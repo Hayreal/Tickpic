@@ -83,7 +83,7 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
   const styleImage = getImageByRole(request, 'style');
   const structured = stickerStructuredFields(request);
 
-  const base = {
+  const base: Omit<StickerRestoreState, 'subTab'> = {
     copyBatch: null,
     copyLogo: null,
     copyBrand: '',
