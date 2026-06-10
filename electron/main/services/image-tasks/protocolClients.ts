@@ -176,6 +176,9 @@ export function createGeminiProtocolClient(
 }
 
 function resolveOpenAIInputFidelity(input: ModelExecutionClientInput): OpenAIInputFidelity {
+  if (input.task.feature === 'sticker_variation') {
+    return 'low';
+  }
   return 'high';
 }
 

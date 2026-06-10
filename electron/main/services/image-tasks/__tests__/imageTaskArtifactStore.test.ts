@@ -63,7 +63,7 @@ describe('imageTaskArtifactStore', () => {
         images: [{ role: 'source', path: '/authorized/input/package.png' }],
       },
       plan: {
-        mainPrompt: expect.stringContaining('复刻 2D 平面贴纸'),
+        mainPrompt: expect.stringContaining('直角矩形'),
         executionStage: { kind: 'edit', model: 'gemini-2.5-flash-image', protocol: 'gemini' },
         outputAspectRatio: '4:3',
         openaiImageSize: '1536x1024',
@@ -87,6 +87,64 @@ describe('imageTaskArtifactStore', () => {
       textNotes: ['model note'],
       warnings: ['draft output'],
     });
+  });
+
+  it('saves batch tasks into one shared output folder with task-prefixed artifact files', async () => {
+    const store = createFileImageTaskArtifactStore(tempDir);
+    const batchId = 'batch-shared';
+    const plan = buildImageTaskPlan(createTask().request, {
+      defaultModels: {
+        generation: 'gemini-2.5-flash-image',
+        vision: 'gpt-5.4-mini',
+      },
+      modelProtocol: 'gemini',
+      defaultCount: 1,
+      maxCount: 4,
+    });
+    const generated = {
+      images: [
+        {
+          fileName: 'model-output.png',
+          buffer: new Uint8Array([137, 80, 78, 71]),
+          mimeType: 'image/png',
+        },
+      ],
+    };
+
+    const first = await store.save({
+      task: {
+        ...createTask(),
+        taskId: 'task-1',
+        request: {
+          ...createTask().request,
+          outputBatchId: batchId,
+        },
+      },
+      plan,
+      finalPrompt: 'first prompt',
+      generated,
+    });
+    const second = await store.save({
+      task: {
+        ...createTask(),
+        taskId: 'task-2',
+        request: {
+          ...createTask().request,
+          outputBatchId: batchId,
+        },
+      },
+      plan,
+      finalPrompt: 'second prompt',
+      generated,
+    });
+
+    const sharedDir = path.join(tempDir, 'outputs', '20260604', 'batch-batch-shared');
+    expect(first.outputDir).toBe(sharedDir);
+    expect(second.outputDir).toBe(sharedDir);
+    expect(first.images).toEqual([path.join(sharedDir, 'task-1-result-1.png')]);
+    expect(second.images).toEqual([path.join(sharedDir, 'task-2-result-1.png')]);
+    expect(first.requestJsonPath).toBe(path.join(sharedDir, 'task-1-request.json'));
+    expect(second.requestJsonPath).toBe(path.join(sharedDir, 'task-2-request.json'));
   });
 });
 

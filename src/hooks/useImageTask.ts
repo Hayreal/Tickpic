@@ -182,9 +182,13 @@ export function useImageTask(): UseImageTaskReturn {
     setIsSubmitting(true);
     try {
       requests.forEach(assertNoBlobImages);
+      const outputBatchId = requests.length > 1 ? crypto.randomUUID() : undefined;
       const results: ImageTaskSubmitResult[] = [];
       for (const request of requests) {
-        results.push(await submitOne(request, { manageSubmitting: false }));
+        results.push(await submitOne(
+          outputBatchId ? { ...request, outputBatchId } : request,
+          { manageSubmitting: false },
+        ));
       }
       return results;
     } finally {

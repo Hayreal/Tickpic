@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ENGLISH_ONLY_VISIBLE_TEXT_RULE } from '../../../../../src/shared/domain/imageOutputRules';
 import {
   buildExecutionPrompt,
   buildFallbackFinalPrompt,
@@ -7,6 +8,13 @@ import {
   isImageGenerationModel,
   sanitizeRequestForInstruction,
 } from '../instructionPrompt';
+
+const STICKER_REPLICA_MAIN_PROMPT =
+  '从当前产品图中提取产品表面的贴纸/标签，展开为正视角 2D 平面贴纸图。比例按原贴纸真实形状自主判断，不强制固定画幅。若输入是侧拍、斜拍、弧面或可见包装侧面，必须将可见贴纸/包装版面去透视并拉平成连续平面展开稿，不保留盒体侧面、厚度、折角、阴影、反光或 3D 透视。只输出贴纸本身，不输出产品容器或背景。保留原贴纸的排版、色系、风格、装饰元素和图案位置；画面文字须为英文，若原图文字为中文则翻译为对应英文后呈现。若提供单独 Logo 图，仅作为品牌标识嵌入到对应位置，不作为版式、配色或风格参考。';
+
+function withEnglishOnlyRule(...lines: string[]) {
+  return [...lines, ENGLISH_ONLY_VISIBLE_TEXT_RULE].join('\n');
+}
 
 describe('instructionPrompt', () => {
   it('detects image-only model ids', () => {
@@ -73,7 +81,9 @@ describe('instructionPrompt', () => {
 
     const text = buildInstructionUserText(input);
 
-    expect(text).toBe('去除目标产品及喷雾/雾气叠加，补全遮挡区域；保留用户要求的文字与表面状态，不顺带清洁或美化。');
+    expect(text).toBe(withEnglishOnlyRule(
+      '去除目标产品及喷雾/雾气叠加，补全遮挡区域；保留用户要求的文字与表面状态，不顺带清洁或美化。',
+    ));
     expect(text).not.toContain('mainPrompt');
     expect(text).not.toContain('/tmp/source.png');
     expect(text).not.toContain('foreground overlays');
@@ -87,10 +97,10 @@ describe('instructionPrompt', () => {
       prompt: 'pink laundry ad',
     }, '根据用户描述完成电商主图或广告素材生成');
 
-    expect(text).toBe([
+    expect(text).toBe(withEnglishOnlyRule(
       '根据用户描述完成电商主图或广告素材生成',
       '补充要求：pink laundry ad',
-    ].join('\n'));
+    ));
     expect(text).not.toContain('image-generation instruction');
     expect(text).not.toContain('under 60 words total');
   });
@@ -103,13 +113,26 @@ describe('instructionPrompt', () => {
       aspectRatio: '1:1',
     }, '生成同品类贴纸变体，可调整布局、标题区、卖点区与色块。');
 
-    expect(text).toBe([
+    expect(text).toBe(withEnglishOnlyRule(
       '生成同品类贴纸变体，可调整布局、标题区、卖点区与色块。',
       '补充要求：summer style',
-    ].join('\n'));
+    ));
     expect(text).not.toContain('Write one concise');
     expect(text).not.toContain('Extra:');
     expect(text).not.toContain('mainPrompt');
+  });
+
+  it('includes selected sticker variation direction in execution prompt', () => {
+    const text = buildExecutionPrompt({
+      feature: 'sticker_variation',
+      stickerVariationDirection: 'layout',
+      prompt: '保留原来的清洁剂品类',
+    }, '基于输入产品图贴纸，做贴纸裂变设计。');
+
+    expect(text).toContain('贴纸裂变方向是排版打乱重组。');
+    expect(text).toContain('将原本的文字、产品图、功效图、色块和装饰元素重新安排');
+    expect(text).toContain('补充要求：保留原来的清洁剂品类');
+    expect(text).toContain(ENGLISH_ONLY_VISIBLE_TEXT_RULE);
   });
 
   it('does not infer original sticker logo text from product name', () => {
@@ -203,6 +226,16 @@ describe('instructionPrompt', () => {
     expect(finalized).not.toContain('First fully erase foreground spray');
   });
 
+  it('appends English-only visible text rule to every execution prompt', () => {
+    const text = buildExecutionPrompt({
+      feature: 'remove_product',
+      prompt: '保留顶部标题',
+    }, '去除目标产品。');
+
+    expect(text).toContain(ENGLISH_ONLY_VISIBLE_TEXT_RULE);
+    expect(text).toContain('不得出现任何中文字符');
+  });
+
   it('builds sticker-replica execution prompt as a natural parameter summary', () => {
     const text = buildExecutionPrompt({
       feature: 'sticker_replica',
@@ -215,20 +248,20 @@ describe('instructionPrompt', () => {
       productName: 'Serum Pro',
       productCategory: 'car belt silencer',
       colorScheme: 'black and gold',
-    }, '提取产品或包装图上可见的贴纸，输出独立 2D 平面贴纸；若有 Logo 图仅作品牌标识嵌入，不要把 Logo 图当版式参考。');
+    }, STICKER_REPLICA_MAIN_PROMPT);
 
-    expect(text).toBe([
-      '提取产品或包装图上可见的贴纸，输出独立 2D 平面贴纸；若有 Logo 图仅作品牌标识嵌入，不要把 Logo 图当版式参考。',
+    expect(text).toBe(withEnglishOnlyRule(
+      STICKER_REPLICA_MAIN_PROMPT,
       '补充要求：品牌名换成 WKUA，整体保留原图的高级黑金风格。',
       '品牌是 WKUA。',
       '产品名称是 Serum Pro。',
       '产品品类是 car belt silencer。',
       '整体保留原图的 black and gold 风格。',
-      '如果提供了单独 Logo 图，只把它作为品牌标识嵌入，不要把 Logo 图当作版式参考。',
-    ].join('\n'));
+    ));
     expect(text).not.toContain('Write one concise');
     expect(text).not.toContain('Extra:');
     expect(text).not.toContain('/tmp/logo.png');
+    expect(text.match(/Logo 图/g)).toHaveLength(1);
   });
 
   it('appends sticker-extraction guardrail to sticker replica execution instructions', () => {

@@ -17,7 +17,7 @@ Assembly order:
 2. User `prompt`, if present, as `补充要求：...`.
 3. Structured parameters as short natural-language lines.
 4. Region summary and region operation hints, if present.
-5. Sticker-replication logo role warning, when a separate logo/reference image is provided.
+5. Sticker-replication logo role warning, when a separate logo/reference image is provided and the feature prompt does not already include that warning.
 
 Structured parameters are rendered as natural lines:
 
@@ -35,7 +35,7 @@ Structured parameters are rendered as natural lines:
 
 | Feature | mainPrompt |
 |---|---|
-| `sticker_replica` | 提取产品或包装图上可见的贴纸，输出独立 2D 平面贴纸；若有 Logo 图仅作品牌标识嵌入，不要把 Logo 图当版式参考。 |
+| `sticker_replica` | 从当前产品图中提取产品表面的贴纸/标签，展开为正视角 2D 平面贴纸图。比例按原贴纸真实形状自主判断，不强制固定画幅。若输入是侧拍、斜拍、弧面或可见包装侧面，必须将可见贴纸/包装版面去透视并拉平成连续平面展开稿，不保留盒体侧面、厚度、折角、阴影、反光或 3D 透视。只输出贴纸本身，不输出产品容器或背景。保留原贴纸的排版、色系、风格、装饰元素、图案位置和文字内容，文字尽量不变。若提供单独 Logo 图，仅作为品牌标识嵌入到对应位置，不作为版式、配色或风格参考。 |
 | `sticker_variation` | 生成同品类贴纸变体，可调整布局、标题区、卖点区与色块。 |
 | `sticker_original` | 设计原创 2D 平面贴纸初稿，按品类与产品信息补充卖点与视觉风格。 |
 | `remove_product` | 去除目标产品及喷雾/雾气叠加，补全遮挡区域；保留用户要求的文字与表面状态，不顺带清洁或美化。 |
@@ -51,12 +51,11 @@ Structured parameters are rendered as natural lines:
 Sticker replication request:
 
 ```text
-提取产品或包装图上可见的贴纸，输出独立 2D 平面贴纸；若有 Logo 图仅作品牌标识嵌入，不要把 Logo 图当版式参考。
+从当前产品图中提取产品表面的贴纸/标签，展开为正视角 2D 平面贴纸图。比例按原贴纸真实形状自主判断，不强制固定画幅。若输入是侧拍、斜拍、弧面或可见包装侧面，必须将可见贴纸/包装版面去透视并拉平成连续平面展开稿，不保留盒体侧面、厚度、折角、阴影、反光或 3D 透视。只输出贴纸本身，不输出产品容器或背景。保留原贴纸的排版、色系、风格、装饰元素、图案位置和文字内容，文字尽量不变。若提供单独 Logo 图，仅作为品牌标识嵌入到对应位置，不作为版式、配色或风格参考。
 补充要求：品牌名换成 WKUA，整体保留原图的高级黑金风格。
 品牌名换成 WKUA。
 产品品类是 car belt silencer。
 整体保留原图的 black and gold 风格。
-如果提供了单独 Logo 图，只把它作为品牌标识嵌入，不要把 Logo 图当作版式参考。
 ```
 
 The assembled prompt is saved to `image-instruction.txt` in the task output directory for debugging and replay.

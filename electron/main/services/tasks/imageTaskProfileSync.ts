@@ -43,9 +43,11 @@ export function imageTaskRecordToTaskRecord(task: ImageTaskRecord): TaskRecord {
     createdAt: task.createdAt,
   }));
 
+  const outputBatchId = task.request.outputBatchId?.trim();
+
   return {
     taskId: task.taskId,
-    batchId: imports[0]?.filePath ?? task.taskId,
+    batchId: outputBatchId || task.taskId,
     category: labels.category,
     feature: labels.feature,
     status: mapImageTaskStatus(task.status),

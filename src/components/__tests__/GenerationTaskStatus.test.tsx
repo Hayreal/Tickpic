@@ -42,4 +42,34 @@ describe('GenerationTaskStatus', () => {
     expect(screen.getByText('任务日志')).toBeInTheDocument();
     expect(screen.getByText('开始生成第 1/4 张图片')).toBeInTheDocument();
   });
+
+  it('shows batch headline when tasks share outputBatchId', () => {
+    const sharedBatchId = 'batch-shared';
+    const tasks: ImageTaskRecord[] = [
+      {
+        taskId: 'task-1',
+        feature: 'sticker_variation',
+        status: 'running',
+        progress: { completed: 1, total: 2 },
+        images: [],
+        request: { feature: 'sticker_variation', outputBatchId: sharedBatchId, count: 2 },
+        createdAt: '2026-06-08T10:00:00.000Z',
+        updatedAt: '2026-06-08T10:00:10.000Z',
+      },
+      {
+        taskId: 'task-2',
+        feature: 'sticker_variation',
+        status: 'queued',
+        progress: { completed: 0, total: 2 },
+        images: [],
+        request: { feature: 'sticker_variation', outputBatchId: sharedBatchId, count: 2 },
+        createdAt: '2026-06-08T10:00:00.000Z',
+        updatedAt: '2026-06-08T10:00:05.000Z',
+      },
+    ];
+
+    render(<GenerationTaskStatus tasks={tasks} fallbackCount={2} logs={[]} />);
+
+    expect(screen.getByText('批量任务生成中 · 2 项')).toBeInTheDocument();
+  });
 });

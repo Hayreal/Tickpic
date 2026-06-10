@@ -13,8 +13,8 @@ import {
   ScrollText,
 } from 'lucide-react';
 import type { TaskRecord } from '../shared/domain/tasks';
-import { toTaskItem } from '../features/tasks/taskMappers';
-import { sortTasksByUpdatedAtDesc } from '../features/tasks/sortTasks';
+import { groupTasksForDisplay, type TaskListGroup } from '../features/tasks/taskBatchGrouping';
+import { toTaskListItem } from '../features/tasks/taskMappers';
 import { useOpenOutputDirectory } from '../hooks/useOpenOutputDirectory';
 import { useAppLogs } from '../hooks/useAppLogs';
 import { useDesktopClient } from '../hooks/useDesktopClient';
@@ -44,7 +44,8 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [openingTaskId, setOpeningTaskId] = useState<string | null>(null);
-  const [selectedTask, setSelectedTask] = useState<TaskRecord | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<TaskListGroup | null>(null);
+  const selectedTask = selectedGroup?.representative ?? null;
   const openDirectoryRequestRef = useRef(0);
   const { openTaskOutputDirectory, resetOpenOutputDirectory } = useOpenOutputDirectory();
 
@@ -54,14 +55,14 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
     setOpeningTaskId(null);
   }, [resetOpenOutputDirectory]);
 
-  const handleSelectTask = useCallback((task: TaskRecord) => {
+  const handleSelectGroup = useCallback((group: TaskListGroup) => {
     clearOpeningDirectoryState();
-    setSelectedTask(task);
+    setSelectedGroup(group);
   }, [clearOpeningDirectoryState]);
 
   const handleCloseDrawer = useCallback(() => {
     clearOpeningDirectoryState();
-    setSelectedTask(null);
+    setSelectedGroup(null);
   }, [clearOpeningDirectoryState]);
 
   const handleOpenTaskDirectory = useCallback(async (task: TaskRecord) => {
@@ -97,14 +98,17 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
     }
   }, [logs]);
 
-  const filteredTasks = useMemo(() => {
-    const sorted = sortTasksByUpdatedAtDesc(tasks);
-    return sorted.filter((task) => {
-      const item = toTaskItem(task);
-      const matchesSearch =
-        item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.batchId || '').toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredGroups = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return groupTasksForDisplay(tasks).filter((group) => {
+      const item = toTaskListItem(group);
+      const matchesSearch = !query || [
+        item.id,
+        item.feature,
+        item.batchId ?? '',
+        item.outputBatchId ?? '',
+        ...item.taskIds,
+      ].some((value) => value.toLowerCase().includes(query));
       const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
@@ -115,8 +119,8 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
   }, [searchQuery, statusFilter]);
 
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedTasks = filteredTasks.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  const totalPages = Math.ceil(filteredTasks.length / ITEMS_PER_PAGE);
+  const paginatedGroups = filteredGroups.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredGroups.length / ITEMS_PER_PAGE);
 
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
@@ -238,57 +242,71 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
                 </tr>
               </thead>
               <tbody id="tasks-table-body">
-                {paginatedTasks.length > 0 ? (
-                  paginatedTasks.map((task) => {
-                    const item = toTaskItem(task);
-                    const canOpenDirectory = task.status === 'Completed' && task.outputs.length > 0;
-                    const isOpening = openingTaskId === task.taskId;
-                    const isSelected = selectedTask?.taskId === task.taskId;
+                {paginatedGroups.length > 0 ? (
+                  paginatedGroups.map((group) => {
+                    const item = toTaskListItem(group);
+                    const representative = group.representative;
+                    const canOpenDirectory = item.status === 'Completed' && item.outputCount > 0;
+                    const isOpening = openingTaskId === representative.taskId;
+                    const isSelected = selectedGroup?.key === group.key;
 
                     return (
                       <tr
-                        key={task.taskId}
+                        key={group.key}
                         className={cn(
                           'border-b last:border-0 transition-colors cursor-pointer',
                           isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/30',
                         )}
-                        onClick={() => handleSelectTask(task)}
+                        onClick={() => handleSelectGroup(group)}
                       >
-                        <td className="py-3 px-4 font-mono text-xs text-muted-foreground">{item.id}</td>
+                        <td className="py-3 px-4 text-xs text-muted-foreground">
+                          {item.kind === 'batch' ? (
+                            <div>
+                              <p className="font-medium text-foreground">批量任务 · {item.subTaskCount} 项</p>
+                              <p className="mt-0.5 font-mono text-[11px]">{item.outputBatchId?.slice(0, 8)}...</p>
+                            </div>
+                          ) : (
+                            <span className="font-mono">{item.id}</span>
+                          )}
+                        </td>
                         <td className="py-3 px-4 text-sm font-medium">{item.feature}</td>
                         <td className="py-3 px-4 font-mono text-xs text-muted-foreground">
-                          {item.batchId ? `${item.batchId.slice(0, 8)}...` : '-'}
+                          {item.kind === 'batch'
+                            ? `批量 · ${item.subTaskCount}`
+                            : item.batchId
+                              ? `${item.batchId.slice(0, 8)}...`
+                              : '-'}
                         </td>
                         <td className="py-3 px-4 font-mono text-xs text-muted-foreground">
                           {item.importCount ?? 0}/{item.outputCount ?? 0}
                         </td>
-                        <td className="py-3 px-4">{statusBadge(task.status)}</td>
+                        <td className="py-3 px-4">{statusBadge(item.status)}</td>
                         <td className="py-3 px-4 text-sm text-muted-foreground">{item.time}</td>
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Button
-                              id={`restore-task-${task.taskId}`}
+                              id={`restore-task-${representative.taskId}`}
                               variant="ghost"
                               size="sm"
                               className="h-8 gap-1 text-xs"
-                              disabled={!task.request?.feature}
+                              disabled={item.kind === 'batch' || !representative.request?.feature}
                               onClick={(event) => {
                                 event.stopPropagation();
-                                onRestoreTask(task);
+                                onRestoreTask(representative);
                               }}
                             >
                               <RotateCcw className="h-3 w-3" />
                               还原
                             </Button>
                             <Button
-                              id={`open-task-${task.taskId}`}
+                              id={`open-task-${representative.taskId}`}
                               variant="ghost"
                               size="sm"
                               className="h-8 gap-1 text-xs"
                               disabled={!canOpenDirectory || isOpening}
                               onClick={(event) => {
                                 event.stopPropagation();
-                                void handleOpenTaskDirectory(task);
+                                void handleOpenTaskDirectory(representative);
                               }}
                             >
                               <FolderOpen className={cn('h-3 w-3', isOpening && 'animate-pulse')} />
@@ -313,8 +331,8 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
 
         <div className="flex items-center justify-between border-t px-4 py-3 bg-muted/20" id="tasks-table-footer">
           <span className="text-xs text-muted-foreground">
-            显示 {filteredTasks.length === 0 ? 0 : Math.min(startIndex + 1, filteredTasks.length)}-
-            {Math.min(startIndex + ITEMS_PER_PAGE, filteredTasks.length)} / {filteredTasks.length}
+            显示 {filteredGroups.length === 0 ? 0 : Math.min(startIndex + 1, filteredGroups.length)}-
+            {Math.min(startIndex + ITEMS_PER_PAGE, filteredGroups.length)} / {filteredGroups.length}
           </span>
           <div className="flex items-center gap-1" id="profile-pagination">
             <Button
@@ -358,6 +376,7 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
 
       <TaskDetailDrawer
         task={selectedTask}
+        relatedTasks={selectedGroup?.kind === 'batch' ? selectedGroup.tasks : undefined}
         onClose={handleCloseDrawer}
         onOpenDirectory={handleOpenTaskDirectory}
         onRestoreTask={onRestoreTask}

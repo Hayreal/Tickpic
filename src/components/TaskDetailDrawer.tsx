@@ -3,6 +3,7 @@ import { X, FolderOpen, RotateCcw, Copy } from 'lucide-react';
 import type { ImageRole, ImageTaskRequest, RegionInput } from '../shared/domain/imageFeatureApi';
 import type { TaskRecord } from '../shared/domain/tasks';
 import type { StoredImageRecord } from '../shared/domain/images';
+import { aggregateTaskStatuses } from '../features/tasks/taskBatchGrouping';
 import { toTaskItem } from '../features/tasks/taskMappers';
 import { toDisplaySrc } from '../lib/fileUrl';
 import { useOpenLocalImage } from '../hooks/useOpenLocalImage';
@@ -15,6 +16,7 @@ import { cn } from '@/src/lib/utils';
 
 interface TaskDetailDrawerProps {
   task: TaskRecord | null;
+  relatedTasks?: TaskRecord[];
   onClose: () => void;
   onOpenDirectory?: (task: TaskRecord) => void;
   onRestoreTask?: (task: TaskRecord) => void;
@@ -177,6 +179,7 @@ function ImageGrid({
 
 export default function TaskDetailDrawer({
   task,
+  relatedTasks,
   onClose,
   onOpenDirectory,
   onRestoreTask,
@@ -215,8 +218,16 @@ export default function TaskDetailDrawer({
     return null;
   }
 
+  const batchTasks = relatedTasks && relatedTasks.length > 1 ? relatedTasks : [task];
+  const isBatch = batchTasks.length > 1;
   const item = toTaskItem(task);
-  const canOpenDirectory = task.status === 'Completed' && task.outputs.length > 0;
+  const batchStatus = isBatch ? aggregateTaskStatuses(batchTasks) : item.status;
+  const outputImages = isBatch
+    ? batchTasks.flatMap((batchTask) => batchTask.outputs)
+    : task.outputs;
+  const canOpenDirectory = isBatch
+    ? batchTasks.some((batchTask) => batchTask.status === 'Completed' && batchTask.outputs.length > 0)
+    : task.status === 'Completed' && task.outputs.length > 0;
   const requestImages = task.request?.images ?? [];
 
   return (
@@ -237,9 +248,11 @@ export default function TaskDetailDrawer({
       >
         <div className="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">任务详情</p>
+            <p className="text-xs text-muted-foreground">{isBatch ? '批量任务详情' : '任务详情'}</p>
             <h2 className="truncate text-lg font-semibold">{item.feature}</h2>
-            <p className="mt-1 font-mono text-xs text-muted-foreground">{item.id}</p>
+            <p className="mt-1 font-mono text-xs text-muted-foreground">
+              {isBatch ? `批量 · ${batchTasks.length} 项 · ${task.request?.outputBatchId?.slice(0, 8)}...` : item.id}
+            </p>
           </div>
           <Button variant="ghost" size="icon" className="shrink-0" onClick={onClose}>
             <X className="h-4 w-4" />
@@ -252,17 +265,37 @@ export default function TaskDetailDrawer({
             <dl>
               <ParamRow label="分类" value={task.category} />
               <ParamRow label="功能" value={task.feature} />
-              <ParamRow label="状态" value={item.status} />
+              <ParamRow label="状态" value={batchStatus} />
               <ParamRow label="创建时间" value={item.time} />
-              <ParamRow label="批次" value={task.batchId} />
+              <ParamRow label="批次" value={isBatch ? task.request?.outputBatchId : task.batchId} />
+              {isBatch ? <ParamRow label="子任务数" value={batchTasks.length} /> : null}
               {task.outputDir ? <ParamRow label="输出目录" value={task.outputDir} /> : null}
             </dl>
           </section>
 
+          {isBatch ? (
+            <>
+              <Separator />
+              <section>
+                <h3 className="text-sm font-medium mb-3">子任务</h3>
+                <div className="space-y-2">
+                  {batchTasks.map((batchTask) => (
+                    <div
+                      key={batchTask.taskId}
+                      className="rounded-md border px-3 py-2 text-xs font-mono text-muted-foreground"
+                    >
+                      {batchTask.taskId.slice(0, 8)} · {batchTask.status} · {batchTask.outputs.length} 张
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </>
+          ) : null}
+
           <Separator />
 
           <section>
-            <h3 className="text-sm font-medium mb-3">输入参数</h3>
+            <h3 className="text-sm font-medium mb-3">{isBatch ? '代表任务参数' : '输入参数'}</h3>
             {task.request ? (
               buildRequestParams(task.request)
             ) : (
@@ -297,8 +330,8 @@ export default function TaskDetailDrawer({
           <Separator />
 
           <ImageGrid
-            title="输出图片"
-            images={task.outputs}
+            title={isBatch ? `输出图片 (${outputImages.length})` : '输出图片'}
+            images={outputImages}
             emptyText="暂无输出图片"
             onCopyImage={handleCopyImage}
           />

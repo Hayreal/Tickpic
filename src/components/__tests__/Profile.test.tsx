@@ -222,4 +222,50 @@ describe('Profile', () => {
       expect(copyImageToClipboard).toHaveBeenCalledWith({ filePath: '/tmp/result.png' });
     });
   });
+
+  it('groups shared outputBatchId tasks into one batch row and drawer', () => {
+    const sharedBatchId = 'batch-shared-id';
+    const makeBatchTask = (taskId: string, status: TaskRecord['status']): TaskRecord => ({
+      taskId,
+      batchId: sharedBatchId,
+      category: '贴纸',
+      feature: '贴纸裂变',
+      status,
+      imports: [],
+      outputs: status === 'Completed'
+        ? [{
+            id: `out-${taskId}`,
+            fileName: `${taskId}.png`,
+            filePath: `/tmp/${taskId}.png`,
+            fileSize: 1,
+            mimeType: 'image/png',
+            createdAt: '2026-06-08T10:05:00.000Z',
+          }]
+        : [],
+      request: { feature: 'sticker_variation', outputBatchId: sharedBatchId },
+      createdAt: '2026-06-08T10:00:00.000Z',
+      updatedAt: '2026-06-08T10:05:00.000Z',
+    });
+
+    render(
+      <Profile
+        tasks={[
+          makeBatchTask('task-batch-1', 'Completed'),
+          makeBatchTask('task-batch-2', 'Running'),
+          makeTask(9, '2026-06-07T10:00:00.000Z'),
+        ]}
+        onRefresh={vi.fn()}
+        onRestoreTask={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('批量任务 · 2 项')).toBeInTheDocument();
+    expect(screen.getAllByText('贴纸裂变')).toHaveLength(1);
+
+    fireEvent.click(screen.getByText('批量任务 · 2 项'));
+
+    expect(screen.getByText('批量任务详情')).toBeInTheDocument();
+    expect(screen.getByText('子任务')).toBeInTheDocument();
+    expect(screen.getByText('输出图片 (1)')).toBeInTheDocument();
+  });
 });

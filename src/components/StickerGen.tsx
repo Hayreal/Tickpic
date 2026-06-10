@@ -1,5 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
+  Check,
+  ChevronDown,
   Clock,
   FolderOpen,
   Maximize2,
@@ -41,6 +43,13 @@ import GenerationTaskStatus from './GenerationTaskStatus';
 import FeatureWorkspaceLayout from './FeatureWorkspaceLayout';
 import FeatureParameterPanels, { REFERENCE_UPLOAD_STACK } from './FeatureParameterPanels';
 import StickerParameterFields from './StickerParameterFields';
+import {
+  DEFAULT_STICKER_BRAND,
+  DEFAULT_STICKER_REPLICA_LOGO_TEXT,
+  STICKER_VARIATION_DIRECTION_OPTIONS,
+  type StickerVariationDirectionSelection,
+} from '../shared/domain/stickerPrompts';
+import { cn } from '../lib/utils';
 
 interface StickerGenProps {
   restoredTask?: TaskRecord | null;
@@ -52,6 +61,121 @@ const FEATURE_MAP: Record<StickerSubTab, ImageFeature> = {
   variation: 'sticker_variation',
   original: 'sticker_original',
 };
+
+interface StickerVariationDirectionSelectProps {
+  value: StickerVariationDirectionSelection;
+  onChange: (value: StickerVariationDirectionSelection) => void;
+}
+
+function StickerVariationDirectionSelect({
+  value,
+  onChange,
+}: StickerVariationDirectionSelectProps) {
+  const listboxId = useId();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const selected = STICKER_VARIATION_DIRECTION_OPTIONS.find((direction) => direction.value === value)
+    ?? STICKER_VARIATION_DIRECTION_OPTIONS[0];
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    };
+
+    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className={cn('relative min-w-0 space-y-2', open && 'z-30')} ref={containerRef}>
+      <label className="ui-label" htmlFor="variation-direction-select">
+        裂变方向
+      </label>
+      <button
+        type="button"
+        id="variation-direction-select"
+        aria-label={`裂变方向 ${selected.label}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={listboxId}
+        onClick={() => setOpen((current) => !current)}
+        className={cn(
+          'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-left text-xs shadow-sm transition-colors',
+          'hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          open && 'border-primary/50 ring-2 ring-ring/30',
+        )}
+      >
+        <span className="min-w-0">
+          <span className="block truncate font-semibold text-foreground">{selected.label}</span>
+        </span>
+        <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open ? (
+        <div className="absolute left-0 top-full mt-1 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-xl">
+          <ul
+            id={listboxId}
+            role="listbox"
+            aria-label="裂变方向"
+            className="max-h-72 overflow-auto p-1.5"
+          >
+            {STICKER_VARIATION_DIRECTION_OPTIONS.map((direction) => {
+              const isSelected = direction.value === value;
+              return (
+                <li key={direction.value} role="presentation">
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => {
+                      onChange(direction.value);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      'flex w-full cursor-pointer items-start gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors',
+                      isSelected
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-foreground hover:bg-accent/55',
+                    )}
+                  >
+                    <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
+                      {isSelected ? <Check className="size-3.5 text-primary" /> : null}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-semibold">{direction.label}</span>
+                      {direction.prompt ? (
+                        <span className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+                          {direction.prompt}
+                        </span>
+                      ) : null}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerGenProps) {
   const [subTab, setSubTab] = useState<StickerSubTab>('copy');
@@ -104,7 +228,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
   const [copyCapacity, setCopyCapacity] = useState('');
   const [copyStyle, setCopyStyle] = useState('');
   const [copyColorBlockLayout, setCopyColorBlockLayout] = useState('');
-  const [copyLogoText, setCopyLogoText] = useState('');
+  const [copyLogoText, setCopyLogoText] = useState(DEFAULT_STICKER_REPLICA_LOGO_TEXT);
   const [copyPrompt, setCopyPrompt] = useState('');
   const [copyColorScheme, setCopyColorScheme] = useState('');
   const [copyRegions, setCopyRegions] = useState<RegionMap>({});
@@ -113,9 +237,10 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
   const [variationBatch, setVariationBatch] = useState<ImportBatch | null>(null);
   const [variationPrompt, setVariationPrompt] = useState('');
   const [variationCount, setVariationCount] = useState<number>(4);
+  const [variationDirection, setVariationDirection] = useState<StickerVariationDirectionSelection>('');
 
   // Variation Tab - New State
-  const [variationBrand, setVariationBrand] = useState('');
+  const [variationBrand, setVariationBrand] = useState(DEFAULT_STICKER_BRAND);
   const [variationProductName, setVariationProductName] = useState('');
   const [variationMaterial, setVariationMaterial] = useState('');
   const [variationSellingPoint, setVariationSellingPoint] = useState('');
@@ -131,7 +256,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
   
   // Original Tab - New Structured State
   const [originalCategory, setOriginalCategory] = useState('');
-  const [originalBrand, setOriginalBrand] = useState('');
+  const [originalBrand, setOriginalBrand] = useState(DEFAULT_STICKER_BRAND);
   const [originalProductName, setOriginalProductName] = useState('');
   const [originalMaterial, setOriginalMaterial] = useState('');
   const [originalSellingPoint, setOriginalSellingPoint] = useState('');
@@ -181,6 +306,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
     setVariationPrompt(restored.variationPrompt);
     setVariationCount(restored.variationCount);
     setVariationColorScheme(restored.variationColorScheme);
+    setVariationDirection(restored.variationDirection);
     setOriginalBatch(restored.originalBatch);
     setOriginalCount(restored.originalCount);
     setOriginalAspectRatio(restored.originalAspectRatio);
@@ -286,6 +412,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
             style: variationStyle || undefined,
             colorBlockLayout: variationColorBlockLayout || undefined,
             colorScheme: variationColorScheme || undefined,
+            stickerVariationDirection: variationDirection || undefined,
             prompt: variationPrompt || undefined,
             aspectRatio: 'auto',
           });
@@ -475,11 +602,17 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
                   />
                 )}
                 basic={(
-                  <ImageCountSelector
-                    id="variation-count-selector"
-                    value={variationCount}
-                    onChange={setVariationCount}
-                  />
+                  <>
+                    <StickerVariationDirectionSelect
+                      value={variationDirection}
+                      onChange={setVariationDirection}
+                    />
+                    <ImageCountSelector
+                      id="variation-count-selector"
+                      value={variationCount}
+                      onChange={setVariationCount}
+                    />
+                  </>
                 )}
                 advanced={(
                   <>

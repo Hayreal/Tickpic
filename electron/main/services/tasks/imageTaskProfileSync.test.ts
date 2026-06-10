@@ -37,4 +37,17 @@ describe('imageTaskRecordToTaskRecord', () => {
     expect(record.imports).toHaveLength(2);
     expect(record.outputs).toHaveLength(1);
   });
+
+  it('uses outputBatchId as profile batchId for grouped submissions', () => {
+    const record = imageTaskRecordToTaskRecord(createImageTask({
+      request: {
+        feature: 'sticker_variation',
+        outputBatchId: 'batch-shared',
+        images: [{ role: 'source', path: '/tmp/source.png' }],
+      },
+    }));
+
+    expect(record.batchId).toBe('batch-shared');
+    expect(record.request?.outputBatchId).toBe('batch-shared');
+  });
 });

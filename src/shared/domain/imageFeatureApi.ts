@@ -1,3 +1,5 @@
+import type { StickerVariationDirection } from './stickerPrompts.js';
+
 export const IMAGE_FEATURES = [
   'sticker_replica',
   'sticker_variation',
@@ -66,6 +68,9 @@ export interface ImageTaskRequest {
   style?: string;
   colorBlockLayout?: string;
   colorScheme?: string;
+  stickerVariationDirection?: StickerVariationDirection;
+  /** When set, multiple tasks from one UI batch share the same output folder. */
+  outputBatchId?: string;
   aspectRatio?: string;
   showProduct?: boolean;
   modelOverrides?: {
@@ -117,10 +122,13 @@ export interface ImageFeatureDefinition {
   defaultShowProduct?: boolean;
 }
 
+const STICKER_RECTANGLE_SHAPE_REQUIREMENT =
+  '所有贴纸输出都必须是直角矩形平面贴纸：四角为 90 度直角，边缘为水平/垂直直线；不要圆角、弧边、圆形、椭圆、异形、模切边或瓶身弧面轮廓。';
+
 const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   sticker_replica: {
     feature: 'sticker_replica',
-    mainPrompt: '基于输入产品图贴纸展开， 复刻 2D 平面贴纸，：输出比例保持与输入一致，只输出平面包装图，不输出产品容器。色系、风格、排版和装饰元素保持严格一致，文案、品牌、容量可低优先级处理，可按入参替换、删除或固定为“wkau”；若无入参则默认尽量相似复刻。',
+    mainPrompt: `从当前产品图中提取产品表面的贴纸/标签，展开为正视角 2D 平面贴纸图。可以按内容判断横竖比例，但外轮廓必须输出为直角矩形，不按原图圆角、弧边或瓶身曲面轮廓出图。若输入是侧拍、斜拍、弧面或可见包装侧面，必须将可见贴纸/包装版面去透视并拉平成连续平面展开稿，不保留盒体侧面、厚度、折角、阴影、反光或 3D 透视。只输出贴纸本身，不输出产品容器或背景。保留原贴纸的排版、色系、风格、装饰元素和图案位置；画面文字须为英文，若原图文字为中文则翻译为对应英文后呈现。若提供单独 Logo 图，仅作为品牌标识嵌入到对应位置，不作为版式、配色或风格参考。${STICKER_RECTANGLE_SHAPE_REQUIREMENT}`,
     acceptedImageRoles: ['source', 'logo', 'reference'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',
@@ -128,7 +136,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   sticker_variation: {
     feature: 'sticker_variation',
-    mainPrompt: '基于输入产品图贴纸，做贴纸裂变设计：适当样式，色块，输出一张独立 2D 平面产品包装贴纸。尺寸严格按照输入图贴纸展开一样，具有商业设计质感，要像真实可用的商品贴纸。',
+    mainPrompt: `基于输入产品图贴纸，做贴纸裂变设计：适当样式，色块，输出一张独立 2D 平面产品包装贴纸。可以参考输入贴纸内容比例，但外轮廓必须是直角矩形，不要沿用原图圆角、弧边或瓶身曲面轮廓。具有商业设计质感，要像真实可用的商品贴纸。${STICKER_RECTANGLE_SHAPE_REQUIREMENT}`,
     acceptedImageRoles: ['source', 'reference'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',
@@ -136,7 +144,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   sticker_original: {
     feature: 'sticker_original',
-    mainPrompt: '设计原创 2D 平面贴纸初稿，按品类与产品信息补充卖点与视觉风格。画面干净、专业、高清，具有商业设计质感，要像真实可用的商品贴纸',
+    mainPrompt: `设计原创 2D 平面贴纸初稿，按品类与产品信息补充卖点与视觉风格。画面干净、专业、高清，具有商业设计质感，要像真实可用的商品贴纸。${STICKER_RECTANGLE_SHAPE_REQUIREMENT}`,
     acceptedImageRoles: ['reference', 'style'],
     requiredImageRoles: [],
     executionModel: 'generation',

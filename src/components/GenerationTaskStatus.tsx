@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Cpu, ScrollText } from 'lucide-react';
 import type { AppLogEntry } from '../shared/domain/appLog';
 import type { ImageTaskRecord } from '../shared/domain/imageFeatureApi';
+import { getSharedOutputBatchId } from '../features/tasks/taskBatchGrouping';
 import {
   formatTaskBatchProgress,
   formatTaskProgress,
@@ -44,12 +45,31 @@ function summarizeTasks(tasks: ImageTaskRecord[]) {
   });
 }
 
-function buildStatusHeadline(tasks: ImageTaskRecord[]) {
+function buildStatusHeadline(tasks: ImageTaskRecord[], sharedBatchId: string | null) {
   if (tasks.length === 0) {
     return '等待提交生成任务';
   }
 
   const summary = summarizeTasks(tasks);
+  if (sharedBatchId) {
+    if (summary.running > 0) {
+      return `批量任务生成中 · ${tasks.length} 项`;
+    }
+    if (summary.queued > 0) {
+      return `批量任务排队中 · ${tasks.length} 项`;
+    }
+    if (summary.failed > 0 && summary.completed === 0) {
+      return `批量任务失败 · ${tasks.length} 项`;
+    }
+    if (summary.completed > 0 && summary.failed === 0) {
+      return `批量任务已完成 · ${tasks.length} 项`;
+    }
+    if (summary.failed > 0) {
+      return `批量任务部分失败 · ${tasks.length} 项`;
+    }
+    return `批量任务状态已更新 · ${tasks.length} 项`;
+  }
+
   if (summary.running > 0) {
     return summary.running === 1 ? 'AI 模型正在生成' : `${summary.running} 个任务正在生成`;
   }
@@ -103,7 +123,8 @@ export default function GenerationTaskStatus({
     () => tasks.flatMap((task) => task.warnings ?? []),
     [tasks],
   );
-  const headline = buildStatusHeadline(tasks);
+  const sharedBatchId = getSharedOutputBatchId(tasks);
+  const headline = buildStatusHeadline(tasks, sharedBatchId);
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView?.({ block: 'nearest' });
@@ -133,7 +154,16 @@ export default function GenerationTaskStatus({
                 </p>
               ) : null}
             </div>
-            {tasks.length > 1 ? (
+            {sharedBatchId ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge variant="outline" className="font-mono text-[10px]">
+                  批量 · {tasks.length} 项
+                </Badge>
+                <Badge variant="secondary" className="font-mono text-[10px]">
+                  {sharedBatchId.slice(0, 8)}
+                </Badge>
+              </div>
+            ) : tasks.length > 1 ? (
               <div className="flex flex-wrap gap-1.5">
                 {tasks.map((task) => (
                   <Badge key={task.taskId} variant="outline" className="font-mono text-[10px]">

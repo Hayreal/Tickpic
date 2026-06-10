@@ -53,4 +53,4 @@ pnpm smoke:image-task --request tests/sticker-replica/source-reference-belt-sile
 pnpm smoke:image-task --request tests/sticker-replica/prompt-only-rebrand-wkau.zh.json --run-dir tests/output/sticker-replica/prompt-only-rebrand-wkau
 ```
 
-未填字段时，会依赖功能默认主提示词（`提取产品或包装图上可见的贴纸...`）与源图一起提交给出图模型。
+未填字段时，会依赖功能默认主提示词（`从当前产品图中提取产品表面的贴纸...`）与源图一起提交给出图模型。

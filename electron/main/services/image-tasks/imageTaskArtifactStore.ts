@@ -33,21 +33,46 @@ export function createFileImageTaskArtifactStore(workspaceDir: string): ImageTas
   };
 }
 
+function resolveImageTaskOutputDir(
+  workspaceDir: string,
+  task: SaveImageTaskArtifactsInput['task'],
+) {
+  const dateSegment = formatDate(task.createdAt);
+  const batchId = task.request.outputBatchId?.trim();
+  if (batchId) {
+    return path.join(
+      workspaceDir,
+      'outputs',
+      dateSegment,
+      `batch-${sanitizePathSegment(batchId)}`,
+    );
+  }
+
+  return path.join(
+    workspaceDir,
+    'outputs',
+    dateSegment,
+    sanitizePathSegment(task.taskId),
+  );
+}
+
+function resolveArtifactFilePrefix(task: SaveImageTaskArtifactsInput['task']) {
+  return task.request.outputBatchId?.trim()
+    ? `${sanitizePathSegment(task.taskId)}-`
+    : '';
+}
+
 async function beginImageTaskArtifacts(
   workspaceDir: string,
   input: Omit<SaveImageTaskArtifactsInput, 'generated'>,
 ): Promise<ImageTaskArtifactSession> {
-  const outputDir = path.join(
-    workspaceDir,
-    'outputs',
-    formatDate(input.task.createdAt),
-    sanitizePathSegment(input.task.taskId),
-  );
+  const outputDir = resolveImageTaskOutputDir(workspaceDir, input.task);
   await mkdir(outputDir, { recursive: true });
 
-  const requestJsonPath = path.join(outputDir, 'request.json');
-  const imageInstructionPath = path.join(outputDir, 'image-instruction.txt');
-  const outputJsonPath = path.join(outputDir, 'result-1.json');
+  const filePrefix = resolveArtifactFilePrefix(input.task);
+  const requestJsonPath = path.join(outputDir, `${filePrefix}request.json`);
+  const imageInstructionPath = path.join(outputDir, `${filePrefix}image-instruction.txt`);
+  const outputJsonPath = path.join(outputDir, `${filePrefix}result-1.json`);
   const imagePaths: string[] = [];
 
   await writeFile(requestJsonPath, JSON.stringify(createRequestSummary(input), null, 2), 'utf-8');
@@ -62,7 +87,7 @@ async function beginImageTaskArtifacts(
     async appendImage(image, index) {
       const imagePath = path.join(
         outputDir,
-        `result-${index + 1}${extensionForImage(image.fileName, image.mimeType)}`,
+        `${filePrefix}result-${index + 1}${extensionForImage(image.fileName, image.mimeType)}`,
       );
       await writeFile(imagePath, Buffer.from(image.buffer));
       imagePaths.push(imagePath);

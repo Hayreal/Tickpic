@@ -4,6 +4,12 @@ import { regionMapFromTask } from '../../lib/regionSelection';
 import type { ImportBatch } from '../../shared/domain/images';
 import type { TaskRecord } from '../../shared/domain/tasks';
 import type { StickerSubTab } from '../../shared/view/ui';
+import {
+  DEFAULT_STICKER_BRAND,
+  DEFAULT_STICKER_REPLICA_LOGO_TEXT,
+  STICKER_VARIATION_DIRECTION_NONE,
+  type StickerVariationDirectionSelection,
+} from '../../shared/domain/stickerPrompts';
 import { createImportBatch, getImageByRole } from './taskRestoreHelpers';
 
 export interface StickerRestoreState {
@@ -33,6 +39,7 @@ export interface StickerRestoreState {
   variationPrompt: string;
   variationCount: number;
   variationColorScheme: string;
+  variationDirection: StickerVariationDirectionSelection;
   originalBatch: ImportBatch | null;
   originalCount: number;
   originalAspectRatio: ImageAspectRatioValue;
@@ -86,13 +93,13 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
     copyCapacity: '',
     copyStyle: '',
     copyColorBlockLayout: '',
-    copyLogoText: '',
+    copyLogoText: DEFAULT_STICKER_REPLICA_LOGO_TEXT,
     copyPrompt: '',
     copyColorScheme: '',
     copyRegions: {},
     copyCount: 1,
     variationBatch: null,
-    variationBrand: '',
+    variationBrand: DEFAULT_STICKER_BRAND,
     variationProductName: '',
     variationMaterial: '',
     variationSellingPoint: '',
@@ -102,11 +109,12 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
     variationPrompt: '',
     variationCount: 4,
     variationColorScheme: '',
+    variationDirection: STICKER_VARIATION_DIRECTION_NONE,
     originalBatch: null,
     originalCount: 4,
     originalAspectRatio: 'auto' as ImageAspectRatioValue,
     originalCategory: '',
-    originalBrand: '',
+    originalBrand: DEFAULT_STICKER_BRAND,
     originalProductName: '',
     originalMaterial: '',
     originalSellingPoint: '',
@@ -132,7 +140,7 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
         copyCapacity: structured.capacity,
         copyStyle: structured.style,
         copyColorBlockLayout: structured.colorBlockLayout,
-        copyLogoText: request.logoText ?? '',
+        copyLogoText: request.logoText ?? DEFAULT_STICKER_REPLICA_LOGO_TEXT,
         copyPrompt: request.prompt ?? '',
         copyColorScheme: structured.colorScheme,
         copyRegions: regionMapFromTask(task.imports, request.regions),
@@ -143,7 +151,7 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
         ...base,
         subTab: 'variation',
         variationBatch: sourceImage ? createImportBatch([sourceImage], 'sticker', 'sticker_variation') : null,
-        variationBrand: structured.brand,
+        variationBrand: structured.brand || DEFAULT_STICKER_BRAND,
         variationProductName: structured.productName,
         variationMaterial: structured.material,
         variationSellingPoint: structured.sellingPoint,
@@ -153,6 +161,7 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
         variationPrompt: request.prompt ?? '',
         variationCount: request.count ?? 4,
         variationColorScheme: structured.colorScheme,
+        variationDirection: request.stickerVariationDirection ?? STICKER_VARIATION_DIRECTION_NONE,
       };
     case 'sticker_original':
       return {
@@ -166,7 +175,7 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
         originalCount: request.count ?? 4,
         originalAspectRatio: aspectRatioFrom(request.aspectRatio),
         originalCategory: request.productCategory ?? '',
-        originalBrand: structured.brand || request.productName || request.logoText || '',
+        originalBrand: structured.brand || request.productName || request.logoText || DEFAULT_STICKER_BRAND,
         originalProductName: structured.productName,
         originalMaterial: structured.material,
         originalSellingPoint: structured.sellingPoint,

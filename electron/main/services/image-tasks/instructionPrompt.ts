@@ -3,6 +3,8 @@ import {
   type ImageFeature,
   type ImageTaskRequest,
 } from '../../../../src/shared/domain/imageFeatureApi.js';
+import { appendEnglishOnlyVisibleTextRule } from '../../../../src/shared/domain/imageOutputRules.js';
+import { getStickerVariationDirection } from '../../../../src/shared/domain/stickerPrompts.js';
 interface ExecutionPromptAssemblyInput {
   task: { feature: ImageFeature; request: ImageTaskRequest };
   plan: { mainPrompt: string };
@@ -35,6 +37,9 @@ const STICKER_REPLICA_EXECUTION_SUFFIX =
 
 const STICKER_REPLICA_FLAT_OUTPUT_PATTERN =
   /flat 2d|2d flat|packaging mockup|product body|bottle|box|jar|collage/i;
+
+const STICKER_REPLICA_LOGO_GUIDANCE =
+  '如果提供了单独 Logo 图，只把它作为品牌标识嵌入，不要把 Logo 图当作版式参考。';
 
 const STICKER_VARIATION_REDESIGN_SUFFIX =
   'make a clearly different layout, not a small text, icon, suit, or color swap';
@@ -93,13 +98,15 @@ export function buildExecutionPrompt(request: ImageTaskRequest, mainPrompt: stri
 
   lines.push(...buildStructuredParameterLines(request));
 
-  if (request.feature === 'sticker_replica' && hasSeparateLogoImage(request)) {
-    lines.push(
-      '如果提供了单独 Logo 图，只把它作为品牌标识嵌入，不要把 Logo 图当作版式参考。',
-    );
+  if (
+    request.feature === 'sticker_replica'
+    && hasSeparateLogoImage(request)
+    && !hasStickerReplicaLogoGuidance(mainPrompt)
+  ) {
+    lines.push(STICKER_REPLICA_LOGO_GUIDANCE);
   }
 
-  return lines.join('\n');
+  return appendEnglishOnlyVisibleTextRule(lines.join('\n'));
 }
 
 export function buildInstructionUserText(input: ExecutionPromptAssemblyInput) {
@@ -116,6 +123,7 @@ function buildStructuredParameterLines(request: ImageTaskRequest) {
   const style = request.style?.trim();
   const colorBlockLayout = request.colorBlockLayout?.trim();
   const colorScheme = request.colorScheme?.trim();
+  const stickerVariationDirection = getStickerVariationDirection(request.stickerVariationDirection);
   const capacity = request.capacity?.trim();
   const sellingPoints = request.sellingPoints
     ?.map((point) => point.trim())
@@ -153,6 +161,11 @@ function buildStructuredParameterLines(request: ImageTaskRequest) {
     lines.push(`色块排版要求是 ${colorBlockLayout}。`);
   }
 
+  if (request.feature === 'sticker_variation' && stickerVariationDirection) {
+    lines.push(`贴纸裂变方向是${stickerVariationDirection.label}。`);
+    lines.push(stickerVariationDirection.prompt);
+  }
+
   if (logoText) {
     lines.push(`Logo 文案是 ${logoText}。`);
   }
@@ -182,6 +195,10 @@ function buildStructuredParameterLines(request: ImageTaskRequest) {
 
 function hasSeparateLogoImage(request: ImageTaskRequest) {
   return request.images?.some((image) => image.role === 'logo' || image.role === 'reference') ?? false;
+}
+
+function hasStickerReplicaLogoGuidance(text: string) {
+  return text.includes('Logo 图') && text.includes('品牌标识') && text.includes('版式');
 }
 
 function stripLegacyRemoveProductFragments(instruction: string) {

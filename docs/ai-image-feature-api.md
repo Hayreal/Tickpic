@@ -178,7 +178,7 @@ type ImageTaskResult = {
 
 | 功能 | feature | 主提示词 | 图片角色 | 可选参数 | 执行模型 |
 |---|---|---|---|---|---|
-| 贴纸复刻 | `sticker_replica` | 提取产品或包装图上可见的贴纸，输出独立 2D 平面贴纸。重点是把产品上的贴纸拿出来，不重新设计、不输出产品或包装 mockup。 | `source`、`reference` | `prompt`、`regions`、`productName`、`logoText`、`colorScheme`、`aspectRatio` | edit |
+| 贴纸复刻 | `sticker_replica` | 从当前产品图中提取产品表面的贴纸/标签，展开为正视角 2D 平面贴纸图。侧拍、斜拍、弧面或可见包装侧面必须去透视并拉平成连续平面展开稿；只输出贴纸本身，不输出产品容器或背景。 | `source`、`reference` | `prompt`、`regions`、`productName`、`logoText`、`colorScheme`、`aspectRatio` | edit |
 | 贴纸裂变 | `sticker_variation` | 参考当前贴纸的品类氛围，生成同品类感的新款 2D 平面贴纸。源图只作为氛围参考，版式需要明显不同，不能只是替换文字、图标、花色或局部配色。 | `source`、`reference` | `prompt`、`colorScheme`、`aspectRatio`、`count` | edit |
 | 贴纸原创 | `sticker_original` | 设计一张适合当前产品的原创 2D 平面贴纸初稿，可贴到包装上。文字可以出现，但需要控制排版层级和字号比例：产品名可突出，但不能占满画面；辅助文案保持较小，给图标、插画、色块和版式留出足够空间。 | `reference`、`style` | `prompt`、`productName`、`productCategory`、`sellingPoints`、`capacity`、`colorScheme`、`aspectRatio` | generation |
 | 去除产品 | `remove_product` | 在原图基础上仅局部去除目标产品并补全该产品遮挡的像素。源图是固定底图，非目标区域必须与原图完全一致；不要换背景、不要修饰无关区域、不要裁切或重新生成场景。 | `source` | `prompt`、`regions` | edit |
