@@ -158,7 +158,7 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
   const [themeColorScheme, setThemeColorScheme] = useState('');
   const [themeAspectRatio, setThemeAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
   const [themeShowProduct, setThemeShowProduct] = useState(false);
-  const [themeCount, setThemeCount] = useState<number>(4);
+  const [themeCount, setThemeCount] = useState<number>(1);
 
   // TAB 5: SCENE VARIATION state
   const [sceneVariationBatch, setSceneVariationBatch] = useState<ImportBatch | null>(null);
@@ -178,7 +178,7 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
   const [sceneShowProduct, setSceneShowProduct] = useState(true);
   const [sceneAspectRatio, setSceneAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
   const [sceneRefBatch, setSceneRefBatch] = useState<ImportBatch | null>(null);
-  const [sceneCount, setSceneCount] = useState<number>(4);
+  const [sceneCount, setSceneCount] = useState<number>(1);
 
   // TAB 7: PROMPT-ONLY MAIN ASSET state
   const [promptAssetBatch, setPromptAssetBatch] = useState<ImportBatch | null>(null);
@@ -187,7 +187,7 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
   const [promptAssetSellingPoints, setPromptAssetSellingPoints] = useState('');
   const [promptAssetColorScheme, setPromptAssetColorScheme] = useState('');
   const [promptAssetAspectRatio, setPromptAssetAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
-  const [promptAssetCount, setPromptAssetCount] = useState<number>(4);
+  const [promptAssetCount, setPromptAssetCount] = useState<number>(1);
 
   useEffect(() => {
     if (!restoredTask?.request?.feature) {

@@ -72,6 +72,7 @@ export interface ImageTaskRequest {
   /** When set, multiple tasks from one UI batch share the same output folder. */
   outputBatchId?: string;
   aspectRatio?: string;
+  productRatio?: string;
   showProduct?: boolean;
   modelOverrides?: {
     vision?: string;

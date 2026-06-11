@@ -5,6 +5,10 @@ import {
 } from '../../../../src/shared/domain/imageFeatureApi.js';
 import { appendEnglishOnlyVisibleTextRule } from '../../../../src/shared/domain/imageOutputRules.js';
 import { getStickerVariationDirection } from '../../../../src/shared/domain/stickerPrompts.js';
+import {
+  resolveStickerProductRatio,
+  stickerProductRatioLabel,
+} from '../../../../src/shared/view/stickerProductRatioOptions.js';
 interface ExecutionPromptAssemblyInput {
   task: { feature: ImageFeature; request: ImageTaskRequest };
   plan: { mainPrompt: string };
@@ -174,6 +178,11 @@ function buildStructuredParameterLines(request: ImageTaskRequest) {
     lines.push(request.images?.some((image) => image.role === 'source')
       ? `整体保留原图的 ${colorScheme} 风格。`
       : `配色方向是 ${colorScheme}。`);
+  }
+
+  const productRatio = resolveStickerProductRatio(request.productRatio);
+  if (productRatio) {
+    lines.push(`输出的产品包装图长宽比是 ${productRatio}（${stickerProductRatioLabel(productRatio)}）。`);
   }
 
   if (typeof request.showProduct === 'boolean') {

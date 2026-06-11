@@ -98,7 +98,7 @@ export function applyProductRestore(task: TaskRecord): ProductRestoreState | nul
     themeColorScheme: '',
     themeAspectRatio: 'auto',
     themeShowProduct: false,
-    themeCount: 4,
+    themeCount: 1,
     sceneVariationBatch: null,
     sceneVariationPrompt: '',
     sceneVariationCategory: '',
@@ -114,14 +114,14 @@ export function applyProductRestore(task: TaskRecord): ProductRestoreState | nul
     sceneShowProduct: true,
     sceneAspectRatio: 'auto',
     sceneRefBatch: null,
-    sceneCount: 4,
+    sceneCount: 1,
     promptAssetBatch: null,
     promptAssetPrompt: '',
     promptAssetProductName: '',
     promptAssetSellingPoints: '',
     promptAssetColorScheme: '',
     promptAssetAspectRatio: 'auto',
-    promptAssetCount: 4,
+    promptAssetCount: 1,
   };
 
   switch (request.feature) {
@@ -165,7 +165,7 @@ export function applyProductRestore(task: TaskRecord): ProductRestoreState | nul
         themeColorScheme: request.colorScheme ?? '',
         themeAspectRatio: aspectRatioFrom(request.aspectRatio),
         themeShowProduct: request.showProduct ?? false,
-        themeCount: request.count ?? 4,
+        themeCount: request.count ?? 1,
       };
     case 'scene_variation':
       return {
@@ -191,7 +191,7 @@ export function applyProductRestore(task: TaskRecord): ProductRestoreState | nul
         sceneShowProduct: request.showProduct ?? true,
         sceneAspectRatio: aspectRatioFrom(request.aspectRatio),
         sceneRefBatch: batchFromRole(request, 'style', 'product', 'create_new_scene'),
-        sceneCount: request.count ?? 4,
+        sceneCount: request.count ?? 1,
       };
     case 'prompt_only_main_asset':
       return {
@@ -216,7 +216,7 @@ export function applyProductRestore(task: TaskRecord): ProductRestoreState | nul
         promptAssetSellingPoints: request.sellingPoints?.join(', ') ?? '',
         promptAssetColorScheme: request.colorScheme ?? '',
         promptAssetAspectRatio: aspectRatioFrom(request.aspectRatio),
-        promptAssetCount: request.count ?? 4,
+        promptAssetCount: request.count ?? 1,
       };
     default:
       return null;

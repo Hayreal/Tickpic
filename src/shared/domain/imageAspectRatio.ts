@@ -1,5 +1,10 @@
 export type ImageAspectOrientation = 'square' | 'landscape' | 'portrait';
-export type OpenAIImageSize = '1024x1024' | '1536x1024' | '1024x1536' | 'auto';
+export type OpenAIImageSize =
+  | '1024x1024'
+  | '1536x1024'
+  | '1024x1536'
+  | 'auto'
+  | `${number}x${number}`;
 
 export interface NormalizedImageAspectRatio {
   aspectRatio: string;

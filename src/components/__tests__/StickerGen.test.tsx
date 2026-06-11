@@ -132,7 +132,7 @@ describe('StickerGen', () => {
       expect(submitMany).toHaveBeenCalled();
     });
     const requests = submitMany.mock.calls[0][0] as ImageTaskRequest[];
-    expect(requests).toHaveLength(4);
+    expect(requests).toHaveLength(1);
     expect(requests[0]).toMatchObject({
       feature: 'sticker_original',
       brand: 'wuku',
@@ -162,7 +162,7 @@ describe('StickerGen', () => {
       expect(submitMany).toHaveBeenCalled();
     });
     const requests = submitMany.mock.calls[0][0] as ImageTaskRequest[];
-    expect(requests).toHaveLength(4);
+    expect(requests).toHaveLength(1);
     expect(requests[0]).toMatchObject({
       feature: 'sticker_variation',
       stickerVariationDirection: 'color',
@@ -220,7 +220,7 @@ function createStickerVariationTask() {
     request: {
       feature: 'sticker_variation' as const,
       images: [{ role: 'source' as const, path: '/authorized/input/sticker.png' }],
-      count: 4,
+      count: 1,
     },
     createdAt: '2026-06-10T00:00:00.000Z',
     updatedAt: '2026-06-10T00:00:00.000Z',

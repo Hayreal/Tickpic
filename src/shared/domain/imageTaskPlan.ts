@@ -7,6 +7,10 @@ import type {
 import type { OpenAIImageSize } from './imageAspectRatio.js';
 import { normalizeImageAspectRatio } from './imageAspectRatio.js';
 import {
+  resolveStickerProductRatio,
+  resolveStickerProductRatioOpenAISize,
+} from '../view/stickerProductRatioOptions.js';
+import {
   getExecutionImageRoles,
   getImageFeatureDefinition,
   validateImageTaskRequest,
@@ -49,7 +53,11 @@ export function buildImageTaskPlan(
     throw new Error('generation model is not configured in settings');
   }
   const count = validated.count ?? config.defaultCount;
-  const normalizedAspectRatio = normalizeImageAspectRatio(validated.aspectRatio);
+  const effectiveAspectRatio = resolveEffectiveAspectRatio(validated);
+  const normalizedAspectRatio = effectiveAspectRatio
+    ? normalizeImageAspectRatio(effectiveAspectRatio)
+    : undefined;
+  const openaiImageSize = resolveOpenAIImageSize(validated, normalizedAspectRatio);
 
   if (!Number.isInteger(count) || count <= 0) {
     throw new Error('count must be a positive integer');
@@ -68,9 +76,49 @@ export function buildImageTaskPlan(
     },
     executionImages: selectExecutionImages(validated),
     outputAspectRatio: normalizedAspectRatio?.aspectRatio,
-    openaiImageSize: normalizedAspectRatio?.openaiSize,
+    openaiImageSize,
     count,
   };
+}
+
+function resolveEffectiveAspectRatio(request: ImageTaskRequest): string | undefined {
+  const aspectRatio = request.aspectRatio?.trim();
+  const productRatio = resolveStickerProductRatio(request.productRatio);
+
+  if (aspectRatio && aspectRatio.toLowerCase() !== 'auto') {
+    return aspectRatio;
+  }
+  if (productRatio) {
+    return productRatio;
+  }
+  if (aspectRatio?.toLowerCase() === 'auto') {
+    return 'auto';
+  }
+  return undefined;
+}
+
+function resolveOpenAIImageSize(
+  request: ImageTaskRequest,
+  normalized?: ReturnType<typeof normalizeImageAspectRatio>,
+): OpenAIImageSize | undefined {
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (normalized.aspectRatio === 'auto') {
+    return 'auto';
+  }
+
+  const aspectRatio = request.aspectRatio?.trim();
+  const hasExplicitAspectRatio = Boolean(
+    aspectRatio && aspectRatio.toLowerCase() !== 'auto',
+  );
+  const productRatioSize = resolveStickerProductRatioOpenAISize(request.productRatio);
+  if (productRatioSize && !hasExplicitAspectRatio) {
+    return productRatioSize as OpenAIImageSize;
+  }
+
+  return normalized.openaiSize;
 }
 
 function resolveExecutionModel(

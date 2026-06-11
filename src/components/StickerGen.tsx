@@ -21,8 +21,10 @@ import {
 } from '../lib/regionSelection';
 import GenerationResult from './GenerationResult';
 import AspectRatioSelect, { DEFAULT_IMAGE_ASPECT_RATIO } from './AspectRatioSelect';
-import ImageCountSelector from './ImageCountSelector';
+import ImageCountSelector, { DEFAULT_IMAGE_COUNT } from './ImageCountSelector';
+import StickerProductRatioSelect from './StickerProductRatioSelect';
 import type { ImageAspectRatioValue } from '../shared/view/imageAspectRatioOptions';
+import type { StickerProductRatioSelection } from '../shared/view/stickerProductRatioOptions';
 import type { TaskRecord } from '../shared/domain/tasks';
 import { getFeatureRoute } from '../shared/view/featureRoutes';
 import { applyStickerRestore } from '../features/tasks/applyStickerRestore';
@@ -217,8 +219,10 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
 
   // STICKER COPY (Tab 1) state
   const [copyBatch, setCopyBatch] = useState<ImportBatch | null>(null);
-  const [copyCount, setCopyCount] = useState<number>(1);
-  
+  const [copyCount, setCopyCount] = useState<number>(DEFAULT_IMAGE_COUNT);
+  const [copyAspectRatio, setCopyAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
+  const [copyProductRatio, setCopyProductRatio] = useState<StickerProductRatioSelection>('');
+
   // Copy Tab - New State
   const [copyLogo, setCopyLogo] = useState<ImportBatch | null>(null);
   const [copyBrand, setCopyBrand] = useState('');
@@ -236,7 +240,9 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
   // STICKER VARIATION (Tab 2) state
   const [variationBatch, setVariationBatch] = useState<ImportBatch | null>(null);
   const [variationPrompt, setVariationPrompt] = useState('');
-  const [variationCount, setVariationCount] = useState<number>(4);
+  const [variationCount, setVariationCount] = useState<number>(DEFAULT_IMAGE_COUNT);
+  const [variationAspectRatio, setVariationAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
+  const [variationProductRatio, setVariationProductRatio] = useState<StickerProductRatioSelection>('');
   const [variationDirection, setVariationDirection] = useState<StickerVariationDirectionSelection>('');
 
   // Variation Tab - New State
@@ -251,8 +257,9 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
 
   // STICKER ORIGINAL (Tab 3) state
   const [originalBatch, setOriginalBatch] = useState<ImportBatch | null>(null);
-  const [originalCount, setOriginalCount] = useState<number>(4);
+  const [originalCount, setOriginalCount] = useState<number>(DEFAULT_IMAGE_COUNT);
   const [originalAspectRatio, setOriginalAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
+  const [originalProductRatio, setOriginalProductRatio] = useState<StickerProductRatioSelection>('');
   
   // Original Tab - New Structured State
   const [originalCategory, setOriginalCategory] = useState('');
@@ -295,6 +302,8 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
     setCopyColorScheme(restored.copyColorScheme);
     setCopyRegions(restored.copyRegions);
     setCopyCount(restored.copyCount);
+    setCopyAspectRatio(restored.copyAspectRatio);
+    setCopyProductRatio(restored.copyProductRatio);
     setVariationBatch(restored.variationBatch);
     setVariationBrand(restored.variationBrand);
     setVariationProductName(restored.variationProductName);
@@ -305,11 +314,14 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
     setVariationColorBlockLayout(restored.variationColorBlockLayout);
     setVariationPrompt(restored.variationPrompt);
     setVariationCount(restored.variationCount);
+    setVariationAspectRatio(restored.variationAspectRatio);
+    setVariationProductRatio(restored.variationProductRatio);
     setVariationColorScheme(restored.variationColorScheme);
     setVariationDirection(restored.variationDirection);
     setOriginalBatch(restored.originalBatch);
     setOriginalCount(restored.originalCount);
     setOriginalAspectRatio(restored.originalAspectRatio);
+    setOriginalProductRatio(restored.originalProductRatio);
     setOriginalCategory(restored.originalCategory);
     setOriginalBrand(restored.originalBrand);
     setOriginalProductName(restored.originalProductName);
@@ -392,7 +404,8 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
             prompt: copyPrompt || undefined,
             logoText: copyLogoText || undefined,
             colorScheme: copyColorScheme || undefined,
-            aspectRatio: 'auto',
+            aspectRatio: copyAspectRatio,
+            productRatio: copyProductRatio || undefined,
             regions: regionsFromMap(copyRegions, source.filePath),
           });
         }
@@ -414,7 +427,8 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
             colorScheme: variationColorScheme || undefined,
             stickerVariationDirection: variationDirection || undefined,
             prompt: variationPrompt || undefined,
-            aspectRatio: 'auto',
+            aspectRatio: variationAspectRatio,
+            productRatio: variationProductRatio || undefined,
           });
         }
       }
@@ -436,6 +450,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
           colorBlockLayout: originalColorBlockLayout || undefined,
           colorScheme: originalColorScheme || undefined,
           aspectRatio: originalAspectRatio,
+          productRatio: originalProductRatio || undefined,
         });
       }
     }
@@ -537,11 +552,24 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
                   </>
                 )}
                 basic={(
-                  <ImageCountSelector
-                    id="copy-count-selector"
-                    value={copyCount}
-                    onChange={setCopyCount}
-                  />
+                  <>
+                    <AspectRatioSelect
+                      id="copy-aspect-ratio-select"
+                      value={copyAspectRatio}
+                      onChange={setCopyAspectRatio}
+                      label="图片比例"
+                    />
+                    <StickerProductRatioSelect
+                      id="copy-product-ratio-select"
+                      value={copyProductRatio}
+                      onChange={setCopyProductRatio}
+                    />
+                    <ImageCountSelector
+                      id="copy-count-selector"
+                      value={copyCount}
+                      onChange={setCopyCount}
+                    />
+                  </>
                 )}
                 advanced={(
                   <>
@@ -607,6 +635,17 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
                       value={variationDirection}
                       onChange={setVariationDirection}
                     />
+                    <AspectRatioSelect
+                      id="variation-aspect-ratio-select"
+                      value={variationAspectRatio}
+                      onChange={setVariationAspectRatio}
+                      label="图片比例"
+                    />
+                    <StickerProductRatioSelect
+                      id="variation-product-ratio-select"
+                      value={variationProductRatio}
+                      onChange={setVariationProductRatio}
+                    />
                     <ImageCountSelector
                       id="variation-count-selector"
                       value={variationCount}
@@ -670,6 +709,11 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
                       value={originalAspectRatio}
                       onChange={setOriginalAspectRatio}
                       label="图片比例"
+                    />
+                    <StickerProductRatioSelect
+                      id="original-product-ratio-select"
+                      value={originalProductRatio}
+                      onChange={setOriginalProductRatio}
                     />
                     <ImageCountSelector
                       id="original-count-selector"

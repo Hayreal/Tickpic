@@ -25,7 +25,7 @@ export default function ImageCountSelector({
       <label className="ui-label" htmlFor={id}>
         {label}
       </label>
-      <div className="grid grid-cols-3 gap-2" id={id}>
+      <div className="grid grid-cols-2 gap-2" id={id}>
         {IMAGE_COUNT_OPTIONS.map((num) => (
           <button
             key={num}

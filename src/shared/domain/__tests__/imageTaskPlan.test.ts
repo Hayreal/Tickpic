@@ -86,6 +86,38 @@ describe('imageTaskPlan', () => {
     expect(plan.openaiImageSize).toBe('auto');
   });
 
+  it('maps sticker product ratio to precise OpenAI size when image aspect ratio is auto', () => {
+    const jarPlan = buildImageTaskPlan({
+      feature: 'sticker_replica',
+      aspectRatio: 'auto',
+      productRatio: '21:5',
+      images: [{ role: 'source', path: '/authorized/input/package.png' }],
+    }, config);
+    const tallJarPlan = buildImageTaskPlan({
+      feature: 'sticker_replica',
+      aspectRatio: 'auto',
+      productRatio: '21:10',
+      images: [{ role: 'source', path: '/authorized/input/package.png' }],
+    }, config);
+
+    expect(jarPlan.outputAspectRatio).toBe('21:5');
+    expect(jarPlan.openaiImageSize).toBe('2688x640');
+    expect(tallJarPlan.outputAspectRatio).toBe('21:10');
+    expect(tallJarPlan.openaiImageSize).toBe('2016x960');
+  });
+
+  it('keeps explicit image aspect ratio ahead of product ratio', () => {
+    const plan = buildImageTaskPlan({
+      feature: 'sticker_original',
+      aspectRatio: '1:1',
+      productRatio: '21:10',
+      productCategory: 'cleaning sheets',
+    }, config);
+
+    expect(plan.outputAspectRatio).toBe('1:1');
+    expect(plan.openaiImageSize).toBe('1024x1024');
+  });
+
   it('rejects tasks when the settings generation model is not configured', () => {
     expect(() => buildImageTaskPlan({
       feature: 'sticker_original',
