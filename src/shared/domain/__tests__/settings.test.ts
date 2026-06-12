@@ -20,7 +20,7 @@ describe('settings domain', () => {
         vision: '',
       },
       defaultCount: 1,
-      maxCount: 4,
+      maxCount: 2,
       maxConcurrentTasks: 5,
     });
   });

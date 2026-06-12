@@ -1,5 +1,6 @@
 import type { ImageModelProtocol } from './imageFeatureApi.js';
 import type { ImageTaskRuntimeConfig } from './imageTaskPlan.js';
+import { MAX_IMAGE_COUNT } from '../view/imageCountOptions.js';
 
 export const KEEP_EXISTING_API_KEY = '__KEEP_EXISTING__' as const;
 
@@ -39,7 +40,7 @@ export function createDefaultAppSettings(workspaceDir: string): AppSettings {
       vision: '',
     },
     defaultCount: 1,
-    maxCount: 4,
+    maxCount: MAX_IMAGE_COUNT,
     maxConcurrentTasks: 5,
   };
 }
