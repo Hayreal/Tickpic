@@ -311,6 +311,40 @@ describe('instructionPrompt', () => {
     expect(finalized.match(/make a clearly different layout/g)).toHaveLength(1);
   });
 
+  it('does not duplicate main image asset variation guardrail when prompt already requires meaningful redesign', () => {
+    const mainPrompt = '基于输入图生成跨境电商主图。若输入已是主图/场景图，则生成明显不同的场景、标题排版或主视觉构图。';
+    const finalized = finalizeImageInstruction(
+      'main_image_asset_variation',
+      mainPrompt,
+      {
+        feature: 'main_image_asset_variation',
+        images: [{ role: 'source', path: '/tmp/main.png' }],
+      },
+    );
+
+    expect(finalized).toBe(mainPrompt);
+    expect(finalized).not.toContain('clearly different scene');
+  });
+
+  it('builds main image asset variation prompt with selling points and showProduct', () => {
+    const mainPrompt = '基于输入图生成跨境电商主图。若输入是白底/孤立产品图，保留原产品外观、品牌、标签和关键文字，并补充生活方式场景、英文标题、卖点卡片、图标与商业光影。';
+    const text = buildExecutionPrompt(
+      {
+        feature: 'main_image_asset_variation',
+        prompt: '鞋子除味喷雾，生成一套全英文电商主图',
+        sellingPoints: ['Easy to pack', 'Fresh scent'],
+        showProduct: true,
+        images: [{ role: 'source', path: '/tmp/product.png' }],
+      },
+      mainPrompt,
+    );
+
+    expect(text).toContain('鞋子除味喷雾，生成一套全英文电商主图');
+    expect(text).toContain('卖点包括 Easy to pack、Fresh scent');
+    expect(text).toContain('需要展示产品');
+    expect(text).toContain('必须为英文');
+  });
+
   it('rewrites create wording into edit wording for sticker replica execution', () => {
     const finalized = finalizeImageInstruction(
       'sticker_replica',

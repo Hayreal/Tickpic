@@ -164,7 +164,7 @@ export function applyProductRestore(task: TaskRecord): ProductRestoreState | nul
         themeSellingPoints: request.sellingPoints?.join(', ') ?? '',
         themeColorScheme: request.colorScheme ?? '',
         themeAspectRatio: aspectRatioFrom(request.aspectRatio),
-        themeShowProduct: request.showProduct ?? false,
+        themeShowProduct: request.showProduct ?? true,
         themeCount: request.count ?? 1,
       };
     case 'scene_variation':

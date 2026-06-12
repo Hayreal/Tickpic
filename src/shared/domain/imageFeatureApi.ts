@@ -177,12 +177,12 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   main_image_asset_variation: {
     feature: 'main_image_asset_variation',
-    mainPrompt: '生成主图素材变体，支持风格/构图/Before-After，默认无具体产品。',
+    mainPrompt: '基于输入图生成跨境电商主图。若输入是白底/孤立产品图，保留原产品外观、品牌、标签和关键文字，并补充生活方式场景、英文标题、卖点卡片、图标与商业光影；若输入已是主图/场景图，则生成明显不同的场景、标题排版或主视觉构图。画面高清干净，适合商品主图/广告素材。',
     acceptedImageRoles: ['source', 'reference'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',
     executionImageRoles: ['source', 'reference'],
-    defaultShowProduct: false,
+    defaultShowProduct: true,
   },
   scene_variation: {
     feature: 'scene_variation',

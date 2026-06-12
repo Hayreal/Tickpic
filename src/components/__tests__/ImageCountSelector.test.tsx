@@ -18,11 +18,14 @@ describe('ImageCountSelector', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: '1 张' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '2 张' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '4 张' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '生成数量 1 张' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '2 张' }));
+    fireEvent.click(screen.getByRole('button', { name: '生成数量 1 张' }));
+    expect(screen.getByRole('option', { name: '1 张' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '2 张' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: '4 张' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('option', { name: '2 张' }));
     expect(onChange).toHaveBeenCalledWith(2);
   });
 });

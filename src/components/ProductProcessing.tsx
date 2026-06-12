@@ -157,7 +157,7 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
   const [themeSellingPoints, setThemeSellingPoints] = useState('');
   const [themeColorScheme, setThemeColorScheme] = useState('');
   const [themeAspectRatio, setThemeAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
-  const [themeShowProduct, setThemeShowProduct] = useState(false);
+  const [themeShowProduct, setThemeShowProduct] = useState(true);
   const [themeCount, setThemeCount] = useState<number>(1);
 
   // TAB 5: SCENE VARIATION state
@@ -712,7 +712,7 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
                     onBatchChange={setThemeRefBatch}
                     page="product"
                     feature="themeRef"
-                    label="主题/场景参考图"
+                    label="产品/主图参考图"
                   />
                 )}
                 basic={(
@@ -737,7 +737,7 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
                       <textarea
                         value={themePrompt}
                         onChange={(e) => setThemePrompt(e.target.value)}
-                        placeholder="例如：做 Before/After 对比，突出去污效果"
+                        placeholder="例如：鞋子除味喷雾，生成一套全英文电商主图，强调清新除味"
                         className="ui-textarea h-16 text-xs"
                       />
                     </div>
@@ -747,7 +747,7 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
                         type="text"
                         value={themeSellingPoints}
                         onChange={(e) => setThemeSellingPoints(e.target.value)}
-                        placeholder="例如：去污效果，可用逗号分隔"
+                        placeholder="例如：Easy to pack, Fresh scent, Ready when needed"
                         className="ui-input-compact"
                       />
                     </div>

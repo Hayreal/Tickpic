@@ -5,6 +5,9 @@ import { cn } from '@/src/lib/utils';
 /** 折叠面板内表单项网格（随页面宽度自适应列数） */
 export const FEATURE_PANEL_GRID = 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
 
+/** 基础参数面板内三列网格 */
+export const BASIC_PANEL_GRID = 'grid gap-3 sm:grid-cols-3';
+
 /** 参考图面板内字段占满整行（避免被多列网格挤窄） */
 export const REFERENCE_FIELD_SPAN = 'col-span-full w-full min-w-0';
 
@@ -84,7 +87,7 @@ export default function FeatureParameterPanels({
           description="图片比例与生成数量"
           defaultOpen
         >
-          <div className="grid gap-3 sm:grid-cols-2">{basic}</div>
+          <div className={BASIC_PANEL_GRID}>{basic}</div>
         </CollapsiblePanel>
       ) : null}
 

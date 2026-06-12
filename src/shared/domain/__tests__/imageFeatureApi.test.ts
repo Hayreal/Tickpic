@@ -111,4 +111,14 @@ describe('image feature API contract', () => {
     expect(definition.mainPrompt).toContain('表面状态');
     expect(definition.mainPrompt).toContain('不顺带清洁');
   });
+
+  it('defines main image asset variation with concise dual-input e-commerce prompt', () => {
+    const definition = getImageFeatureDefinition('main_image_asset_variation');
+
+    expect(definition.defaultShowProduct).toBe(true);
+    expect(definition.mainPrompt).toContain('基于输入图生成跨境电商主图');
+    expect(definition.mainPrompt).toContain('白底/孤立产品图');
+    expect(definition.mainPrompt).toContain('生活方式场景、英文标题、卖点卡片');
+    expect(definition.mainPrompt).toContain('明显不同的场景、标题排版或主视觉构图');
+  });
 });

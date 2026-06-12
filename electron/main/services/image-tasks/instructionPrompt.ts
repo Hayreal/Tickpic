@@ -51,6 +51,12 @@ const STICKER_VARIATION_REDESIGN_SUFFIX =
 const STICKER_VARIATION_REDESIGN_PATTERN =
   /clearly different layout|not a small (?:text|icon|suit|color) swap/i;
 
+const MAIN_IMAGE_ASSET_VARIATION_REDESIGN_SUFFIX =
+  'use a clearly different scene, headline layout, or hero composition from the source; not a minor color tweak, crop, or collage';
+
+const MAIN_IMAGE_ASSET_VARIATION_REDESIGN_PATTERN =
+  /明显不同|clearly different scene|not a minor color tweak|collage/i;
+
 const IMAGE_GENERATION_MODEL_PATTERN = /gpt-image|flash-image|dall-?e/i;
 
 export function isImageGenerationModel(modelId: string) {
@@ -309,6 +315,15 @@ function finalizeStickerVariationInstruction(instruction: string) {
   return `${core}; ${STICKER_VARIATION_REDESIGN_SUFFIX}.`;
 }
 
+function finalizeMainImageAssetVariationInstruction(instruction: string) {
+  const trimmed = instruction.trim();
+  if (MAIN_IMAGE_ASSET_VARIATION_REDESIGN_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
+  const core = trimmed.replace(/\s*\.?\s*$/, '').trim();
+  return `${core}; ${MAIN_IMAGE_ASSET_VARIATION_REDESIGN_SUFFIX}.`;
+}
+
 export function finalizeImageInstruction(
   feature: ImageFeature,
   instruction: string,
@@ -324,6 +339,10 @@ export function finalizeImageInstruction(
 
   if (feature === 'sticker_variation') {
     return finalizeStickerVariationInstruction(normalized);
+  }
+
+  if (feature === 'main_image_asset_variation') {
+    return finalizeMainImageAssetVariationInstruction(normalized);
   }
 
   if (feature === 'remove_product') {
