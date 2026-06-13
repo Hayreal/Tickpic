@@ -161,7 +161,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   replace_product: {
     feature: 'replace_product',
-    mainPrompt: '用目标产品替换场景原产品，保持姿势、透视、比例与光影自然。',
+    mainPrompt: '用目标产品替换场景原产品，保持姿势、透视、比例与光影自然。产品的品牌，产品名称，容量，色系，风格，排版等细节要严格一致，不要有任何的差异。',
     acceptedImageRoles: ['source', 'product'],
     requiredImageRoles: ['source', 'product'],
     executionModel: 'edit',
