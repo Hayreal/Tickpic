@@ -9,5 +9,6 @@ export function getStoragePaths(userDataDir: string) {
     tasksDir: path.join(storageBase, 'tasks'),
     tasksFile: path.join(storageBase, 'tasks', 'tasks.json'),
     settingsFile: path.join(storageBase, 'settings', 'settings.json'),
+    activationFile: path.join(userDataDir, 'activation.json'),
   };
 }
