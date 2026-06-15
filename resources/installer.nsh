@@ -44,8 +44,17 @@ Function ActivationPageLeave
   FileWrite $2 $0
   FileClose $2
 
+  StrCpy $R2 "$PLUGINSDIR\hash.ps1"
+  FileOpen $2 $R2 w
+  FileWrite $2 "$$inputPath = $$args[0]$\r$\n"
+  FileWrite $2 "$$outputPath = $$args[1]$\r$\n"
+  FileWrite $2 "$$code = [IO.File]::ReadAllText($$inputPath).Trim()$\r$\n"
+  FileWrite $2 "$$hash = [BitConverter]::ToString([Security.Cryptography.MD5]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($$code))).Replace('-', '').ToLower()$\r$\n"
+  FileWrite $2 "[IO.File]::WriteAllText($$outputPath, $$hash)$\r$\n"
+  FileClose $2
+
   ClearErrors
-  ExecWait 'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$t=[IO.File]::ReadAllText(''$R0'').Trim();$h=[BitConverter]::ToString([Security.Cryptography.MD5]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($t))).Replace(''-'','''').ToLower();[IO.File]::WriteAllText(''$R1'',$h)"' $2
+  ExecWait 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$R2" "$R0" "$R1"' $2
   ${If} ${Errors}
     MessageBox MB_ICONSTOP|MB_OK "激活码校验失败，请重试。"
     Abort
