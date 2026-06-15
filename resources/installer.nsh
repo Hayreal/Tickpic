@@ -4,6 +4,8 @@
 ; MD5("potato20tic26")
 !define EXPECTED_ACTIVATION_MD5 "24c8325b6edd4e97dc57f95df92fd5b3"
 
+!ifndef BUILD_UNINSTALLER
+
 Var ActivationDialog
 Var ActivationCodeInput
 
@@ -80,3 +82,5 @@ Function ActivationPageLeave
     Abort
   ${EndIf}
 FunctionEnd
+
+!endif
