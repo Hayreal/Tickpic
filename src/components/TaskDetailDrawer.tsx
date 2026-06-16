@@ -60,6 +60,7 @@ function buildRequestParams(request: ImageTaskRequest) {
   const modelOverrides = request.modelOverrides;
   const modelSummary = modelOverrides
     ? [
+        modelOverrides.protocol ? `协议: ${modelOverrides.protocol}` : null,
         modelOverrides.vision ? `理解: ${modelOverrides.vision}` : null,
         modelOverrides.generation ? `生成: ${modelOverrides.generation}` : null,
         modelOverrides.edit ? `编辑: ${modelOverrides.edit}` : null,

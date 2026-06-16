@@ -78,6 +78,7 @@ export interface ImageTaskRequest {
     vision?: string;
     generation?: string;
     edit?: string;
+    protocol?: ImageModelProtocol;
   };
 }
 

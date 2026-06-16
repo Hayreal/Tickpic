@@ -72,7 +72,7 @@ export function buildImageTaskPlan(
     executionStage: {
       kind: definition.executionModel,
       model: executionModel,
-      protocol: config.modelProtocol,
+      protocol: resolveExecutionProtocol(executionModel, validated, config),
     },
     executionImages: selectExecutionImages(validated),
     outputAspectRatio: normalizedAspectRatio?.aspectRatio,
@@ -131,6 +131,23 @@ function resolveExecutionModel(
   }
 
   return request.modelOverrides?.edit ?? config.defaultModels.generation;
+}
+
+function resolveExecutionProtocol(
+  model: string,
+  request: ImageTaskRequest,
+  config: ImageTaskRuntimeConfig,
+): ImageModelProtocol {
+  const override = request.modelOverrides?.protocol;
+  if (override === 'openai' || override === 'gemini') {
+    return override;
+  }
+
+  if (model.toLowerCase().includes('gemini')) {
+    return 'gemini';
+  }
+
+  return config.modelProtocol;
 }
 
 function selectExecutionImages(request: ImageTaskRequest) {

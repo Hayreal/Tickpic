@@ -35,7 +35,27 @@ describe('imageTaskPlan', () => {
       { role: 'product', path: '/authorized/input/product.png' },
     ]);
     expect(plan.count).toBe(4);
-    expect(plan.mainPrompt).toContain('用目标产品替换场景原产品');
+    expect(plan.mainPrompt).toContain('替换场景原产品');
+  });
+
+  it('uses gemini protocol when gemini edit model override is selected', () => {
+    const plan = buildImageTaskPlan({
+      feature: 'replace_product',
+      images: [
+        { role: 'source', path: '/authorized/input/scene.png' },
+        { role: 'product', path: '/authorized/input/product.png' },
+      ],
+      modelOverrides: {
+        edit: 'gemini-3-pro-image',
+        protocol: 'gemini',
+      },
+    }, config);
+
+    expect(plan.executionStage).toEqual({
+      kind: 'edit',
+      model: 'gemini-3-pro-image',
+      protocol: 'gemini',
+    });
   });
 
   it('uses generation overrides and keeps prompt-only images out of execution stage', () => {

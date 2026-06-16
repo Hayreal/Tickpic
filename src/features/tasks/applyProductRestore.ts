@@ -4,6 +4,8 @@ import { regionMapFromTask } from '../../lib/regionSelection';
 import type { ImportBatch } from '../../shared/domain/images';
 import type { TaskRecord } from '../../shared/domain/tasks';
 import type { ProductSubTab } from '../../shared/view/ui';
+import { replaceProductModelFromOverrides } from '../../shared/view/replaceProductModelOptions';
+import type { ReplaceProductModelSelection } from '../../shared/view/replaceProductModelOptions';
 import { createImportBatch, getImageByRole } from './taskRestoreHelpers';
 
 export interface ProductRestoreState {
@@ -17,6 +19,7 @@ export interface ProductRestoreState {
   replaceDesc: string;
   replaceRegions: RegionMap;
   replaceAspectRatio: ImageAspectRatioValue;
+  replaceModel: ReplaceProductModelSelection;
   logoSourceBatch: ImportBatch | null;
   logoTargetBatch: ImportBatch | null;
   logoDesc: string;
@@ -86,6 +89,7 @@ export function applyProductRestore(task: TaskRecord): ProductRestoreState | nul
     replaceDesc: '',
     replaceRegions: {},
     replaceAspectRatio: 'auto',
+    replaceModel: replaceProductModelFromOverrides(),
     logoSourceBatch: null,
     logoTargetBatch: null,
     logoDesc: '',
@@ -143,6 +147,7 @@ export function applyProductRestore(task: TaskRecord): ProductRestoreState | nul
         replaceDesc: request.prompt ?? '',
         replaceRegions: regionMapFromTask(task.imports, request.regions),
         replaceAspectRatio: aspectRatioFrom(request.aspectRatio),
+        replaceModel: replaceProductModelFromOverrides(request.modelOverrides),
       };
     case 'replace_logo':
       return {

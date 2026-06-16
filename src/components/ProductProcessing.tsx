@@ -17,6 +17,9 @@ import {
 import GenerationResult from './GenerationResult';
 import AspectRatioSelect, { DEFAULT_IMAGE_ASPECT_RATIO } from './AspectRatioSelect';
 import ImageCountSelector from './ImageCountSelector';
+import ReplaceProductModelSelect, { REPLACE_PRODUCT_MODEL_DEFAULT } from './ReplaceProductModelSelect';
+import { resolveReplaceProductModelOverrides } from '../shared/view/replaceProductModelOptions';
+import type { ReplaceProductModelSelection } from '../shared/view/replaceProductModelOptions';
 import type { ImageAspectRatioValue } from '../shared/view/imageAspectRatioOptions';
 import type { TaskRecord } from '../shared/domain/tasks';
 import { getFeatureRoute } from '../shared/view/featureRoutes';
@@ -142,6 +145,7 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
   const [replaceDesc, setReplaceDesc] = useState('');
   const [replaceRegions, setReplaceRegions] = useState<RegionMap>({});
   const [replaceAspectRatio, setReplaceAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
+  const [replaceModel, setReplaceModel] = useState<ReplaceProductModelSelection>(REPLACE_PRODUCT_MODEL_DEFAULT);
 
   // TAB 3: REPLACE LOGO state
   const [logoSourceBatch, setLogoSourceBatch] = useState<ImportBatch | null>(null);
@@ -214,6 +218,7 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
     setReplaceDesc(restored.replaceDesc);
     setReplaceRegions(restored.replaceRegions);
     setReplaceAspectRatio(restored.replaceAspectRatio);
+    setReplaceModel(restored.replaceModel);
     setLogoSourceBatch(restored.logoSourceBatch);
     setLogoTargetBatch(restored.logoTargetBatch);
     setLogoDesc(restored.logoDesc);
@@ -340,6 +345,7 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
       }
     } else if (type === 'replace' && replaceSceneBatch && replaceProductBatch) {
       const productPath = replaceProductBatch.images[0].filePath;
+      const modelOverrides = resolveReplaceProductModelOverrides(replaceModel);
       for (const scene of replaceSceneBatch.images) {
         requests.push({
           feature: FEATURE_MAP[type],
@@ -351,6 +357,7 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
           prompt: replaceDesc || undefined,
           regions: regionsFromMap(replaceRegions, scene.filePath),
           aspectRatio: replaceAspectRatio,
+          ...(modelOverrides ? { modelOverrides } : {}),
         });
       }
     } else if (type === 'logo' && logoSourceBatch && logoTargetBatch) {
@@ -609,12 +616,19 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
                   </>
                 )}
                 basic={(
-                  <AspectRatioSelect
-                    id="replace-aspect-ratio-select"
-                    value={replaceAspectRatio}
-                    onChange={setReplaceAspectRatio}
-                    label="图片比例"
-                  />
+                  <>
+                    <AspectRatioSelect
+                      id="replace-aspect-ratio-select"
+                      value={replaceAspectRatio}
+                      onChange={setReplaceAspectRatio}
+                      label="图片比例"
+                    />
+                    <ReplaceProductModelSelect
+                      id="replace-model-select"
+                      value={replaceModel}
+                      onChange={setReplaceModel}
+                    />
+                  </>
                 )}
                 advanced={(
                   <div className="space-y-2 sm:col-span-2">
