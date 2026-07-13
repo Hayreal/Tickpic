@@ -7,6 +7,17 @@ export const STICKER_VARIATION_DIRECTION_NONE = '' as const;
 
 export type StickerInputFidelity = 'low' | 'high';
 
+export type StickerVariationDirection =
+  | 'product'
+  | 'color'
+  | 'reverse'
+  | 'geometry'
+  | 'layout'
+  | 'background'
+  | 'fusion'
+  | 'key-element';
+export type StickerVariationDirectionSelection = StickerVariationDirection | typeof STICKER_VARIATION_DIRECTION_NONE;
+
 export interface StickerVariationStrategy {
   value: StickerVariationDirection;
   label: string;
@@ -16,21 +27,7 @@ export interface StickerVariationStrategy {
   inputFidelity: StickerInputFidelity;
 }
 
-export const STICKER_VARIATION_DIRECTIONS = [
-  { value: 'product', label: '换品类变' },
-  { value: 'color', label: '换色裂变' },
-  { value: 'reverse', label: '反转裂变' },
-  { value: 'geometry', label: '色块/矩形重组' },
-  { value: 'layout', label: '排版打乱重组' },
-  { value: 'background', label: '背景重组' },
-  { value: 'fusion', label: '爆款融合' },
-  { value: 'key-element', label: '重点元素替换' },
-] as const;
-
-export type StickerVariationDirection = typeof STICKER_VARIATION_DIRECTIONS[number]['value'];
-export type StickerVariationDirectionSelection = StickerVariationDirection | typeof STICKER_VARIATION_DIRECTION_NONE;
-
-export const STICKER_VARIATION_STRATEGIES: readonly StickerVariationStrategy[] = [
+export const STICKER_VARIATION_DIRECTIONS: readonly StickerVariationStrategy[] = [
   {
     value: 'product', label: '换品类变', inputFidelity: 'low',
     change: ['product name', 'claims', 'efficacy/product graphics', 'information hierarchy'],
@@ -80,6 +77,8 @@ export const STICKER_VARIATION_STRATEGIES: readonly StickerVariationStrategy[] =
     forbid: ['changing multiple regions', 'full redesign'],
   },
 ];
+
+export const STICKER_VARIATION_STRATEGIES = STICKER_VARIATION_DIRECTIONS;
 
 export const STICKER_VARIATION_DIRECTION_OPTIONS = [
   { value: STICKER_VARIATION_DIRECTION_NONE, label: '不指定', prompt: '' },

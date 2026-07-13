@@ -29,6 +29,7 @@ describe('buildStickerInstructionPrompt', () => {
     expect(prompt).not.toContain('[VARIATION STRATEGY]');
     expect(prompt).toContain('WKUA®');
     expect(prompt).toContain('NET: 100ML / 3.38 FL.OZ');
+    expect(prompt).toContain('THE PURE-WHITE BRAND WORDMARK ITSELF MUST BE HORIZONTALLY CENTERED; put ® at that brand wordmark\'s upper-right.');
 
     for (const rule of [
       'EXACTLY ONE FRONT-FACING FLAT 2D RECTANGULAR LABEL',

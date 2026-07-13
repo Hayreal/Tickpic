@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  STICKER_VARIATION_DIRECTIONS,
   STICKER_VARIATION_STRATEGIES,
   resolveStickerVariationStrategy,
 } from '../stickerPrompts';
@@ -30,6 +31,15 @@ describe('sticker variation strategies', () => {
     expect(color.preserve).toEqual(expect.arrayContaining(['layout', 'visible copy']));
     expect(color.forbid).toContain('rebuilding layout');
     expect(layout.change).toEqual(expect.arrayContaining(['layout', 'title positions']));
+  });
+
+  it('exports full auditable contracts through the public directions collection', () => {
+    for (const direction of STICKER_VARIATION_DIRECTIONS) {
+      expect(direction.change.length).toBeGreaterThan(0);
+      expect(direction.preserve).toContain('brand');
+      expect(direction.forbid.length).toBeGreaterThan(0);
+      expect(['low', 'high']).toContain(direction.inputFidelity);
+    }
   });
 
   it('resolves an explicit direction first, then applies deterministic fallback order', () => {

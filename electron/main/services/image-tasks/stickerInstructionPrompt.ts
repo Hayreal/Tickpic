@@ -5,7 +5,7 @@ import { resolveStickerVariationStrategy } from '../../../../src/shared/domain/s
 const COMMON_OUTPUT_RULES = [
   'EXACTLY ONE FRONT-FACING FLAT 2D RECTANGULAR LABEL, CENTERED AND FILLING THE CANVAS, WITH FOUR 90-DEGREE CORNERS AND STRAIGHT EDGES.',
   'LABEL ARTWORK ONLY: no bottle, jar, box, container, scene, display stand, hand, collage, mockup, or 3D packaging.',
-  'BRAND MUST BE PURE WHITE with no gradient, outline, shadow, texture, or 3D; put ® at its upper-right and center it horizontally.',
+  'BRAND MUST BE PURE WHITE with no gradient, outline, shadow, texture, or 3D. THE PURE-WHITE BRAND WORDMARK ITSELF MUST BE HORIZONTALLY CENTERED; put ® at that brand wordmark\'s upper-right.',
   'ALL VISIBLE TEXT MUST BE NATURAL ENGLISH: no Chinese, misspellings, garbled text, pseudo-text, or duplicates.',
   'COMPLETE TITLE, BRAND, SELLING POINTS, SUBTITLE, NET LINE, AND DECORATIVE ELEMENTS; do not omit required groups.',
   'ENGLISH-ADAPTIVE TYPOGRAPHY: make the title about 20% smaller than a Chinese-equivalent treatment.',
