@@ -69,6 +69,8 @@ afterEach(() => {
   bindTask.mockClear();
   restoreTask.mockClear();
   imageTaskGet.mockClear();
+  inferStickerSourceAspectRatio.mockReset();
+  inferStickerSourceAspectRatio.mockResolvedValue('7:5');
 });
 
 describe('StickerGen', () => {
@@ -171,6 +173,40 @@ describe('StickerGen', () => {
     expect(document.getElementById('submit-sticker-copy')).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: '2K' }));
     expect(document.getElementById('submit-sticker-copy')).not.toBeDisabled();
+  });
+
+  it('submits only one batch when auto-ratio inference is still pending during rapid clicks', async () => {
+    submitMany.mockResolvedValue(undefined);
+    let resolveInference: (ratio: string) => void = () => undefined;
+    inferStickerSourceAspectRatio.mockImplementationOnce(() => new Promise<string>((resolve) => {
+      resolveInference = resolve;
+    }));
+
+    render(<StickerGen restoredTask={createStickerVariationTask()} />);
+    const submit = document.getElementById('submit-sticker-variation')!;
+    fireEvent.click(submit);
+    fireEvent.click(submit);
+
+    expect(inferStickerSourceAspectRatio).toHaveBeenCalledTimes(1);
+    expect(submitMany).not.toHaveBeenCalled();
+
+    resolveInference('7:5');
+    await waitFor(() => expect(submitMany).toHaveBeenCalledTimes(1));
+  });
+
+  it('falls back to 1:1 after auto-ratio inference fails and permits a later submission', async () => {
+    submitMany.mockResolvedValue(undefined);
+    inferStickerSourceAspectRatio.mockRejectedValueOnce(new Error('unreadable image'));
+
+    render(<StickerGen restoredTask={createStickerVariationTask()} />);
+    const submit = document.getElementById('submit-sticker-variation')!;
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(submitMany).toHaveBeenCalledTimes(1));
+    expect((submitMany.mock.calls[0][0] as ImageTaskRequest[])[0].aspectRatio).toBe('1:1');
+
+    fireEvent.click(submit);
+    await waitFor(() => expect(submitMany).toHaveBeenCalledTimes(2));
   });
 
   it('defaults variation and original brand fields to wkau', async () => {

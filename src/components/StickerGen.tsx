@@ -185,6 +185,7 @@ function StickerVariationDirectionSelect({
 export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerGenProps) {
   const [subTab, setSubTab] = useState<StickerSubTab>('copy');
   const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
+  const isGenerationStartingRef = useRef(false);
   const desktopClient = useDesktopClient();
   const { logs, isLoading: isLoadingLogs } = useAppLogs(desktopClient);
   const { submitMany, bindTask, restoreTask, getTask, getTasks, getError, isSubmitting, reset } = useImageTask();
@@ -400,22 +401,28 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
       : originalRatioValidation;
   // Generation sequence run
   const runGeneration = async (type: StickerSubTab) => {
-    if (type === 'copy' && !copyBatch) {
-      alert('请先上传一张贴纸作为参考图片！');
+    if (isGenerationStartingRef.current) {
       return;
     }
-    if (type === 'variation' && !variationBatch) {
-      alert('请先上传一张参考贴纸！');
-      return;
-    }
-    if (type === 'original' && !originalCategory && !originalBrand && !originalSellingPoint) {
-      alert('请输入产品类别、品牌或卖点！');
-      return;
-    }
+    isGenerationStartingRef.current = true;
 
-    const requests: ImageTaskRequest[] = [];
+    try {
+      if (type === 'copy' && !copyBatch) {
+        alert('请先上传一张贴纸作为参考图片！');
+        return;
+      }
+      if (type === 'variation' && !variationBatch) {
+        alert('请先上传一张参考贴纸！');
+        return;
+      }
+      if (type === 'original' && !originalCategory && !originalBrand && !originalSellingPoint) {
+        alert('请输入产品类别、品牌或卖点！');
+        return;
+      }
 
-    if (type === 'copy') {
+      const requests: ImageTaskRequest[] = [];
+
+      if (type === 'copy') {
       const logoImage = copyLogo?.images[0];
       for (const source of copyBatch?.images ?? []) {
         const region = copyRegions[source.filePath];
@@ -443,7 +450,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
           });
         }
       }
-    } else if (type === 'variation') {
+      } else if (type === 'variation') {
       for (const source of variationBatch?.images ?? []) {
         const aspectRatio = await resolveAspectRatio(variationAspectRatio, source);
         for (let index = 0; index < variationCount; index += 1) {
@@ -466,7 +473,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
           });
         }
       }
-    } else {
+      } else {
       const styleImages = originalBatch?.images ?? [];
       for (let index = 0; index < originalCount; index += 1) {
         const styleImage = styleImages.length > 0 ? styleImages[index % styleImages.length] : undefined;
@@ -490,12 +497,15 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
       }
     }
 
-    try {
-      reset(FEATURE_MAP[type]);
-      await submitMany(requests);
-      setIsTaskDrawerOpen(true);
-    } catch (err) {
-      console.error('Task submission failed:', err);
+      try {
+        reset(FEATURE_MAP[type]);
+        await submitMany(requests);
+        setIsTaskDrawerOpen(true);
+      } catch (err) {
+        console.error('Task submission failed:', err);
+      }
+    } finally {
+      isGenerationStartingRef.current = false;
     }
   };
 
