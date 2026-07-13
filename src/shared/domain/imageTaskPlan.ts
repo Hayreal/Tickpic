@@ -16,6 +16,10 @@ import {
   getImageFeatureDefinition,
   validateImageTaskRequest,
 } from './imageFeatureApi.js';
+import {
+  resolveStickerVariationStrategy,
+  type StickerVariationDirection,
+} from './stickerPrompts.js';
 
 export interface ImageTaskRuntimeConfig {
   defaultModels: {
@@ -41,6 +45,7 @@ export interface ImageTaskPlan {
   outputAspectRatio?: string;
   outputSpec?: ResolvedStickerOutputSpec;
   openaiImageSize?: OpenAIImageSize;
+  resolvedVariationStrategy?: StickerVariationDirection;
   count: number;
 }
 
@@ -61,6 +66,15 @@ export function buildImageTaskPlan(
     : undefined;
   const outputSpec = resolveStickerOutputSpecForPlan(validated, normalizedAspectRatio);
   const openaiImageSize = outputSpec?.size ?? resolveOpenAIImageSize(normalizedAspectRatio);
+  const resolvedVariationStrategy = validated.feature === 'sticker_variation'
+    ? resolveStickerVariationStrategy({
+      direction: validated.stickerVariationDirection,
+      productName: validated.productName,
+      sellingPoints: validated.sellingPoints,
+      colorScheme: validated.colorScheme,
+      colorBlockLayout: validated.colorBlockLayout,
+    }).value
+    : undefined;
 
   if (!Number.isInteger(count) || count <= 0) {
     throw new Error('count must be a positive integer');
@@ -81,6 +95,7 @@ export function buildImageTaskPlan(
     outputAspectRatio: normalizedAspectRatio?.aspectRatio,
     outputSpec,
     openaiImageSize,
+    resolvedVariationStrategy,
     count,
   };
 }

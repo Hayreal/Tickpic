@@ -158,6 +158,31 @@ describe('imageTaskArtifactStore', () => {
     expect(first.requestJsonPath).toBe(path.join(sharedDir, 'task-1-request.json'));
     expect(second.requestJsonPath).toBe(path.join(sharedDir, 'task-2-request.json'));
   });
+
+  it('persists the resolved sticker variation strategy in the request artifact plan', async () => {
+    const store = createFileImageTaskArtifactStore(tempDir);
+    const task = {
+      ...createTask(),
+      feature: 'sticker_variation' as const,
+      request: {
+        feature: 'sticker_variation' as const,
+        colorScheme: 'blue and silver',
+        images: [{ role: 'source' as const, path: '/authorized/input/sticker.png' }],
+      },
+    };
+    const plan = buildImageTaskPlan(task.request, {
+      defaultModels: { generation: 'gemini-2.5-flash-image', vision: 'gpt-5.4-mini' },
+      modelProtocol: 'gemini', defaultCount: 1, maxCount: 4,
+    });
+
+    const saved = await store.save({
+      task, plan, finalPrompt: 'variation prompt',
+      generated: { images: [{ fileName: 'result.png', buffer: new Uint8Array([1]), mimeType: 'image/png' }] },
+    });
+
+    const artifact = JSON.parse(await readFile(saved.requestJsonPath, 'utf-8'));
+    expect(artifact.plan.resolvedVariationStrategy).toBe('color');
+  });
 });
 
 function createTask(): ImageTaskRecord {

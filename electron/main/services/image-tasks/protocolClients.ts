@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { ImageInput } from '../../../../src/shared/domain/imageFeatureApi.js';
+import { getStickerVariationStrategy } from '../../../../src/shared/domain/stickerPrompts.js';
 import type { ImageExecutionModelResult, GeneratedImageOutput } from './imageTaskExecutor.js';
 import type {
   ModelExecutionClientInput,
@@ -184,6 +185,9 @@ export function createGeminiProtocolClient(
 
 function resolveOpenAIInputFidelity(input: ModelExecutionClientInput): OpenAIInputFidelity {
   if (input.task.feature === 'sticker_variation') {
+    return getStickerVariationStrategy(input.plan.resolvedVariationStrategy)?.inputFidelity ?? 'low';
+  }
+  if (input.task.feature === 'sticker_original' && input.images.some((image) => image.role === 'style')) {
     return 'low';
   }
   return 'high';

@@ -100,6 +100,16 @@ describe('imageTaskPlan', () => {
     expect(plan.openaiImageSize).toBe('2048x1360');
   });
 
+  it('stores the resolved sticker variation strategy on the execution plan', () => {
+    const plan = buildImageTaskPlan({
+      feature: 'sticker_variation',
+      images: [{ role: 'source', path: '/authorized/input/sticker.png' }],
+      colorScheme: 'blue and silver',
+    }, config);
+
+    expect(plan.resolvedVariationStrategy).toBe('color');
+  });
+
   it('passes auto sizing through to execution params', () => {
     const plan = buildImageTaskPlan({
       feature: 'replace_logo',

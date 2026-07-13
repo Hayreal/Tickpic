@@ -155,7 +155,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
     acceptedImageRoles: ['reference', 'style'],
     requiredImageRoles: [],
     executionModel: 'generation',
-    executionImageRoles: [],
+    executionImageRoles: ['style'],
   },
   remove_product: {
     feature: 'remove_product',

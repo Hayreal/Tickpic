@@ -22,6 +22,16 @@ describe('instructionPrompt', () => {
     expect(isImageGenerationModel('gpt-5.4-mini')).toBe(false);
   });
 
+  it('dispatches sticker features to the dedicated prompt contract before generic assembly', () => {
+    const sticker = buildExecutionPrompt({ feature: 'sticker_original', brand: 'WKUA' }, 'concise sticker identity');
+    const nonSticker = buildExecutionPrompt({ feature: 'remove_product', prompt: 'remove the bottle' }, 'remove product');
+
+    expect(sticker.startsWith('[NON-NEGOTIABLE OUTPUT CONTRACT]')).toBe(true);
+    expect(sticker).toContain('WKUA®');
+    expect(nonSticker).toContain('remove product');
+    expect(nonSticker).not.toContain('[NON-NEGOTIABLE OUTPUT CONTRACT]');
+  });
+
   it('builds a fallback instruction from structured request fields', () => {
     const input = {
       model: 'gpt-image-2-all',
@@ -42,7 +52,7 @@ describe('instructionPrompt', () => {
       images: [],
     };
 
-    expect(buildFallbackFinalPrompt(input)).toContain('extract sticker');
+    expect(buildFallbackFinalPrompt(input)).toContain('[NON-NEGOTIABLE OUTPUT CONTRACT]');
     expect(buildFallbackFinalPrompt(input)).toContain('keep layout');
     expect(buildFallbackFinalPrompt(input)).toContain('Serum');
   });
@@ -113,10 +123,8 @@ describe('instructionPrompt', () => {
       aspectRatio: '1:1',
     }, '生成同品类贴纸变体，可调整布局、标题区、卖点区与色块。');
 
-    expect(text).toBe(withEnglishOnlyRule(
-      '生成同品类贴纸变体，可调整布局、标题区、卖点区与色块。',
-      '补充要求：summer style',
-    ));
+    expect(text).toContain('[VARIATION STRATEGY]');
+    expect(text).toContain('summer style');
     expect(text).not.toContain('Write one concise');
     expect(text).not.toContain('Extra:');
     expect(text).not.toContain('mainPrompt');
@@ -129,10 +137,9 @@ describe('instructionPrompt', () => {
       prompt: '保留原来的清洁剂品类',
     }, '基于输入产品图贴纸，做贴纸裂变设计。');
 
-    expect(text).toContain('贴纸裂变方向是排版打乱重组。');
-    expect(text).toContain('将原本的文字、产品图、功效图、色块和装饰元素重新安排');
-    expect(text).toContain('补充要求：保留原来的清洁剂品类');
-    expect(text).toContain(ENGLISH_ONLY_VISIBLE_TEXT_RULE);
+    expect(text).toContain('STRATEGY: layout');
+    expect(text).toContain('CHANGE: layout; title positions');
+    expect(text).toContain('保留原来的清洁剂品类');
   });
 
   it('does not infer original sticker logo text from product name', () => {
@@ -151,10 +158,10 @@ describe('instructionPrompt', () => {
       },
     });
 
-    expect(text).toContain('产品名称是 wuku。');
-    expect(text).toContain('产品品类是 汽车玻璃水。');
-    expect(text).toContain('卖点包括 清洁强。');
-    expect(text).not.toContain('Logo 文案是 wuku。');
+    expect(text).toContain('PRODUCT NAME: wuku');
+    expect(text).toContain('PRODUCT CATEGORY: 汽车玻璃水');
+    expect(text).toContain('SELLING POINTS: 清洁强');
+    expect(text).not.toContain('BRAND: wuku®');
   });
 
   it('adds spray prefix only when the model omits spray or mist', () => {
@@ -226,17 +233,17 @@ describe('instructionPrompt', () => {
     expect(finalized).not.toContain('First fully erase foreground spray');
   });
 
-  it('appends English-only visible text rule to every execution prompt', () => {
+  it('keeps the generic non-sticker prompt path unchanged', () => {
     const text = buildExecutionPrompt({
       feature: 'remove_product',
       prompt: '保留顶部标题',
     }, '去除目标产品。');
 
     expect(text).toContain(ENGLISH_ONLY_VISIBLE_TEXT_RULE);
-    expect(text).toContain('不得出现任何中文字符');
+    expect(text).toContain('去除目标产品');
   });
 
-  it('builds sticker-replica execution prompt as a natural parameter summary', () => {
+  it('builds sticker-replica execution prompt from the dedicated contract', () => {
     const text = buildExecutionPrompt({
       feature: 'sticker_replica',
       images: [
@@ -250,21 +257,15 @@ describe('instructionPrompt', () => {
       colorScheme: 'black and gold',
     }, STICKER_REPLICA_MAIN_PROMPT);
 
-    expect(text).toBe(withEnglishOnlyRule(
-      STICKER_REPLICA_MAIN_PROMPT,
-      '补充要求：品牌名换成 WKUA，整体保留原图的高级黑金风格。',
-      '品牌是 WKUA。',
-      '产品名称是 Serum Pro。',
-      '产品品类是 car belt silencer。',
-      '整体保留原图的 black and gold 风格。',
-    ));
-    expect(text).not.toContain('Write one concise');
-    expect(text).not.toContain('Extra:');
+    expect(text).toContain('DE-PERSPECTIVE AND UNWRAP THE SOURCE');
+    expect(text).toContain('BRAND: WKUA®');
+    expect(text).toContain('PRODUCT NAME: Serum Pro');
+    expect(text).toContain('PRODUCT CATEGORY: car belt silencer');
+    expect(text).toContain('COLOR SCHEME: black and gold');
     expect(text).not.toContain('/tmp/logo.png');
-    expect(text.match(/Logo 图/g)).toHaveLength(1);
   });
 
-  it('appends sticker-extraction guardrail to sticker replica execution instructions', () => {
+  it('does not patch a second sticker-replica suffix onto the contract prompt', () => {
     const finalized = finalizeImageInstruction(
       'sticker_replica',
       'Replicate the pink effervescent-tablet label with bold red English typography and the wkau logo.',
@@ -277,12 +278,10 @@ describe('instructionPrompt', () => {
       },
     );
 
-    expect(finalized).toContain('Output only the extracted flat 2D sticker/label');
-    expect(finalized).toContain('no product body, bottle, box, jar, packaging mockup');
-    expect(finalized).not.toContain('similar rectangular layout');
+    expect(finalized).toBe('Replicate the pink effervescent-tablet label with bold red English typography and the wkau logo.');
   });
 
-  it('appends meaningful-redesign guardrail to sticker variation execution instructions', () => {
+  it('does not apply a universal layout-redesign suffix to sticker variation instructions', () => {
     const finalized = finalizeImageInstruction(
       'sticker_variation',
       'Edit the source sticker to produce a flat 2D black-and-white spray label with a central diamond 8 card-suit emblem and matching corner markings.',
@@ -292,10 +291,8 @@ describe('instructionPrompt', () => {
       },
     );
 
-    expect(finalized).toContain('make a clearly different layout');
-    expect(finalized).toContain('not a small text, icon, suit, or color swap');
-    expect(finalized).not.toContain('substantially rework');
-    expect(finalized).not.toContain('near-copy');
+    expect(finalized).not.toContain('make a clearly different layout');
+    expect(finalized).not.toContain('not a small text, icon, suit, or color swap');
   });
 
   it('does not duplicate sticker variation redesign guardrail when already present', () => {
@@ -342,7 +339,7 @@ describe('instructionPrompt', () => {
     expect(text).toContain('鞋子除味喷雾，生成一套全英文电商主图');
     expect(text).toContain('卖点包括 Easy to pack、Fresh scent');
     expect(text).toContain('需要展示产品');
-    expect(text).toContain('必须为英文');
+    expect(text).toContain(ENGLISH_ONLY_VISIBLE_TEXT_RULE);
   });
 
   it('rewrites create wording into edit wording for sticker replica execution', () => {

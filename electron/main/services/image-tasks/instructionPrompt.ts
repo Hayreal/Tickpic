@@ -5,6 +5,7 @@ import {
 } from '../../../../src/shared/domain/imageFeatureApi.js';
 import { appendEnglishOnlyVisibleTextRule } from '../../../../src/shared/domain/imageOutputRules.js';
 import { getStickerVariationDirection } from '../../../../src/shared/domain/stickerPrompts.js';
+import { buildStickerInstructionPrompt } from './stickerInstructionPrompt.js';
 import {
   resolveStickerProductRatio,
   stickerProductRatioLabel,
@@ -36,20 +37,8 @@ const REMOVE_PRODUCT_EMISSION_PATTERN =
 const REMOVE_PRODUCT_OCCLUSION_ONLY_PATTERN =
   /inpaint(?:ing)? only (?:their |the )?occluded/i;
 
-const STICKER_REPLICA_EXECUTION_SUFFIX =
-  'Output only the extracted flat 2D sticker/label; no product body, bottle, box, jar, packaging mockup, or collage.';
-
-const STICKER_REPLICA_FLAT_OUTPUT_PATTERN =
-  /flat 2d|2d flat|packaging mockup|product body|bottle|box|jar|collage/i;
-
 const STICKER_REPLICA_LOGO_GUIDANCE =
   '如果提供了单独 Logo 图，只把它作为品牌标识嵌入，不要把 Logo 图当作版式参考。';
-
-const STICKER_VARIATION_REDESIGN_SUFFIX =
-  'make a clearly different layout, not a small text, icon, suit, or color swap';
-
-const STICKER_VARIATION_REDESIGN_PATTERN =
-  /clearly different layout|not a small (?:text|icon|suit|color) swap/i;
 
 const MAIN_IMAGE_ASSET_VARIATION_REDESIGN_SUFFIX =
   'use a clearly different scene, headline layout, or hero composition from the source; not a minor color tweak, crop, or collage';
@@ -99,6 +88,12 @@ export function sanitizeRequestForInstruction(request: ImageTaskRequest) {
 }
 
 export function buildExecutionPrompt(request: ImageTaskRequest, mainPrompt: string) {
+  if (request.feature === 'sticker_replica'
+    || request.feature === 'sticker_variation'
+    || request.feature === 'sticker_original') {
+    return buildStickerInstructionPrompt(request);
+  }
+
   const lines = [mainPrompt.trim()];
   const userPrompt = request.prompt?.trim();
 
@@ -107,14 +102,6 @@ export function buildExecutionPrompt(request: ImageTaskRequest, mainPrompt: stri
   }
 
   lines.push(...buildStructuredParameterLines(request));
-
-  if (
-    request.feature === 'sticker_replica'
-    && hasSeparateLogoImage(request)
-    && !hasStickerReplicaLogoGuidance(mainPrompt)
-  ) {
-    lines.push(STICKER_REPLICA_LOGO_GUIDANCE);
-  }
 
   return appendEnglishOnlyVisibleTextRule(lines.join('\n'));
 }
@@ -173,7 +160,7 @@ function buildStructuredParameterLines(request: ImageTaskRequest) {
 
   if (request.feature === 'sticker_variation' && stickerVariationDirection) {
     lines.push(`贴纸裂变方向是${stickerVariationDirection.label}。`);
-    lines.push(stickerVariationDirection.prompt);
+    lines.push(`Change: ${stickerVariationDirection.change.join(', ')}.`);
   }
 
   if (logoText) {
@@ -206,10 +193,6 @@ function buildStructuredParameterLines(request: ImageTaskRequest) {
   }
 
   return lines;
-}
-
-function hasSeparateLogoImage(request: ImageTaskRequest) {
-  return request.images?.some((image) => image.role === 'logo' || image.role === 'reference') ?? false;
 }
 
 function hasStickerReplicaLogoGuidance(text: string) {
@@ -297,24 +280,6 @@ function normalizeEditInstructionVerbs(instruction: string, feature: ImageFeatur
   return instruction.replace(EDIT_GENERATION_VERB_PATTERN, replacement);
 }
 
-function finalizeStickerReplicaInstruction(instruction: string) {
-  const trimmed = instruction.trim();
-  if (STICKER_REPLICA_FLAT_OUTPUT_PATTERN.test(trimmed)) {
-    return trimmed;
-  }
-  const core = trimmed.replace(/\s*\.?\s*$/, '').trim();
-  return `${core}. ${STICKER_REPLICA_EXECUTION_SUFFIX}`;
-}
-
-function finalizeStickerVariationInstruction(instruction: string) {
-  const trimmed = instruction.trim();
-  if (STICKER_VARIATION_REDESIGN_PATTERN.test(trimmed)) {
-    return trimmed;
-  }
-  const core = trimmed.replace(/\s*\.?\s*$/, '').trim();
-  return `${core}; ${STICKER_VARIATION_REDESIGN_SUFFIX}.`;
-}
-
 function finalizeMainImageAssetVariationInstruction(instruction: string) {
   const trimmed = instruction.trim();
   if (MAIN_IMAGE_ASSET_VARIATION_REDESIGN_PATTERN.test(trimmed)) {
@@ -333,12 +298,8 @@ export function finalizeImageInstruction(
   const isEdit = getImageFeatureDefinition(feature).executionModel === 'edit';
   const normalized = isEdit ? normalizeEditInstructionVerbs(trimmed, feature) : trimmed;
 
-  if (feature === 'sticker_replica') {
-    return finalizeStickerReplicaInstruction(normalized);
-  }
-
-  if (feature === 'sticker_variation') {
-    return finalizeStickerVariationInstruction(normalized);
+  if (feature === 'sticker_replica' || feature === 'sticker_variation' || feature === 'sticker_original') {
+    return normalized;
   }
 
   if (feature === 'main_image_asset_variation') {

@@ -102,6 +102,16 @@ describe('image feature API contract', () => {
     expect(roles).toEqual(['source', 'logo']);
   });
 
+  it('passes original sticker style images through as style-only execution inputs', () => {
+    expect(getExecutionImageRoles({
+      feature: 'sticker_original',
+      images: [
+        { role: 'reference', path: '/authorized/input/reference.png' },
+        { role: 'style', path: '/authorized/input/style.png' },
+      ],
+    })).toEqual(['style']);
+  });
+
   it('defines sticker replica as product-sticker extraction without fixed aspect ratio', () => {
     const definition = getImageFeatureDefinition('sticker_replica');
 

@@ -184,6 +184,43 @@ describe('protocolClients', () => {
     );
   });
 
+  it('uses resolved strategy fidelity for color/layout variations and style-backed originals', async () => {
+    const openai = {
+      chat: { completions: { create: vi.fn() } },
+      images: {
+        generate: vi.fn(),
+        edit: vi.fn().mockResolvedValue({
+          data: [{ b64_json: Buffer.from('varied').toString('base64') }],
+        }),
+      },
+    };
+    const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
+    const color = createStickerVariationExecutionInput(imagePath);
+    color.plan = { ...color.plan, resolvedVariationStrategy: 'color' };
+    const layout = createStickerVariationExecutionInput(imagePath);
+    layout.plan = { ...layout.plan, resolvedVariationStrategy: 'layout' };
+    const original = createExecutionInput(imagePath);
+    original.task = {
+      ...original.task,
+      feature: 'sticker_original',
+      request: { feature: 'sticker_original', images: [{ role: 'style', path: imagePath, mimeType: 'image/png' }] },
+    };
+    original.plan = {
+      ...original.plan,
+      request: original.task.request,
+      executionImages: original.task.request.images ?? [],
+    };
+    original.images = original.plan.executionImages;
+
+    await client.executeImage(color);
+    await client.executeImage(layout);
+    await client.executeImage(original);
+
+    expect(openai.images.edit.mock.calls[0][0].input_fidelity).toBe('high');
+    expect(openai.images.edit.mock.calls[1][0].input_fidelity).toBe('low');
+    expect(openai.images.edit.mock.calls[2][0].input_fidelity).toBe('low');
+  });
+
   it('uses Gemini generateContent for image execution', async () => {
     const gemini = {
       models: {
