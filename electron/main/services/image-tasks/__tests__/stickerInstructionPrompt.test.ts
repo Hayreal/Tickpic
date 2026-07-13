@@ -62,6 +62,24 @@ describe('buildStickerInstructionPrompt', () => {
     expect(color).not.toContain('make a clearly different layout');
   });
 
+  it('uses a supplied replica logo only for brand identification', () => {
+    const withLogo = buildStickerInstructionPrompt({
+      feature: 'sticker_replica',
+      images: [
+        { role: 'source', path: '/tmp/source.png' },
+        { role: 'logo', path: '/tmp/logo.png' },
+      ],
+    });
+    const withoutLogo = buildStickerInstructionPrompt({
+      feature: 'sticker_replica',
+      images: [{ role: 'source', path: '/tmp/source.png' }],
+    });
+    const logoRule = 'SUPPLIED LOGO IMAGE IS FOR BRAND IDENTIFICATION ONLY; do not use it as a layout, palette, style, or visual-design reference. The source label remains the relevant design source.';
+
+    expect(withLogo).toContain(logoRule);
+    expect(withoutLogo).not.toContain('SUPPLIED LOGO IMAGE IS FOR BRAND IDENTIFICATION ONLY');
+  });
+
   it.each([
     'product', 'color', 'reverse', 'geometry', 'layout', 'background', 'fusion', 'key-element',
   ] as const)('renders the %s strategy in the variation section', (stickerVariationDirection) => {

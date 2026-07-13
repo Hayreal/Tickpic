@@ -50,10 +50,14 @@ function section(title: string, lines: readonly string[]) {
 
 function buildModeContract(request: ImageTaskRequest): string[] {
   if (request.feature === 'sticker_replica') {
-    return [
+    const rules = [
       'DE-PERSPECTIVE AND UNWRAP THE SOURCE into a front-facing flat label.',
       'Preserve source fields that the user did not override.',
     ];
+    if (request.images?.some((image) => image.role === 'logo')) {
+      rules.push('SUPPLIED LOGO IMAGE IS FOR BRAND IDENTIFICATION ONLY; do not use it as a layout, palette, style, or visual-design reference. The source label remains the relevant design source.');
+    }
+    return rules;
   }
   if (request.feature === 'sticker_variation') {
     return ['Obey exactly the resolved variation strategy; it governs what may change, preserve, and forbid.'];
