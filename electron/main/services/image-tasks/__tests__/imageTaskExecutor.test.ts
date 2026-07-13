@@ -1,4 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+const dimensionMock = vi.hoisted(() => ({
+  inspectGeneratedImage: vi.fn(),
+  outputDimensionWarning: vi.fn(),
+}));
+
+vi.mock('../generatedImageDimensions', () => dimensionMock);
 import { ENGLISH_ONLY_VISIBLE_TEXT_RULE } from '../../../../../src/shared/domain/imageOutputRules';
 import { createImageTaskExecutor } from '../imageTaskExecutor';
 import type { ImageTaskRecord } from '../../../../../src/shared/domain/imageFeatureApi';
@@ -173,7 +180,125 @@ describe('imageTaskExecutor', () => {
 
     expect(executionImageCount).toBe(0);
   });
+
+  it('records matching model dimensions without adding a warning', async () => {
+    dimensionMock.inspectGeneratedImage.mockReturnValue({ width: 2048, height: 1360 });
+    dimensionMock.outputDimensionWarning.mockReturnValue(undefined);
+    let finalized: any;
+    const executor = createImageTaskExecutor({
+      runtimeConfig,
+      modelGateway: singleImageGateway(),
+      artifactStore: captureArtifactStore((generated) => { finalized = generated; }),
+    });
+
+    const result = await executor(createTask({
+      feature: 'sticker_original',
+      aspectRatio: '3:2',
+      outputQuality: '2K',
+    }), new AbortController().signal);
+
+    expect(finalized.images[0]).toMatchObject({ width: 2048, height: 1360 });
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('appends a target mismatch warning without changing the returned image bytes', async () => {
+    dimensionMock.inspectGeneratedImage.mockReturnValue({ width: 1024, height: 680 });
+    dimensionMock.outputDimensionWarning.mockReturnValue(
+      '模型返回尺寸 1024x680，与目标尺寸 2048x1360 不一致',
+    );
+    let finalized: any;
+    const executor = createImageTaskExecutor({
+      runtimeConfig,
+      modelGateway: singleImageGateway(),
+      artifactStore: captureArtifactStore((generated) => { finalized = generated; }),
+    });
+
+    const result = await executor(createTask({
+      feature: 'sticker_original',
+      aspectRatio: '3:2',
+      outputQuality: '2K',
+    }), new AbortController().signal);
+
+    expect(finalized.images[0]).toMatchObject({
+      buffer: new Uint8Array([1, 2, 3]),
+      width: 1024,
+      height: 680,
+    });
+    expect(result.warnings).toEqual([
+      '模型返回尺寸 1024x680，与目标尺寸 2048x1360 不一致',
+      '模型返回尺寸 1024x680，与目标尺寸 2048x1360 不一致',
+      '模型返回尺寸 1024x680，与目标尺寸 2048x1360 不一致',
+      '模型返回尺寸 1024x680，与目标尺寸 2048x1360 不一致',
+    ]);
+  });
+
+  it('keeps an unreadable output without a fabricated dimension warning', async () => {
+    dimensionMock.inspectGeneratedImage.mockReturnValue(undefined);
+    dimensionMock.outputDimensionWarning.mockReturnValue(undefined);
+    let finalized: any;
+    const executor = createImageTaskExecutor({
+      runtimeConfig,
+      modelGateway: singleImageGateway(),
+      artifactStore: captureArtifactStore((generated) => { finalized = generated; }),
+    });
+
+    const result = await executor(createTask({
+      feature: 'sticker_original',
+      aspectRatio: '3:2',
+      outputQuality: '2K',
+    }), new AbortController().signal);
+
+    expect(finalized.images[0]).not.toHaveProperty('width');
+    expect(finalized.images[0]).not.toHaveProperty('height');
+    expect(result.warnings).toEqual([]);
+  });
 });
+
+function singleImageGateway() {
+  return {
+    executeSingleImage: async () => ({
+      images: [{
+        fileName: 'result-1.png',
+        buffer: new Uint8Array([1, 2, 3]),
+        mimeType: 'image/png',
+      }],
+    }),
+    executeImage: async () => ({ images: [] }),
+  };
+}
+
+function captureArtifactStore(onFinalize: (generated: any) => void) {
+  return {
+    begin: async ({ task }: { task: ImageTaskRecord }) => {
+      const imagePaths: string[] = [];
+      return {
+        outputDir: `/outputs/${task.taskId}`,
+        requestJsonPath: `/outputs/${task.taskId}/request.json`,
+        imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
+        outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
+        imagePaths,
+        appendImage: async () => {
+          const imagePath = `/outputs/${task.taskId}/result-1.png`;
+          imagePaths.push(imagePath);
+          return imagePath;
+        },
+        finalize: async (generated: any) => {
+          onFinalize(generated);
+          return {
+            outputDir: `/outputs/${task.taskId}`,
+            requestJsonPath: `/outputs/${task.taskId}/request.json`,
+            imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
+            outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
+            images: imagePaths,
+          };
+        },
+      };
+    },
+    save: async () => {
+      throw new Error('save should not be called directly');
+    },
+  };
+}
 
 function createTask(request: ImageTaskRecord['request']): ImageTaskRecord {
   return {

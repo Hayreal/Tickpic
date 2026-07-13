@@ -6,10 +6,11 @@ import type {
 } from './imageFeatureApi.js';
 import type { OpenAIImageSize } from './imageAspectRatio.js';
 import { normalizeImageAspectRatio } from './imageAspectRatio.js';
+import { resolveStickerProductRatio } from '../view/stickerProductRatioOptions.js';
 import {
-  resolveStickerProductRatio,
-  resolveStickerProductRatioOpenAISize,
-} from '../view/stickerProductRatioOptions.js';
+  resolveStickerOutputSpec,
+  type ResolvedStickerOutputSpec,
+} from './stickerOutputSpec.js';
 import {
   getExecutionImageRoles,
   getImageFeatureDefinition,
@@ -38,6 +39,7 @@ export interface ImageTaskPlan {
   executionStage: ImageExecutionStagePlan;
   executionImages: ImageInput[];
   outputAspectRatio?: string;
+  outputSpec?: ResolvedStickerOutputSpec;
   openaiImageSize?: OpenAIImageSize;
   count: number;
 }
@@ -57,7 +59,8 @@ export function buildImageTaskPlan(
   const normalizedAspectRatio = effectiveAspectRatio
     ? normalizeImageAspectRatio(effectiveAspectRatio)
     : undefined;
-  const openaiImageSize = resolveOpenAIImageSize(validated, normalizedAspectRatio);
+  const outputSpec = resolveStickerOutputSpecForPlan(validated, normalizedAspectRatio);
+  const openaiImageSize = outputSpec?.size ?? resolveOpenAIImageSize(normalizedAspectRatio);
 
   if (!Number.isInteger(count) || count <= 0) {
     throw new Error('count must be a positive integer');
@@ -76,6 +79,7 @@ export function buildImageTaskPlan(
     },
     executionImages: selectExecutionImages(validated),
     outputAspectRatio: normalizedAspectRatio?.aspectRatio,
+    outputSpec,
     openaiImageSize,
     count,
   };
@@ -98,7 +102,6 @@ function resolveEffectiveAspectRatio(request: ImageTaskRequest): string | undefi
 }
 
 function resolveOpenAIImageSize(
-  request: ImageTaskRequest,
   normalized?: ReturnType<typeof normalizeImageAspectRatio>,
 ): OpenAIImageSize | undefined {
   if (!normalized) {
@@ -109,16 +112,24 @@ function resolveOpenAIImageSize(
     return 'auto';
   }
 
-  const aspectRatio = request.aspectRatio?.trim();
-  const hasExplicitAspectRatio = Boolean(
-    aspectRatio && aspectRatio.toLowerCase() !== 'auto',
-  );
-  const productRatioSize = resolveStickerProductRatioOpenAISize(request.productRatio);
-  if (productRatioSize && !hasExplicitAspectRatio) {
-    return productRatioSize as OpenAIImageSize;
+  return normalized.openaiSize;
+}
+
+function resolveStickerOutputSpecForPlan(
+  request: ImageTaskRequest,
+  normalized?: ReturnType<typeof normalizeImageAspectRatio>,
+): ResolvedStickerOutputSpec | undefined {
+  if (!isStickerFeature(request.feature) || !normalized || normalized.aspectRatio === 'auto') {
+    return undefined;
   }
 
-  return normalized.openaiSize;
+  return resolveStickerOutputSpec(normalized.aspectRatio, request.outputQuality ?? '1K');
+}
+
+function isStickerFeature(feature: ImageTaskRequest['feature']) {
+  return feature === 'sticker_replica'
+    || feature === 'sticker_variation'
+    || feature === 'sticker_original';
 }
 
 function resolveExecutionModel(

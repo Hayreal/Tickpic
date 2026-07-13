@@ -4,11 +4,14 @@ import { buildImageTaskPlan } from '../../../../src/shared/domain/imageTaskPlan.
 import { buildExecutionPrompt } from './instructionPrompt.js';
 import type { ImageTaskExecutionResult, ImageTaskExecutor } from './imageTaskController.js';
 import { getAppLogger } from '../logger/appLogger.js';
+import { inspectGeneratedImage, outputDimensionWarning } from './generatedImageDimensions.js';
 
 export interface GeneratedImageOutput {
   fileName: string;
   buffer: Uint8Array;
   mimeType: string;
+  width?: number;
+  height?: number;
 }
 
 export interface ImageExecutionModelResult {
@@ -116,7 +119,6 @@ export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions)
         abortSignal,
       });
 
-      generatedImages.push(...result.images);
       if (result.textNotes?.length) {
         textNotes.push(...result.textNotes);
       }
@@ -125,7 +127,22 @@ export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions)
       }
 
       for (const [imageOffset, image] of result.images.entries()) {
-        await session.appendImage(image, index + imageOffset);
+        const actualDimensions = inspectGeneratedImage(image.buffer);
+        const generatedImage = actualDimensions
+          ? { ...image, ...actualDimensions }
+          : image;
+        const dimensionWarning = outputDimensionWarning(actualDimensions, plan.outputSpec);
+
+        generatedImages.push(generatedImage);
+        if (dimensionWarning) {
+          warnings.push(dimensionWarning);
+        }
+        logger.info('image-task', '模型返回图片尺寸已检查', {
+          taskId: task.taskId,
+          target: plan.outputSpec && { width: plan.outputSpec.width, height: plan.outputSpec.height },
+          actual: actualDimensions,
+        });
+        await session.appendImage(generatedImage, index + imageOffset);
       }
 
       onProgress?.({

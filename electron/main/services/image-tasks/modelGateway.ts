@@ -1,5 +1,6 @@
 import type { ImageModelProtocol } from '../../../../src/shared/domain/imageFeatureApi.js';
 import type { OpenAIImageSize } from '../../../../src/shared/domain/imageAspectRatio.js';
+import type { StickerOutputQuality } from '../../../../src/shared/domain/stickerOutputSpec.js';
 import type {
   ExecuteImageInput,
   ImageExecutionModelResult,
@@ -12,6 +13,7 @@ export interface ModelExecutionClientInput extends ExecuteImageInput {
   count: number;
   aspectRatio?: string;
   size?: OpenAIImageSize;
+  imageSize?: StickerOutputQuality;
 }
 
 export interface ProtocolModelClient {
@@ -31,14 +33,27 @@ export function createProtocolModelGateway(clients: ProtocolModelClients): Image
         count: 1,
         aspectRatio: input.plan.outputAspectRatio,
         size: input.plan.openaiImageSize,
+        imageSize: input.plan.outputSpec?.outputQuality,
       };
 
-      const result = await client.executeImage(executionInput);
-      if (result.images.length === 0) {
-        throw new Error('image model returned no usable image output');
-      }
+      try {
+        const result = await client.executeImage(executionInput);
+        if (result.images.length === 0) {
+          throw new Error('image model returned no usable image output');
+        }
 
-      return result;
+        return result;
+      } catch (error) {
+        if (!input.plan.outputSpec) {
+          throw error;
+        }
+
+        throw new Error(formatStickerExecutionError(
+          input.plan.executionStage.protocol,
+          input.plan.outputSpec,
+          error,
+        ));
+      }
     },
 
     async executeImage(input) {
@@ -64,6 +79,15 @@ export function createProtocolModelGateway(clients: ProtocolModelClients): Image
       };
     },
   };
+}
+
+function formatStickerExecutionError(
+  protocol: ImageModelProtocol,
+  outputSpec: NonNullable<ExecuteImageInput['plan']['outputSpec']>,
+  error: unknown,
+) {
+  const detail = error instanceof Error ? error.message : String(error);
+  return `sticker image execution failed (provider=${protocol}, protocol=${protocol}, target ratio=${outputSpec.aspectRatio}, quality=${outputSpec.outputQuality}, target size=${outputSpec.size}): ${detail}`;
 }
 
 function resolveClient(clients: ProtocolModelClients, protocol: ImageModelProtocol) {

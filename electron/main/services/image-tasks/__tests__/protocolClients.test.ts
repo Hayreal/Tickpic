@@ -91,7 +91,7 @@ describe('protocolClients', () => {
     );
   });
 
-  it('passes aspectRatio auto to Gemini image execution', async () => {
+  it('passes aspectRatio auto inside Gemini imageConfig', async () => {
     const gemini = {
       models: {
         generateContent: vi.fn().mockResolvedValue({
@@ -123,7 +123,7 @@ describe('protocolClients', () => {
     expect(gemini.models.generateContent).toHaveBeenCalledWith(
       expect.objectContaining({
         config: expect.objectContaining({
-          aspectRatio: 'auto',
+          imageConfig: { aspectRatio: 'auto' },
         }),
       }),
     );
@@ -214,11 +214,37 @@ describe('protocolClients', () => {
       model: 'gpt-image-2',
       config: expect.objectContaining({
         responseModalities: ['TEXT', 'IMAGE'],
-        aspectRatio: '9:16',
+        imageConfig: { aspectRatio: '9:16' },
       }),
     }));
     expect(result.textNotes).toEqual(['gemini note']);
     expect(Buffer.from(result.images[0].buffer).toString()).toBe('gemini image');
+  });
+
+  it('sends the sticker ratio and uppercase quality in Gemini imageConfig', async () => {
+    const gemini = {
+      models: {
+        generateContent: vi.fn().mockResolvedValue({
+          candidates: [{ content: { parts: [{ inlineData: {
+            mimeType: 'image/png',
+            data: Buffer.from('gemini sticker').toString('base64'),
+          } }] } }],
+        }),
+      },
+    };
+    const client = createGeminiProtocolClient(gemini, { baseUrl: TEST_BASE_URL });
+
+    await client.executeImage({
+      ...createExecutionInput(imagePath),
+      aspectRatio: '3:2',
+      imageSize: '2K',
+    });
+
+    expect(gemini.models.generateContent).toHaveBeenCalledWith(expect.objectContaining({
+      config: expect.objectContaining({
+        imageConfig: { aspectRatio: '3:2', imageSize: '2K' },
+      }),
+    }));
   });
 });
 

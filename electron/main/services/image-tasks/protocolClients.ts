@@ -136,7 +136,14 @@ export function createGeminiProtocolClient(
         config: {
           responseModalities: ['TEXT', 'IMAGE'],
           candidateCount: input.count,
-          ...(input.aspectRatio ? { aspectRatio: input.aspectRatio } : {}),
+          ...(input.aspectRatio || input.imageSize
+            ? {
+              imageConfig: {
+                ...(input.aspectRatio ? { aspectRatio: input.aspectRatio } : {}),
+                ...(input.imageSize ? { imageSize: input.imageSize } : {}),
+              },
+            }
+            : {}),
         },
       };
       logModelRequest('execution', {

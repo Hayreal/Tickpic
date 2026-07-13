@@ -115,6 +115,7 @@ function createRequestSummary(input: Omit<SaveImageTaskArtifactsInput, 'generate
       mainPrompt: input.plan.mainPrompt,
       executionStage: input.plan.executionStage,
       outputAspectRatio: input.plan.outputAspectRatio,
+      outputSpec: input.plan.outputSpec,
       openaiImageSize: input.plan.openaiImageSize,
       count: input.plan.count,
       executionImages: input.plan.executionImages.map((image) => ({
@@ -142,6 +143,8 @@ function createOutputSummary(
       path: imagePaths[index],
       mimeType: image.mimeType,
       bytes: image.buffer.byteLength,
+      width: image.width,
+      height: image.height,
     })),
     textNotes: generated.textNotes ?? [],
     warnings: generated.warnings ?? [],

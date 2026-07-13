@@ -20,7 +20,8 @@ describe('imageTaskArtifactStore', () => {
   it('saves request summary, image instruction, output image, and output json', async () => {
     const store = createFileImageTaskArtifactStore(tempDir);
     const task = createTask();
-    task.request.aspectRatio = '4:3';
+    task.request.aspectRatio = '3:2';
+    task.request.outputQuality = '2K';
     const plan = buildImageTaskPlan(task.request, {
       defaultModels: {
         generation: 'gemini-2.5-flash-image',
@@ -41,6 +42,8 @@ describe('imageTaskArtifactStore', () => {
             fileName: 'model-output.png',
             buffer: new Uint8Array([137, 80, 78, 71]),
             mimeType: 'image/png',
+            width: 2048,
+            height: 1360,
           },
         ],
         textNotes: ['model note'],
@@ -65,8 +68,15 @@ describe('imageTaskArtifactStore', () => {
       plan: {
         mainPrompt: expect.stringContaining('直角矩形'),
         executionStage: { kind: 'edit', model: 'gemini-2.5-flash-image', protocol: 'gemini' },
-        outputAspectRatio: '4:3',
-        openaiImageSize: '1536x1024',
+        outputAspectRatio: '3:2',
+        outputSpec: {
+          aspectRatio: '3:2',
+          outputQuality: '2K',
+          width: 2048,
+          height: 1360,
+          size: '2048x1360',
+        },
+        openaiImageSize: '2048x1360',
       },
     });
     expect(await readFile(saved.imageInstructionPath, 'utf-8')).toBe('Create an independent 2D flat sticker design.');
@@ -82,6 +92,8 @@ describe('imageTaskArtifactStore', () => {
           path: path.join(saved.outputDir, 'result-1.png'),
           mimeType: 'image/png',
           bytes: 4,
+          width: 2048,
+          height: 1360,
         },
       ],
       textNotes: ['model note'],
