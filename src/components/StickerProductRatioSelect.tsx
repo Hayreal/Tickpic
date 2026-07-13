@@ -53,12 +53,12 @@ function customRatioParts(value: string): [string, string] {
   return [width, height];
 }
 
-function ratioDisplayLabel(selection: RatioSelection, value: string): string {
+function ratioDisplayLabel(selection: RatioSelection, customRatio?: string): string {
   if (selection === 'auto') {
     return '自动';
   }
   if (selection === '__custom__') {
-    return value !== '__custom__' && value.includes(':') ? `自定义 · ${value}` : '自定义';
+    return customRatio ? `自定义 · ${customRatio}` : '自定义';
   }
   return `${stickerProductRatioLabel(selection)} · ${selection}`;
 }
@@ -78,16 +78,30 @@ export default function StickerProductRatioSelect({
   const generatedId = useId();
   const listboxId = useId();
   const controlId = id ?? `${generatedId}-trigger`;
+  const errorId = `${controlId}-error`;
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const onChangeRef = useRef(onChange);
+  const onValidationChangeRef = useRef(onValidationChange);
+  const previousValueRef = useRef(value);
+  const lastEmittedRatioRef = useRef<string>();
   const [open, setOpen] = useState(false);
   const [selection, setSelection] = useState<RatioSelection>(() => ratioSelection(value));
   const initialCustomParts = customRatioParts(value);
   const [customWidth, setCustomWidth] = useState(initialCustomParts[0]);
   const [customHeight, setCustomHeight] = useState(initialCustomParts[1]);
+  const valueChangedSinceLastRender = previousValueRef.current !== value;
+
+  onChangeRef.current = onChange;
+  onValidationChangeRef.current = onValidationChange;
 
   useEffect(() => {
     const nextSelection = ratioSelection(value);
+    previousValueRef.current = value;
     setSelection(nextSelection);
+    if (nextSelection !== '__custom__') {
+      lastEmittedRatioRef.current = undefined;
+    }
     if (nextSelection === '__custom__' && value !== '__custom__') {
       const [width, height] = customRatioParts(value);
       setCustomWidth(width);
@@ -109,6 +123,7 @@ export default function StickerProductRatioSelect({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setOpen(false);
+        triggerRef.current?.focus();
       }
     };
 
@@ -120,6 +135,10 @@ export default function StickerProductRatioSelect({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [open]);
+
+  useEffect(() => () => {
+    onValidationChangeRef.current?.(undefined);
+  }, []);
 
   const customResult = useMemo(() => {
     if (selection !== '__custom__') {
@@ -156,23 +175,42 @@ export default function StickerProductRatioSelect({
 
   useEffect(() => {
     if (selection !== '__custom__') {
+      onValidationChangeRef.current?.(undefined);
       return;
     }
-    onValidationChange?.(customResult && 'error' in customResult ? customResult.error : undefined);
-  }, [customResult, onValidationChange, selection]);
+    if (!customResult || 'error' in customResult) {
+      onValidationChangeRef.current?.(customResult?.error);
+      return;
+    }
+
+    onValidationChangeRef.current?.(undefined);
+    if (
+      !valueChangedSinceLastRender
+      && value !== customResult.ratio
+      && lastEmittedRatioRef.current !== customResult.ratio
+    ) {
+      lastEmittedRatioRef.current = customResult.ratio;
+      onChangeRef.current(customResult.ratio);
+    }
+  }, [customResult, selection, value, valueChangedSinceLastRender]);
 
   const updateCustomRatio = (width: string, height: string) => {
     if (!width || !height) {
-      onValidationChange?.('请输入完整的产品比例');
+      onValidationChangeRef.current?.('请输入完整的产品比例');
       return;
     }
     try {
       const ratio = normalizeStickerAspectRatio(`${width}:${height}`);
       resolveStickerOutputSpec(ratio, outputQuality);
-      onValidationChange?.(undefined);
-      onChange(ratio);
+      onValidationChangeRef.current?.(undefined);
+      if (value === ratio) {
+        lastEmittedRatioRef.current = ratio;
+      } else if (lastEmittedRatioRef.current !== ratio) {
+        lastEmittedRatioRef.current = ratio;
+        onChangeRef.current(ratio);
+      }
     } catch (error) {
-      onValidationChange?.(errorMessage(error));
+      onValidationChangeRef.current?.(errorMessage(error));
     }
   };
 
@@ -183,9 +221,19 @@ export default function StickerProductRatioSelect({
       updateCustomRatio(customWidth, customHeight);
       return;
     }
-    onValidationChange?.(undefined);
-    onChange(nextSelection);
+    lastEmittedRatioRef.current = undefined;
+    onValidationChangeRef.current?.(undefined);
+    onChangeRef.current(nextSelection);
   };
+
+  const hasCustomError = selection === '__custom__'
+    && Boolean(customResult && 'error' in customResult);
+  const displayLabel = ratioDisplayLabel(
+    selection,
+    selection === '__custom__' && customResult && !('error' in customResult)
+      ? customResult.ratio
+      : undefined,
+  );
 
   return (
     <div className={cn('relative min-w-0 space-y-2', open && 'z-30')} ref={containerRef}>
@@ -193,9 +241,10 @@ export default function StickerProductRatioSelect({
         产品比例
       </label>
       <button
+        ref={triggerRef}
         type="button"
         id={controlId}
-        aria-label={`产品比例 ${ratioDisplayLabel(selection, value)}`}
+        aria-label={`产品比例 ${displayLabel}`}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listboxId}
@@ -207,7 +256,7 @@ export default function StickerProductRatioSelect({
         )}
       >
         <span className="min-w-0 truncate font-semibold text-foreground">
-          {ratioDisplayLabel(selection, value)}
+          {displayLabel}
         </span>
         <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
       </button>
@@ -260,6 +309,8 @@ export default function StickerProductRatioSelect({
               type="text"
               inputMode="decimal"
               aria-label="比例宽"
+              aria-invalid={hasCustomError}
+              aria-describedby={hasCustomError ? errorId : undefined}
               value={customWidth}
               onChange={(event) => {
                 const nextWidth = event.target.value;
@@ -273,6 +324,8 @@ export default function StickerProductRatioSelect({
               type="text"
               inputMode="decimal"
               aria-label="比例高"
+              aria-invalid={hasCustomError}
+              aria-describedby={hasCustomError ? errorId : undefined}
               value={customHeight}
               onChange={(event) => {
                 const nextHeight = event.target.value;
@@ -283,7 +336,7 @@ export default function StickerProductRatioSelect({
             />
           </div>
           {customResult && 'error' in customResult ? (
-            <p role="alert" className="text-xs text-destructive">{customResult.error}</p>
+            <p id={errorId} role="alert" className="text-xs text-destructive">{customResult.error}</p>
           ) : customResult ? (
             <p className="text-xs text-muted-foreground">
               {customResult.ratio} · {outputQuality} → {customResult.spec.width} × {customResult.spec.height} px

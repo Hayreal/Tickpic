@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { StickerOutputQuality } from '../../shared/domain/stickerOutputSpec';
 import FeatureParameterPanels from '../FeatureParameterPanels';
 import StickerOutputQualitySelect from '../StickerOutputQualitySelect';
 import StickerProductRatioSelect from '../StickerProductRatioSelect';
@@ -75,7 +77,15 @@ describe('StickerProductRatioSelect', () => {
     fireEvent.change(screen.getByRole('textbox', { name: '比例宽' }), { target: { value: width } });
     fireEvent.change(screen.getByRole('textbox', { name: '比例高' }), { target: { value: height } });
 
-    expect(screen.getByRole('alert')).toHaveTextContent(expectedError);
+    const alert = screen.getByRole('alert');
+    const widthInput = screen.getByRole('textbox', { name: '比例宽' });
+    const heightInput = screen.getByRole('textbox', { name: '比例高' });
+    expect(alert).toHaveTextContent(expectedError);
+    expect(alert.id).not.toBe('');
+    expect(widthInput).toHaveAttribute('aria-invalid', 'true');
+    expect(heightInput).toHaveAttribute('aria-invalid', 'true');
+    expect(widthInput).toHaveAttribute('aria-describedby', alert.id);
+    expect(heightInput).toHaveAttribute('aria-describedby', alert.id);
     expect(onValidationChange).toHaveBeenLastCalledWith(expect.stringMatching(expectedError));
   });
 
@@ -152,6 +162,109 @@ describe('StickerProductRatioSelect', () => {
     expect(onChange).not.toHaveBeenCalledWith('__custom__');
     expect(onValidationChange).toHaveBeenLastCalledWith(undefined);
   });
+
+  it('syncs a custom ratio that becomes valid after switching from 1K to 2K', () => {
+    function ControlledRatio() {
+      const [value, setValue] = useState('auto');
+      const [quality, setQuality] = useState<StickerOutputQuality>('1K');
+      const [validation, setValidation] = useState<string>();
+
+      return (
+        <>
+          <span data-testid="parent-ratio">{value}</span>
+          <span data-testid="parent-validation">{validation ?? 'valid'}</span>
+          <StickerProductRatioSelect
+            value={value}
+            outputQuality={quality}
+            onChange={setValue}
+            onValidationChange={setValidation}
+          />
+          <button type="button" onClick={() => setQuality('2K')}>使用 2K</button>
+        </>
+      );
+    }
+
+    render(<ControlledRatio />);
+    fireEvent.click(screen.getByRole('button', { name: /产品比例/i }));
+    fireEvent.click(screen.getByRole('option', { name: /自定义/ }));
+    fireEvent.change(screen.getByRole('textbox', { name: '比例宽' }), { target: { value: '100' } });
+    fireEvent.change(screen.getByRole('textbox', { name: '比例高' }), { target: { value: '1' } });
+
+    expect(screen.getByTestId('parent-ratio')).toHaveTextContent('auto');
+    expect(screen.getByTestId('parent-validation')).toHaveTextContent(/过于极端/);
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 2K' }));
+
+    expect(screen.getByTestId('parent-ratio')).toHaveTextContent('100:1');
+    expect(screen.getByText('100:1 · 2K → 2048 × 16 px')).toBeInTheDocument();
+    expect(screen.getByTestId('parent-validation')).toHaveTextContent('valid');
+  });
+
+  it.each([
+    ['auto', '外部切自动'],
+    ['21:5', '外部切预设'],
+  ])('clears custom validation when the controlled value switches to %s', (nextValue, buttonLabel) => {
+    function ControlledRatio() {
+      const [value, setValue] = useState('3:2');
+      const [validation, setValidation] = useState<string>();
+
+      return (
+        <>
+          <span data-testid="parent-validation">{validation ?? 'valid'}</span>
+          <StickerProductRatioSelect
+            value={value}
+            outputQuality="1K"
+            onChange={setValue}
+            onValidationChange={setValidation}
+          />
+          <button type="button" onClick={() => setValue(nextValue)}>{buttonLabel}</button>
+        </>
+      );
+    }
+
+    render(<ControlledRatio />);
+    fireEvent.change(screen.getByRole('textbox', { name: '比例宽' }), { target: { value: '0' } });
+    expect(screen.getByTestId('parent-validation')).toHaveTextContent(/必须大于 0/);
+
+    fireEvent.click(screen.getByRole('button', { name: buttonLabel }));
+
+    expect(screen.getByTestId('parent-validation')).toHaveTextContent('valid');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('shows only the custom label when a preset has no valid custom draft', () => {
+    render(
+      <StickerProductRatioSelect
+        value="21:5"
+        outputQuality="1K"
+        onChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /产品比例/i }));
+    fireEvent.click(screen.getByRole('option', { name: /自定义/ }));
+
+    expect(screen.getByRole('button', { name: '产品比例 自定义' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /自定义 · 21:5/ })).not.toBeInTheDocument();
+  });
+
+  it('returns focus to the trigger when Escape closes the list', () => {
+    render(
+      <StickerProductRatioSelect
+        value="auto"
+        outputQuality="1K"
+        onChange={vi.fn()}
+      />,
+    );
+
+    const trigger = screen.getByRole('button', { name: /产品比例/i });
+    fireEvent.click(trigger);
+    screen.getByRole('option', { name: /罐子.*21:5/ }).focus();
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
 });
 
 describe('StickerOutputQualitySelect', () => {
@@ -179,5 +292,42 @@ describe('FeatureParameterPanels', () => {
     );
 
     expect(screen.getByText('产品比例、清晰度与生成数量')).toBeInTheDocument();
+  });
+
+  it('clears custom validation when the basic panel unmounts and remounts', () => {
+    function PanelWithValidation() {
+      const [value, setValue] = useState('3:2');
+      const [validation, setValidation] = useState<string>();
+
+      return (
+        <>
+          <span data-testid="panel-validation">{validation ?? 'valid'}</span>
+          <FeatureParameterPanels
+            reference={<div>参考内容</div>}
+            basic={(
+              <StickerProductRatioSelect
+                value={value}
+                outputQuality="1K"
+                onChange={setValue}
+                onValidationChange={setValidation}
+              />
+            )}
+          />
+        </>
+      );
+    }
+
+    render(<PanelWithValidation />);
+    fireEvent.change(screen.getByRole('textbox', { name: '比例宽' }), { target: { value: '0' } });
+    expect(screen.getByTestId('panel-validation')).toHaveTextContent(/必须大于 0/);
+
+    fireEvent.click(screen.getByRole('button', { name: /基础参数/ }));
+
+    expect(screen.getByTestId('panel-validation')).toHaveTextContent('valid');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /基础参数/ }));
+    expect(screen.getByTestId('panel-validation')).toHaveTextContent('valid');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
