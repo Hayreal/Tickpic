@@ -18,6 +18,7 @@ import {
 } from './imageFeatureApi.js';
 import {
   resolveStickerVariationStrategy,
+  type StickerInputFidelity,
   type StickerVariationDirection,
 } from './stickerPrompts.js';
 
@@ -46,6 +47,7 @@ export interface ImageTaskPlan {
   outputSpec?: ResolvedStickerOutputSpec;
   openaiImageSize?: OpenAIImageSize;
   resolvedVariationStrategy?: StickerVariationDirection;
+  resolvedVariationInputFidelity?: StickerInputFidelity;
   count: number;
 }
 
@@ -66,15 +68,17 @@ export function buildImageTaskPlan(
     : undefined;
   const outputSpec = resolveStickerOutputSpecForPlan(validated, normalizedAspectRatio);
   const openaiImageSize = outputSpec?.size ?? resolveOpenAIImageSize(normalizedAspectRatio);
-  const resolvedVariationStrategy = validated.feature === 'sticker_variation'
+  const resolvedVariation = validated.feature === 'sticker_variation'
     ? resolveStickerVariationStrategy({
       direction: validated.stickerVariationDirection,
       productName: validated.productName,
       sellingPoints: validated.sellingPoints,
       colorScheme: validated.colorScheme,
       colorBlockLayout: validated.colorBlockLayout,
-    }).value
+    })
     : undefined;
+  const resolvedVariationStrategy = resolvedVariation?.value;
+  const resolvedVariationInputFidelity = resolvedVariation?.inputFidelity;
 
   if (!Number.isInteger(count) || count <= 0) {
     throw new Error('count must be a positive integer');
@@ -96,6 +100,7 @@ export function buildImageTaskPlan(
     outputSpec,
     openaiImageSize,
     resolvedVariationStrategy,
+    resolvedVariationInputFidelity,
     count,
   };
 }

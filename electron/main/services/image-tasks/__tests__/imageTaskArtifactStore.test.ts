@@ -159,7 +159,7 @@ describe('imageTaskArtifactStore', () => {
     expect(second.requestJsonPath).toBe(path.join(sharedDir, 'task-2-request.json'));
   });
 
-  it('persists the resolved sticker variation strategy in the request artifact plan', async () => {
+  it('persists the resolved sticker variation strategy and fidelity in the request artifact plan', async () => {
     const store = createFileImageTaskArtifactStore(tempDir);
     const task = {
       ...createTask(),
@@ -182,6 +182,7 @@ describe('imageTaskArtifactStore', () => {
 
     const artifact = JSON.parse(await readFile(saved.requestJsonPath, 'utf-8'));
     expect(artifact.plan.resolvedVariationStrategy).toBe('color');
+    expect(artifact.plan.resolvedVariationInputFidelity).toBe('high');
   });
 });
 

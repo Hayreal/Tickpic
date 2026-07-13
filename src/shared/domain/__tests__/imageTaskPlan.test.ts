@@ -100,7 +100,7 @@ describe('imageTaskPlan', () => {
     expect(plan.openaiImageSize).toBe('2048x1360');
   });
 
-  it('stores the resolved sticker variation strategy on the execution plan', () => {
+  it('stores the resolved color variation strategy and fidelity on the execution plan', () => {
     const plan = buildImageTaskPlan({
       feature: 'sticker_variation',
       images: [{ role: 'source', path: '/authorized/input/sticker.png' }],
@@ -108,6 +108,23 @@ describe('imageTaskPlan', () => {
     }, config);
 
     expect(plan.resolvedVariationStrategy).toBe('color');
+    expect(plan.resolvedVariationInputFidelity).toBe('high');
+  });
+
+  it('stores low fidelity for layout variations and omits variation fidelity for other features', () => {
+    const layoutPlan = buildImageTaskPlan({
+      feature: 'sticker_variation',
+      images: [{ role: 'source', path: '/authorized/input/sticker.png' }],
+      stickerVariationDirection: 'layout',
+    }, config);
+    const nonVariationPlan = buildImageTaskPlan({
+      feature: 'sticker_original',
+      productCategory: 'cleaning sheets',
+    }, config);
+
+    expect(layoutPlan.resolvedVariationStrategy).toBe('layout');
+    expect(layoutPlan.resolvedVariationInputFidelity).toBe('low');
+    expect(nonVariationPlan.resolvedVariationInputFidelity).toBeUndefined();
   });
 
   it('passes auto sizing through to execution params', () => {

@@ -118,6 +118,7 @@ function createRequestSummary(input: Omit<SaveImageTaskArtifactsInput, 'generate
       outputSpec: input.plan.outputSpec,
       openaiImageSize: input.plan.openaiImageSize,
       resolvedVariationStrategy: input.plan.resolvedVariationStrategy,
+      resolvedVariationInputFidelity: input.plan.resolvedVariationInputFidelity,
       count: input.plan.count,
       executionImages: input.plan.executionImages.map((image) => ({
         role: image.role,
