@@ -31,6 +31,68 @@ Structured parameters are rendered as natural lines:
 
 `aspectRatio` is passed only as a model API parameter (`size` / Gemini `aspectRatio`), not appended to the execution prompt text.
 
+## Sticker prompt contract
+
+Sticker execution prompts have a fixed section order: non-negotiable output
+contract, mode contract, optional variation strategy, structured content,
+low-priority user notes, and final check. Structured content overrides the
+reference; free-form user notes cannot weaken a hard rule.
+
+### Non-negotiable output rules
+
+Every sticker prompt requires all of the following exactly once:
+
+- One centered, front-facing, flat 2D rectangular label with four 90-degree
+  corners and straight edges.
+- Label artwork only: no bottle, jar, box, container, scene, stand, hand,
+  collage, mockup, or 3D packaging.
+- A pure-white, horizontally centred brand wordmark with the registered mark
+  at its upper-right; no gradient, outline, shadow, texture, or 3D treatment.
+- Natural English only for visible text: no Chinese, misspellings, garbling,
+  pseudo-text, duplication, or omitted required groups.
+- Complete title, brand, selling points, subtitle, NET line, and decorative
+  elements; English-adaptive title typography is about 20% smaller than an
+  equivalent Chinese treatment.
+- The complete group is centred with wide left/right safety margins and no
+  clipping or edge blur.
+
+### Mode differences
+
+- **Replica:** de-perspective and unwrap the source to a front-facing flat
+  label; preserve source fields unless structured content overrides them. A
+  supplied logo image is for brand identification only, never layout, palette,
+  style, or visual-design reference.
+- **Variation:** follow the resolved variation contract exactly; it controls
+  what may change, what must remain, and what is forbidden.
+- **Original:** build a fresh hierarchy from structured content. Style images
+  are visual-language references only—do not copy their wording or layout—and
+  do not invent certifications or claims.
+
+### Variation directions and input fidelity
+
+There are exactly eight variation directions. The resolved strategy controls
+both prompt instructions and OpenAI edit input fidelity; the task plan/request
+artifact records `resolvedVariationStrategy`, which makes that fidelity
+reproducible.
+
+| Direction | May change | Must preserve | Input fidelity |
+|---|---|---|---|
+| `product` | Product name, claims, efficacy/product graphics, information hierarchy | Brand, registered mark, commercial design system | low |
+| `color` | Primary/secondary palette, contrast, color blocks | Brand, **layout**, visible copy, graphic positions, capacity | high |
+| `reverse` | Light/dark hierarchy, primary/secondary roles, visual centre | Brand, visible copy, product identity | low |
+| `geometry` | Internal color blocks, sections, decorative rhythm | Brand, visible copy, capacity, main hierarchy | low |
+| `layout` | **Layout**, title/claim/graphic/badge/capacity positions, hierarchy | Brand, visible copy, product identity, core palette | low |
+| `background` | Internal texture, material, decorative background | Brand, foreground text structure, capacity, core product information | high |
+| `fusion` | Headline strength, selling-point rhythm, mature category design language | Brand, visible copy, product identity, capacity | low |
+| `key-element` | Exactly one dominant group: title container, efficacy graphic, badge, or main illustration | Brand, remaining layout, visible copy, palette, capacity | high |
+
+`color` variation explicitly preserves the existing layout and forbids rebuilding
+it. `layout` variation explicitly changes the layout and hierarchy; it is not a
+single-element adjustment. Each strategy also carries forbid rules, including
+no old product identity for `product`, no negative-filter or mirrored text for
+`reverse`, no full redesign for `key-element`, and no third-party brands or
+copied labels for `fusion`.
+
 ## Feature Main Prompts
 
 | Feature | mainPrompt |
