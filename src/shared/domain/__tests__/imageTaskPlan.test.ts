@@ -81,15 +81,50 @@ describe('imageTaskPlan', () => {
     expect(plan.count).toBe(2);
   });
 
-  it('builds output aspect-ratio params from the request', () => {
+  it('resolves one canonical sticker output contract from aspect ratio and quality', () => {
     const plan = buildImageTaskPlan({
       feature: 'sticker_original',
       productCategory: 'cleaning sheets',
-      aspectRatio: '9:16',
+      aspectRatio: '3:2',
+      outputQuality: '2K',
     }, config);
 
-    expect(plan.outputAspectRatio).toBe('9:16');
-    expect(plan.openaiImageSize).toBe('1024x1536');
+    expect(plan.outputAspectRatio).toBe('3:2');
+    expect(plan.outputSpec).toEqual({
+      aspectRatio: '3:2',
+      outputQuality: '2K',
+      width: 2048,
+      height: 1360,
+      size: '2048x1360',
+    });
+    expect(plan.openaiImageSize).toBe('2048x1360');
+  });
+
+  it('stores the resolved color variation strategy and fidelity on the execution plan', () => {
+    const plan = buildImageTaskPlan({
+      feature: 'sticker_variation',
+      images: [{ role: 'source', path: '/authorized/input/sticker.png' }],
+      colorScheme: 'blue and silver',
+    }, config);
+
+    expect(plan.resolvedVariationStrategy).toBe('color');
+    expect(plan.resolvedVariationInputFidelity).toBe('high');
+  });
+
+  it('stores low fidelity for layout variations and omits variation fidelity for other features', () => {
+    const layoutPlan = buildImageTaskPlan({
+      feature: 'sticker_variation',
+      images: [{ role: 'source', path: '/authorized/input/sticker.png' }],
+      stickerVariationDirection: 'layout',
+    }, config);
+    const nonVariationPlan = buildImageTaskPlan({
+      feature: 'sticker_original',
+      productCategory: 'cleaning sheets',
+    }, config);
+
+    expect(layoutPlan.resolvedVariationStrategy).toBe('layout');
+    expect(layoutPlan.resolvedVariationInputFidelity).toBe('low');
+    expect(nonVariationPlan.resolvedVariationInputFidelity).toBeUndefined();
   });
 
   it('passes auto sizing through to execution params', () => {
@@ -106,24 +141,22 @@ describe('imageTaskPlan', () => {
     expect(plan.openaiImageSize).toBe('auto');
   });
 
-  it('maps sticker product ratio to precise OpenAI size when image aspect ratio is auto', () => {
+  it('resolves sticker product ratios through the same canonical output contract', () => {
     const jarPlan = buildImageTaskPlan({
       feature: 'sticker_replica',
       aspectRatio: 'auto',
       productRatio: '21:5',
       images: [{ role: 'source', path: '/authorized/input/package.png' }],
     }, config);
-    const tallJarPlan = buildImageTaskPlan({
-      feature: 'sticker_replica',
-      aspectRatio: 'auto',
-      productRatio: '21:10',
-      images: [{ role: 'source', path: '/authorized/input/package.png' }],
-    }, config);
-
     expect(jarPlan.outputAspectRatio).toBe('21:5');
-    expect(jarPlan.openaiImageSize).toBe('2688x640');
-    expect(tallJarPlan.outputAspectRatio).toBe('21:10');
-    expect(tallJarPlan.openaiImageSize).toBe('2016x960');
+    expect(jarPlan.outputSpec).toEqual({
+      aspectRatio: '21:5',
+      outputQuality: '1K',
+      width: 1024,
+      height: 240,
+      size: '1024x240',
+    });
+    expect(jarPlan.openaiImageSize).toBe('1024x240');
   });
 
   it('keeps explicit image aspect ratio ahead of product ratio', () => {
@@ -136,6 +169,7 @@ describe('imageTaskPlan', () => {
 
     expect(plan.outputAspectRatio).toBe('1:1');
     expect(plan.openaiImageSize).toBe('1024x1024');
+    expect(plan.outputSpec?.aspectRatio).toBe('1:1');
   });
 
   it('rejects tasks when the settings generation model is not configured', () => {

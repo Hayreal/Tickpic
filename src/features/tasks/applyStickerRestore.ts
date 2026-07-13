@@ -1,8 +1,11 @@
-import type { ImageAspectRatioValue } from '../../shared/view/imageAspectRatioOptions';
 import {
-  resolveStickerProductRatio,
-  type StickerProductRatioSelection,
+  isStickerProductRatioPreset,
 } from '../../shared/view/stickerProductRatioOptions';
+import {
+  DEFAULT_STICKER_OUTPUT_QUALITY,
+  isStickerOutputQuality,
+  type StickerOutputQuality,
+} from '../../shared/domain/stickerOutputSpec';
 import { DEFAULT_IMAGE_COUNT } from '../../shared/view/imageCountOptions';
 import type { RegionMap } from '../../lib/regionSelection';
 import { regionMapFromTask } from '../../lib/regionSelection';
@@ -11,7 +14,6 @@ import type { TaskRecord } from '../../shared/domain/tasks';
 import type { StickerSubTab } from '../../shared/view/ui';
 import {
   DEFAULT_STICKER_BRAND,
-  DEFAULT_STICKER_REPLICA_LOGO_TEXT,
   STICKER_VARIATION_DIRECTION_NONE,
   type StickerVariationDirectionSelection,
 } from '../../shared/domain/stickerPrompts';
@@ -28,13 +30,12 @@ export interface StickerRestoreState {
   copyCapacity: string;
   copyStyle: string;
   copyColorBlockLayout: string;
-  copyLogoText: string;
   copyPrompt: string;
   copyColorScheme: string;
   copyRegions: RegionMap;
   copyCount: number;
-  copyAspectRatio: ImageAspectRatioValue;
-  copyProductRatio: StickerProductRatioSelection;
+  copyAspectRatio: string;
+  copyOutputQuality: StickerOutputQuality;
   variationBatch: ImportBatch | null;
   variationBrand: string;
   variationProductName: string;
@@ -45,14 +46,14 @@ export interface StickerRestoreState {
   variationColorBlockLayout: string;
   variationPrompt: string;
   variationCount: number;
-  variationAspectRatio: ImageAspectRatioValue;
-  variationProductRatio: StickerProductRatioSelection;
+  variationAspectRatio: string;
+  variationOutputQuality: StickerOutputQuality;
   variationColorScheme: string;
   variationDirection: StickerVariationDirectionSelection;
   originalBatch: ImportBatch | null;
   originalCount: number;
-  originalAspectRatio: ImageAspectRatioValue;
-  originalProductRatio: StickerProductRatioSelection;
+  originalAspectRatio: string;
+  originalOutputQuality: StickerOutputQuality;
   originalCategory: string;
   originalBrand: string;
   originalProductName: string;
@@ -64,8 +65,18 @@ export interface StickerRestoreState {
   originalColorScheme: string;
 }
 
-function aspectRatioFrom(value?: string): ImageAspectRatioValue {
-  return (value?.trim() || 'auto') as ImageAspectRatioValue;
+function restoredRatio(request: NonNullable<TaskRecord['request']>): string {
+  const aspectRatio = request.aspectRatio?.trim();
+  if (aspectRatio && aspectRatio !== 'auto') {
+    return aspectRatio;
+  }
+  return request.productRatio && isStickerProductRatioPreset(request.productRatio)
+    ? request.productRatio
+    : 'auto';
+}
+
+function restoredQuality(value?: string): StickerOutputQuality {
+  return isStickerOutputQuality(value) ? value : DEFAULT_STICKER_OUTPUT_QUALITY;
 }
 
 function stickerStructuredFields(request: NonNullable<TaskRecord['request']>) {
@@ -103,13 +114,12 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
     copyCapacity: '',
     copyStyle: '',
     copyColorBlockLayout: '',
-    copyLogoText: DEFAULT_STICKER_REPLICA_LOGO_TEXT,
     copyPrompt: '',
     copyColorScheme: '',
     copyRegions: {},
     copyCount: DEFAULT_IMAGE_COUNT,
-    copyAspectRatio: 'auto' as ImageAspectRatioValue,
-    copyProductRatio: '',
+    copyAspectRatio: 'auto',
+    copyOutputQuality: DEFAULT_STICKER_OUTPUT_QUALITY,
     variationBatch: null,
     variationBrand: DEFAULT_STICKER_BRAND,
     variationProductName: '',
@@ -120,14 +130,14 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
     variationColorBlockLayout: '',
     variationPrompt: '',
     variationCount: DEFAULT_IMAGE_COUNT,
-    variationAspectRatio: 'auto' as ImageAspectRatioValue,
-    variationProductRatio: '',
+    variationAspectRatio: 'auto',
+    variationOutputQuality: DEFAULT_STICKER_OUTPUT_QUALITY,
     variationColorScheme: '',
     variationDirection: STICKER_VARIATION_DIRECTION_NONE,
     originalBatch: null,
     originalCount: DEFAULT_IMAGE_COUNT,
-    originalAspectRatio: 'auto' as ImageAspectRatioValue,
-    originalProductRatio: '',
+    originalAspectRatio: 'auto',
+    originalOutputQuality: DEFAULT_STICKER_OUTPUT_QUALITY,
     originalCategory: '',
     originalBrand: DEFAULT_STICKER_BRAND,
     originalProductName: '',
@@ -148,20 +158,19 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
         copyLogo: (logoImage ?? referenceImage)
           ? createImportBatch([logoImage ?? referenceImage!], 'sticker', 'sticker_replica')
           : null,
-        copyBrand: structured.brand,
+        copyBrand: structured.brand || request.logoText || DEFAULT_STICKER_BRAND,
         copyProductName: structured.productName,
         copyMaterial: structured.material,
         copySellingPoint: structured.sellingPoint,
         copyCapacity: structured.capacity,
         copyStyle: structured.style,
         copyColorBlockLayout: structured.colorBlockLayout,
-        copyLogoText: request.logoText ?? DEFAULT_STICKER_REPLICA_LOGO_TEXT,
         copyPrompt: request.prompt ?? '',
         copyColorScheme: structured.colorScheme,
         copyRegions: regionMapFromTask(task.imports, request.regions),
         copyCount: request.count ?? DEFAULT_IMAGE_COUNT,
-        copyAspectRatio: aspectRatioFrom(request.aspectRatio),
-        copyProductRatio: resolveStickerProductRatio(request.productRatio),
+        copyAspectRatio: restoredRatio(request),
+        copyOutputQuality: restoredQuality(request.outputQuality),
       };
     case 'sticker_variation':
       return {
@@ -177,8 +186,8 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
         variationColorBlockLayout: structured.colorBlockLayout,
         variationPrompt: request.prompt ?? '',
         variationCount: request.count ?? DEFAULT_IMAGE_COUNT,
-        variationAspectRatio: aspectRatioFrom(request.aspectRatio),
-        variationProductRatio: resolveStickerProductRatio(request.productRatio),
+        variationAspectRatio: restoredRatio(request),
+        variationOutputQuality: restoredQuality(request.outputQuality),
         variationColorScheme: structured.colorScheme,
         variationDirection: request.stickerVariationDirection ?? STICKER_VARIATION_DIRECTION_NONE,
       };
@@ -192,8 +201,8 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
             ? createImportBatch([referenceImage], 'sticker', 'sticker_original')
             : null,
         originalCount: request.count ?? DEFAULT_IMAGE_COUNT,
-        originalAspectRatio: aspectRatioFrom(request.aspectRatio),
-        originalProductRatio: resolveStickerProductRatio(request.productRatio),
+        originalAspectRatio: restoredRatio(request),
+        originalOutputQuality: restoredQuality(request.outputQuality),
         originalCategory: request.productCategory ?? '',
         originalBrand: structured.brand || request.productName || request.logoText || DEFAULT_STICKER_BRAND,
         originalProductName: structured.productName,

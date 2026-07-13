@@ -28,6 +28,37 @@ IPC 通道名应在共享契约中集中维护，Renderer 不得直接访问 `ip
 
 ## 3. 统一请求结构
 
+### Sticker output request contract
+
+The three sticker features (`sticker_replica`, `sticker_variation`, and
+`sticker_original`) use the following canonical output fields:
+
+```ts
+aspectRatio?: string;
+outputQuality?: '1K' | '2K'; // defaults to '1K'
+```
+
+`aspectRatio` is the submitted output ratio. Product UI exposes only `auto`,
+`21:5` (container), `21:10` (tall container), `9:12` (bottle), and a custom
+ratio; it does not expose a generic ratio-preset list. A custom ratio has a
+longest edge of 1024 for `1K` or 2048 for `2K`; its short edge is rounded to
+the nearest 16 pixels. For example, `3:2` at `1K` resolves to `1024x688`.
+Invalid or excessively extreme custom ratios block submission.
+
+`productRatio` and `logoText` are deprecated compatibility inputs. They are
+read only while restoring legacy tasks: a valid legacy `productRatio` can
+restore the output-ratio selection, and legacy `logoText` can restore the
+brand field. New renderer submissions never send either field; they send the
+canonical `aspectRatio`, `outputQuality`, and `brand` fields instead.
+
+Capacity is normalized for label copy before prompt assembly. Metric volume
+becomes `NET: <ML>ML / <FL.OZ> FL.OZ`, metric mass becomes `NET: <G>G / <OZ>
+OZ`, and piece counts become `NET: <N> PIECES`. Explicit dual units are kept
+after normalization. Unsupported or unsafe-to-convert capacity input remains
+visible as uppercased `NET: ...` and raises a warning; it does not silently
+invent a conversion or prevent a request. For example, `100ml` previews as
+`NET: 100ML / 3.38 FL.OZ`.
+
 ```ts
 type ImageTaskRequest = {
   feature: ImageFeature;
@@ -39,9 +70,14 @@ type ImageTaskRequest = {
   productCategory?: string;
   sellingPoints?: string[];
   capacity?: string;
+  brand?: string;
+  /** @deprecated: legacy-task restore only */
   logoText?: string;
   colorScheme?: string;
   aspectRatio?: string;
+  /** @deprecated: legacy-task restore only */
+  productRatio?: string;
+  outputQuality?: '1K' | '2K';
   showProduct?: boolean;
   modelOverrides?: {
     vision?: string;
@@ -456,6 +492,21 @@ Main Process 必须在入队前完成请求校验：
 | 纯提示词图片 | 纯提示词主图/素材图传入的参考图当前不参与图片模型调用 |
 
 ## 12. 产物要求
+
+### Sticker provider and artifact contract
+
+For a resolved sticker output spec, OpenAI receives the exact pixel `size`
+(for example `1024x688`), while Gemini receives
+`imageConfig: { aspectRatio, imageSize }` with uppercase `1K` or `2K`.
+The task plan is the single resolution point and records `outputSpec` (ratio,
+quality, width, height, and exact size) in the request artifact. The same
+artifact records the resolved variation strategy when the feature is a sticker
+variation.
+
+The executor inspects every returned bitmap and records its actual `width` and
+`height` in the output artifact. If returned pixels differ from `outputSpec`,
+it adds a mismatch warning. Returned images are never automatically resized,
+resampled, or silently rewritten to match the requested target.
 
 每个完成任务至少保存：
 

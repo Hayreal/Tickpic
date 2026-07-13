@@ -91,7 +91,7 @@ describe('protocolClients', () => {
     );
   });
 
-  it('passes aspectRatio auto to Gemini image execution', async () => {
+  it('passes aspectRatio auto inside Gemini imageConfig', async () => {
     const gemini = {
       models: {
         generateContent: vi.fn().mockResolvedValue({
@@ -123,7 +123,7 @@ describe('protocolClients', () => {
     expect(gemini.models.generateContent).toHaveBeenCalledWith(
       expect.objectContaining({
         config: expect.objectContaining({
-          aspectRatio: 'auto',
+          imageConfig: { aspectRatio: 'auto' },
         }),
       }),
     );
@@ -184,6 +184,43 @@ describe('protocolClients', () => {
     );
   });
 
+  it('uses resolved strategy fidelity for color/layout variations and style-backed originals', async () => {
+    const openai = {
+      chat: { completions: { create: vi.fn() } },
+      images: {
+        generate: vi.fn(),
+        edit: vi.fn().mockResolvedValue({
+          data: [{ b64_json: Buffer.from('varied').toString('base64') }],
+        }),
+      },
+    };
+    const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
+    const color = createStickerVariationExecutionInput(imagePath);
+    color.plan = { ...color.plan, resolvedVariationStrategy: 'color' };
+    const layout = createStickerVariationExecutionInput(imagePath);
+    layout.plan = { ...layout.plan, resolvedVariationStrategy: 'layout' };
+    const original = createExecutionInput(imagePath);
+    original.task = {
+      ...original.task,
+      feature: 'sticker_original',
+      request: { feature: 'sticker_original', images: [{ role: 'style', path: imagePath, mimeType: 'image/png' }] },
+    };
+    original.plan = {
+      ...original.plan,
+      request: original.task.request,
+      executionImages: original.task.request.images ?? [],
+    };
+    original.images = original.plan.executionImages;
+
+    await client.executeImage(color);
+    await client.executeImage(layout);
+    await client.executeImage(original);
+
+    expect(openai.images.edit.mock.calls[0][0].input_fidelity).toBe('high');
+    expect(openai.images.edit.mock.calls[1][0].input_fidelity).toBe('low');
+    expect(openai.images.edit.mock.calls[2][0].input_fidelity).toBe('low');
+  });
+
   it('uses Gemini generateContent for image execution', async () => {
     const gemini = {
       models: {
@@ -214,11 +251,37 @@ describe('protocolClients', () => {
       model: 'gpt-image-2',
       config: expect.objectContaining({
         responseModalities: ['TEXT', 'IMAGE'],
-        aspectRatio: '9:16',
+        imageConfig: { aspectRatio: '9:16' },
       }),
     }));
     expect(result.textNotes).toEqual(['gemini note']);
     expect(Buffer.from(result.images[0].buffer).toString()).toBe('gemini image');
+  });
+
+  it('sends the sticker ratio and uppercase quality in Gemini imageConfig', async () => {
+    const gemini = {
+      models: {
+        generateContent: vi.fn().mockResolvedValue({
+          candidates: [{ content: { parts: [{ inlineData: {
+            mimeType: 'image/png',
+            data: Buffer.from('gemini sticker').toString('base64'),
+          } }] } }],
+        }),
+      },
+    };
+    const client = createGeminiProtocolClient(gemini, { baseUrl: TEST_BASE_URL });
+
+    await client.executeImage({
+      ...createExecutionInput(imagePath),
+      aspectRatio: '3:2',
+      imageSize: '2K',
+    });
+
+    expect(gemini.models.generateContent).toHaveBeenCalledWith(expect.objectContaining({
+      config: expect.objectContaining({
+        imageConfig: { aspectRatio: '3:2', imageSize: '2K' },
+      }),
+    }));
   });
 });
 

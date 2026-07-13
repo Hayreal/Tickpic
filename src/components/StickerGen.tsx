@@ -20,11 +20,14 @@ import {
   regionsFromMap,
 } from '../lib/regionSelection';
 import GenerationResult from './GenerationResult';
-import AspectRatioSelect, { DEFAULT_IMAGE_ASPECT_RATIO } from './AspectRatioSelect';
 import ImageCountSelector, { DEFAULT_IMAGE_COUNT } from './ImageCountSelector';
 import StickerProductRatioSelect from './StickerProductRatioSelect';
-import type { ImageAspectRatioValue } from '../shared/view/imageAspectRatioOptions';
-import type { StickerProductRatioSelection } from '../shared/view/stickerProductRatioOptions';
+import StickerOutputQualitySelect from './StickerOutputQualitySelect';
+import {
+  DEFAULT_STICKER_OUTPUT_QUALITY,
+  normalizeStickerAspectRatio,
+  type StickerOutputQuality,
+} from '../shared/domain/stickerOutputSpec';
 import type { TaskRecord } from '../shared/domain/tasks';
 import { getFeatureRoute } from '../shared/view/featureRoutes';
 import { applyStickerRestore } from '../features/tasks/applyStickerRestore';
@@ -47,10 +50,10 @@ import FeatureParameterPanels, { REFERENCE_UPLOAD_STACK } from './FeatureParamet
 import StickerParameterFields from './StickerParameterFields';
 import {
   DEFAULT_STICKER_BRAND,
-  DEFAULT_STICKER_REPLICA_LOGO_TEXT,
   STICKER_VARIATION_DIRECTION_OPTIONS,
   type StickerVariationDirectionSelection,
 } from '../shared/domain/stickerPrompts';
+import { formatAspectRatio, inferStickerSourceAspectRatio } from '../lib/aspectRatioFromImage';
 import { cn } from '../lib/utils';
 
 interface StickerGenProps {
@@ -182,6 +185,7 @@ function StickerVariationDirectionSelect({
 export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerGenProps) {
   const [subTab, setSubTab] = useState<StickerSubTab>('copy');
   const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
+  const isGenerationStartingRef = useRef(false);
   const desktopClient = useDesktopClient();
   const { logs, isLoading: isLoadingLogs } = useAppLogs(desktopClient);
   const { submitMany, bindTask, restoreTask, getTask, getTasks, getError, isSubmitting, reset } = useImageTask();
@@ -220,19 +224,19 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
   // STICKER COPY (Tab 1) state
   const [copyBatch, setCopyBatch] = useState<ImportBatch | null>(null);
   const [copyCount, setCopyCount] = useState<number>(DEFAULT_IMAGE_COUNT);
-  const [copyAspectRatio, setCopyAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
-  const [copyProductRatio, setCopyProductRatio] = useState<StickerProductRatioSelection>('');
+  const [copyAspectRatio, setCopyAspectRatio] = useState('auto');
+  const [copyOutputQuality, setCopyOutputQuality] = useState<StickerOutputQuality>(DEFAULT_STICKER_OUTPUT_QUALITY);
+  const [copyRatioValidation, setCopyRatioValidation] = useState<string>();
 
   // Copy Tab - New State
   const [copyLogo, setCopyLogo] = useState<ImportBatch | null>(null);
-  const [copyBrand, setCopyBrand] = useState('');
+  const [copyBrand, setCopyBrand] = useState(DEFAULT_STICKER_BRAND);
   const [copyProductName, setCopyProductName] = useState('');
   const [copyMaterial, setCopyMaterial] = useState('');
   const [copySellingPoint, setCopySellingPoint] = useState('');
   const [copyCapacity, setCopyCapacity] = useState('');
   const [copyStyle, setCopyStyle] = useState('');
   const [copyColorBlockLayout, setCopyColorBlockLayout] = useState('');
-  const [copyLogoText, setCopyLogoText] = useState(DEFAULT_STICKER_REPLICA_LOGO_TEXT);
   const [copyPrompt, setCopyPrompt] = useState('');
   const [copyColorScheme, setCopyColorScheme] = useState('');
   const [copyRegions, setCopyRegions] = useState<RegionMap>({});
@@ -241,8 +245,9 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
   const [variationBatch, setVariationBatch] = useState<ImportBatch | null>(null);
   const [variationPrompt, setVariationPrompt] = useState('');
   const [variationCount, setVariationCount] = useState<number>(DEFAULT_IMAGE_COUNT);
-  const [variationAspectRatio, setVariationAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
-  const [variationProductRatio, setVariationProductRatio] = useState<StickerProductRatioSelection>('');
+  const [variationAspectRatio, setVariationAspectRatio] = useState('auto');
+  const [variationOutputQuality, setVariationOutputQuality] = useState<StickerOutputQuality>(DEFAULT_STICKER_OUTPUT_QUALITY);
+  const [variationRatioValidation, setVariationRatioValidation] = useState<string>();
   const [variationDirection, setVariationDirection] = useState<StickerVariationDirectionSelection>('');
 
   // Variation Tab - New State
@@ -258,8 +263,9 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
   // STICKER ORIGINAL (Tab 3) state
   const [originalBatch, setOriginalBatch] = useState<ImportBatch | null>(null);
   const [originalCount, setOriginalCount] = useState<number>(DEFAULT_IMAGE_COUNT);
-  const [originalAspectRatio, setOriginalAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
-  const [originalProductRatio, setOriginalProductRatio] = useState<StickerProductRatioSelection>('');
+  const [originalAspectRatio, setOriginalAspectRatio] = useState('auto');
+  const [originalOutputQuality, setOriginalOutputQuality] = useState<StickerOutputQuality>(DEFAULT_STICKER_OUTPUT_QUALITY);
+  const [originalRatioValidation, setOriginalRatioValidation] = useState<string>();
   
   // Original Tab - New Structured State
   const [originalCategory, setOriginalCategory] = useState('');
@@ -297,13 +303,12 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
     setCopyCapacity(restored.copyCapacity);
     setCopyStyle(restored.copyStyle);
     setCopyColorBlockLayout(restored.copyColorBlockLayout);
-    setCopyLogoText(restored.copyLogoText);
     setCopyPrompt(restored.copyPrompt);
     setCopyColorScheme(restored.copyColorScheme);
     setCopyRegions(restored.copyRegions);
     setCopyCount(restored.copyCount);
     setCopyAspectRatio(restored.copyAspectRatio);
-    setCopyProductRatio(restored.copyProductRatio);
+    setCopyOutputQuality(restored.copyOutputQuality);
     setVariationBatch(restored.variationBatch);
     setVariationBrand(restored.variationBrand);
     setVariationProductName(restored.variationProductName);
@@ -315,13 +320,13 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
     setVariationPrompt(restored.variationPrompt);
     setVariationCount(restored.variationCount);
     setVariationAspectRatio(restored.variationAspectRatio);
-    setVariationProductRatio(restored.variationProductRatio);
+    setVariationOutputQuality(restored.variationOutputQuality);
     setVariationColorScheme(restored.variationColorScheme);
     setVariationDirection(restored.variationDirection);
     setOriginalBatch(restored.originalBatch);
     setOriginalCount(restored.originalCount);
     setOriginalAspectRatio(restored.originalAspectRatio);
-    setOriginalProductRatio(restored.originalProductRatio);
+    setOriginalOutputQuality(restored.originalOutputQuality);
     setOriginalCategory(restored.originalCategory);
     setOriginalBrand(restored.originalBrand);
     setOriginalProductName(restored.originalProductName);
@@ -366,26 +371,62 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
     () => filterLogsForTasks(logs, activeTasks),
     [logs, activeTasks],
   );
+
+  const resolveAspectRatio = async (
+    selectedRatio: string,
+    source?: { filePath: string },
+    region?: { width: number; height: number } | null,
+  ) => {
+    if (selectedRatio !== 'auto') {
+      return normalizeStickerAspectRatio(selectedRatio);
+    }
+    if (region && Number.isFinite(region.width) && Number.isFinite(region.height)
+      && region.width > 0 && region.height > 0) {
+      return formatAspectRatio(region.width, region.height);
+    }
+    if (source) {
+      try {
+        return await inferStickerSourceAspectRatio(source.filePath);
+      } catch {
+        // Fall back to a square output when the local image cannot be read.
+      }
+    }
+    return '1:1';
+  };
+
+  const activeRatioValidation = subTab === 'copy'
+    ? copyRatioValidation
+    : subTab === 'variation'
+      ? variationRatioValidation
+      : originalRatioValidation;
   // Generation sequence run
   const runGeneration = async (type: StickerSubTab) => {
-    if (type === 'copy' && !copyBatch) {
-      alert('请先上传一张贴纸作为参考图片！');
+    if (isGenerationStartingRef.current) {
       return;
     }
-    if (type === 'variation' && !variationBatch) {
-      alert('请先上传一张参考贴纸！');
-      return;
-    }
-    if (type === 'original' && !originalCategory && !originalBrand && !originalSellingPoint) {
-      alert('请输入产品类别、品牌或卖点！');
-      return;
-    }
+    isGenerationStartingRef.current = true;
 
-    const requests: ImageTaskRequest[] = [];
+    try {
+      if (type === 'copy' && !copyBatch) {
+        alert('请先上传一张贴纸作为参考图片！');
+        return;
+      }
+      if (type === 'variation' && !variationBatch) {
+        alert('请先上传一张参考贴纸！');
+        return;
+      }
+      if (type === 'original' && !originalCategory && !originalBrand && !originalSellingPoint) {
+        alert('请输入产品类别、品牌或卖点！');
+        return;
+      }
 
-    if (type === 'copy') {
+      const requests: ImageTaskRequest[] = [];
+
+      if (type === 'copy') {
       const logoImage = copyLogo?.images[0];
       for (const source of copyBatch?.images ?? []) {
+        const region = copyRegions[source.filePath];
+        const aspectRatio = await resolveAspectRatio(copyAspectRatio, source, region);
         for (let index = 0; index < copyCount; index += 1) {
           requests.push({
             feature: FEATURE_MAP[type],
@@ -394,7 +435,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
               ...(logoImage ? [{ role: 'logo' as const, path: logoImage.filePath }] : []),
             ],
             count: 1,
-            brand: copyBrand || undefined,
+            brand: copyBrand.trim() || DEFAULT_STICKER_BRAND,
             productName: copyProductName || undefined,
             material: copyMaterial || undefined,
             sellingPoints: copySellingPoint ? [copySellingPoint] : undefined,
@@ -402,22 +443,22 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
             style: copyStyle || undefined,
             colorBlockLayout: copyColorBlockLayout || undefined,
             prompt: copyPrompt || undefined,
-            logoText: copyLogoText || undefined,
             colorScheme: copyColorScheme || undefined,
-            aspectRatio: copyAspectRatio,
-            productRatio: copyProductRatio || undefined,
+            aspectRatio,
+            outputQuality: copyOutputQuality,
             regions: regionsFromMap(copyRegions, source.filePath),
           });
         }
       }
-    } else if (type === 'variation') {
+      } else if (type === 'variation') {
       for (const source of variationBatch?.images ?? []) {
+        const aspectRatio = await resolveAspectRatio(variationAspectRatio, source);
         for (let index = 0; index < variationCount; index += 1) {
           requests.push({
             feature: FEATURE_MAP[type],
             images: [{ role: 'source', path: source.filePath }],
             count: 1,
-            brand: variationBrand || undefined,
+            brand: variationBrand.trim() || DEFAULT_STICKER_BRAND,
             productName: variationProductName || undefined,
             material: variationMaterial || undefined,
             sellingPoints: variationSellingPoint ? [variationSellingPoint] : undefined,
@@ -427,20 +468,21 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
             colorScheme: variationColorScheme || undefined,
             stickerVariationDirection: variationDirection || undefined,
             prompt: variationPrompt || undefined,
-            aspectRatio: variationAspectRatio,
-            productRatio: variationProductRatio || undefined,
+            aspectRatio,
+            outputQuality: variationOutputQuality,
           });
         }
       }
-    } else {
+      } else {
       const styleImages = originalBatch?.images ?? [];
       for (let index = 0; index < originalCount; index += 1) {
         const styleImage = styleImages.length > 0 ? styleImages[index % styleImages.length] : undefined;
+        const aspectRatio = await resolveAspectRatio(originalAspectRatio, styleImage);
         requests.push({
           feature: FEATURE_MAP[type],
           images: styleImage ? [{ role: 'style', path: styleImage.filePath }] : [],
           count: 1,
-          brand: originalBrand || undefined,
+          brand: originalBrand.trim() || DEFAULT_STICKER_BRAND,
           productName: originalProductName || undefined,
           productCategory: originalCategory || undefined,
           material: originalMaterial || undefined,
@@ -449,18 +491,21 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
           style: originalStyle || undefined,
           colorBlockLayout: originalColorBlockLayout || undefined,
           colorScheme: originalColorScheme || undefined,
-          aspectRatio: originalAspectRatio,
-          productRatio: originalProductRatio || undefined,
+          aspectRatio,
+          outputQuality: originalOutputQuality,
         });
       }
     }
 
-    try {
-      reset(FEATURE_MAP[type]);
-      await submitMany(requests);
-      setIsTaskDrawerOpen(true);
-    } catch (err) {
-      console.error('Task submission failed:', err);
+      try {
+        reset(FEATURE_MAP[type]);
+        await submitMany(requests);
+        setIsTaskDrawerOpen(true);
+      } catch (err) {
+        console.error('Task submission failed:', err);
+      }
+    } finally {
+      isGenerationStartingRef.current = false;
     }
   };
 
@@ -498,6 +543,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
         submitId={`submit-sticker-${subTab}`}
         onSubmit={() => runGeneration(subTab)}
         isSubmitting={isSubmitting}
+        submitDisabled={Boolean(activeRatioValidation)}
         progressLabel={formatTaskBatchProgress(activeTasks, activeCount)}
         taskInProgress={taskInProgress}
         drawerOpen={isTaskDrawerOpen}
@@ -553,17 +599,14 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
                 )}
                 basic={(
                   <>
-                    <AspectRatioSelect
-                      id="copy-aspect-ratio-select"
-                      value={copyAspectRatio}
-                      onChange={setCopyAspectRatio}
-                      label="图片比例"
-                    />
                     <StickerProductRatioSelect
                       id="copy-product-ratio-select"
-                      value={copyProductRatio}
-                      onChange={setCopyProductRatio}
+                      value={copyAspectRatio}
+                      onChange={setCopyAspectRatio}
+                      outputQuality={copyOutputQuality}
+                      onValidationChange={setCopyRatioValidation}
                     />
+                    <StickerOutputQualitySelect value={copyOutputQuality} onChange={setCopyOutputQuality} />
                     <ImageCountSelector
                       id="copy-count-selector"
                       value={copyCount}
@@ -592,17 +635,6 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
                       colorBlockLayout={copyColorBlockLayout}
                       onColorBlockLayoutChange={setCopyColorBlockLayout}
                     />
-                    <div className="space-y-2">
-                      <label className="ui-label">Logo 文字</label>
-                      <input
-                        type="text"
-                        id="copy-logo-text-input"
-                        value={copyLogoText}
-                        onChange={(e) => setCopyLogoText(e.target.value)}
-                        placeholder="例如：wkau、LUMO"
-                        className="ui-input-compact"
-                      />
-                    </div>
                     <div className="space-y-2 sm:col-span-2">
                       <label className="ui-label">附加提示词</label>
                       <textarea
@@ -631,21 +663,20 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
                 )}
                 basic={(
                   <>
-                    <StickerVariationDirectionSelect
-                      value={variationDirection}
-                      onChange={setVariationDirection}
-                    />
-                    <AspectRatioSelect
-                      id="variation-aspect-ratio-select"
-                      value={variationAspectRatio}
-                      onChange={setVariationAspectRatio}
-                      label="图片比例"
-                    />
+                    <div className="sm:col-span-3">
+                      <StickerVariationDirectionSelect
+                        value={variationDirection}
+                        onChange={setVariationDirection}
+                      />
+                    </div>
                     <StickerProductRatioSelect
                       id="variation-product-ratio-select"
-                      value={variationProductRatio}
-                      onChange={setVariationProductRatio}
+                      value={variationAspectRatio}
+                      onChange={setVariationAspectRatio}
+                      outputQuality={variationOutputQuality}
+                      onValidationChange={setVariationRatioValidation}
                     />
+                    <StickerOutputQualitySelect value={variationOutputQuality} onChange={setVariationOutputQuality} />
                     <ImageCountSelector
                       id="variation-count-selector"
                       value={variationCount}
@@ -704,17 +735,14 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
                 )}
                 basic={(
                   <>
-                    <AspectRatioSelect
-                      id="original-aspect-ratio-select"
-                      value={originalAspectRatio}
-                      onChange={setOriginalAspectRatio}
-                      label="图片比例"
-                    />
                     <StickerProductRatioSelect
                       id="original-product-ratio-select"
-                      value={originalProductRatio}
-                      onChange={setOriginalProductRatio}
+                      value={originalAspectRatio}
+                      onChange={setOriginalAspectRatio}
+                      outputQuality={originalOutputQuality}
+                      onValidationChange={setOriginalRatioValidation}
                     />
+                    <StickerOutputQualitySelect value={originalOutputQuality} onChange={setOriginalOutputQuality} />
                     <ImageCountSelector
                       id="original-count-selector"
                       value={originalCount}

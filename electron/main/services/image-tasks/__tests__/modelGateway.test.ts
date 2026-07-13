@@ -33,6 +33,7 @@ describe('modelGateway', () => {
       count: 1,
       aspectRatio: '4:3',
       size: '1536x1024',
+      imageSize: undefined,
       abortSignal,
     });
   });
@@ -50,6 +51,44 @@ describe('modelGateway', () => {
       finalPrompt: 'assembled prompt',
       abortSignal: new AbortController().signal,
     })).rejects.toThrow('openai model client is not configured');
+  });
+
+  it('adds sticker output context when the provider rejects the requested size', async () => {
+    const gateway = createProtocolModelGateway({
+      openai: {
+        executeImage: vi.fn().mockRejectedValue(new Error('unsupported size')),
+      },
+    });
+    const plan: ImageTaskPlan = {
+      ...createPlan(),
+      request: {
+        feature: 'sticker_original',
+        aspectRatio: '3:2',
+        outputQuality: '2K',
+      },
+      outputAspectRatio: '3:2',
+      outputSpec: {
+        aspectRatio: '3:2',
+        outputQuality: '2K',
+        width: 2048,
+        height: 1360,
+        size: '2048x1360',
+      },
+      openaiImageSize: '2048x1360',
+    };
+
+    await expect(gateway.executeSingleImage({
+      task: {
+        ...createTask(),
+        feature: 'sticker_original',
+        request: plan.request,
+      },
+      plan,
+      finalPrompt: 'assembled prompt',
+      abortSignal: new AbortController().signal,
+    })).rejects.toThrow(
+      'sticker image execution failed (provider=openai, protocol=openai, target ratio=3:2, quality=2K, target size=2048x1360): unsupported size',
+    );
   });
 });
 
