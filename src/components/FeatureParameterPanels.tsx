@@ -84,7 +84,7 @@ export default function FeatureParameterPanels({
       {basic ? (
         <CollapsiblePanel
           title="基础参数"
-          description="图片比例与生成数量"
+          description="产品比例、清晰度与生成数量"
           defaultOpen
         >
           <div className={BASIC_PANEL_GRID}>{basic}</div>
