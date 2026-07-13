@@ -45,6 +45,9 @@ describe('StickerProductRatioSelect', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /产品比例/i }));
     fireEvent.click(screen.getByRole('option', { name: /自定义/ }));
+
+    expect(onChange).not.toHaveBeenCalled();
+
     fireEvent.change(screen.getByRole('textbox', { name: '比例宽' }), { target: { value: '3' } });
     fireEvent.change(screen.getByRole('textbox', { name: '比例高' }), { target: { value: '2' } });
 
@@ -112,6 +115,42 @@ describe('StickerProductRatioSelect', () => {
 
     expect(screen.getByText('跟随原图比例')).toBeInTheDocument();
     expect(screen.queryByText(/1024 ×/)).not.toBeInTheDocument();
+  });
+
+  it('reuses a valid custom ratio without exposing the internal custom sentinel', () => {
+    const onChange = vi.fn();
+    const onValidationChange = vi.fn();
+    const { rerender } = render(
+      <StickerProductRatioSelect
+        value="3:2"
+        outputQuality="1K"
+        onChange={onChange}
+        onValidationChange={onValidationChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /产品比例/i }));
+    fireEvent.click(screen.getByRole('option', { name: /罐子.*21:5/ }));
+    expect(onChange).toHaveBeenLastCalledWith('21:5');
+
+    rerender(
+      <StickerProductRatioSelect
+        value="21:5"
+        outputQuality="1K"
+        onChange={onChange}
+        onValidationChange={onValidationChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /产品比例/i }));
+    fireEvent.click(screen.getByRole('option', { name: /自定义/ }));
+
+    expect(screen.getByRole('textbox', { name: '比例宽' })).toHaveValue('3');
+    expect(screen.getByRole('textbox', { name: '比例高' })).toHaveValue('2');
+    expect(screen.getByText('3:2 · 1K → 1024 × 688 px')).toBeInTheDocument();
+    expect(onChange).toHaveBeenLastCalledWith('3:2');
+    expect(onChange).not.toHaveBeenCalledWith('__custom__');
+    expect(onValidationChange).toHaveBeenLastCalledWith(undefined);
   });
 });
 

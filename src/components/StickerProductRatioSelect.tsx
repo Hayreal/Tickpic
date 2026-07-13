@@ -180,8 +180,7 @@ export default function StickerProductRatioSelect({
     setSelection(nextSelection);
     setOpen(false);
     if (nextSelection === '__custom__') {
-      onChange('__custom__');
-      onValidationChange?.('请输入完整的产品比例');
+      updateCustomRatio(customWidth, customHeight);
       return;
     }
     onValidationChange?.(undefined);
