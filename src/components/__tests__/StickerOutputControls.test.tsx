@@ -200,6 +200,53 @@ describe('StickerProductRatioSelect', () => {
     expect(screen.getByTestId('parent-validation')).toHaveTextContent('valid');
   });
 
+  it('emits a ratio again after an external custom-to-custom value change', () => {
+    const onChange = vi.fn();
+
+    function ControlledRatio() {
+      const [value, setValue] = useState('auto');
+
+      const handleChange = (nextValue: string) => {
+        onChange(nextValue);
+        setValue(nextValue);
+      };
+
+      return (
+        <>
+          <span data-testid="parent-ratio">{value}</span>
+          <StickerProductRatioSelect
+            value={value}
+            outputQuality="1K"
+            onChange={handleChange}
+          />
+          <button type="button" onClick={() => setValue('4:2')}>外部设置 4:2</button>
+        </>
+      );
+    }
+
+    render(<ControlledRatio />);
+    fireEvent.click(screen.getByRole('button', { name: /产品比例/i }));
+    fireEvent.click(screen.getByRole('option', { name: /自定义/ }));
+    fireEvent.change(screen.getByRole('textbox', { name: '比例宽' }), { target: { value: '3' } });
+    fireEvent.change(screen.getByRole('textbox', { name: '比例高' }), { target: { value: '2' } });
+
+    expect(screen.getByTestId('parent-ratio')).toHaveTextContent('3:2');
+    expect(onChange).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: '外部设置 4:2' }));
+    expect(screen.getByTestId('parent-ratio')).toHaveTextContent('4:2');
+    expect(screen.getByRole('textbox', { name: '比例宽' })).toHaveValue('4');
+    expect(screen.getByRole('textbox', { name: '比例高' })).toHaveValue('2');
+
+    onChange.mockClear();
+    fireEvent.change(screen.getByRole('textbox', { name: '比例宽' }), { target: { value: '3' } });
+
+    expect(screen.getByText('3:2 · 1K → 1024 × 688 px')).toBeInTheDocument();
+    expect(screen.getByTestId('parent-ratio')).toHaveTextContent('3:2');
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith('3:2');
+  });
+
   it.each([
     ['auto', '外部切自动'],
     ['21:5', '外部切预设'],

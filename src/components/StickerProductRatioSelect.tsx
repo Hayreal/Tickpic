@@ -99,9 +99,9 @@ export default function StickerProductRatioSelect({
     const nextSelection = ratioSelection(value);
     previousValueRef.current = value;
     setSelection(nextSelection);
-    if (nextSelection !== '__custom__') {
-      lastEmittedRatioRef.current = undefined;
-    }
+    lastEmittedRatioRef.current = nextSelection === '__custom__' && value !== '__custom__'
+      ? value
+      : undefined;
     if (nextSelection === '__custom__' && value !== '__custom__') {
       const [width, height] = customRatioParts(value);
       setCustomWidth(width);
