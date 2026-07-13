@@ -240,6 +240,7 @@ describe('instructionPrompt', () => {
     }, '去除目标产品。');
 
     expect(text).toContain(ENGLISH_ONLY_VISIBLE_TEXT_RULE);
+    expect(text.match(/不得出现任何中文字符/g)).toHaveLength(1);
     expect(text).toContain('去除目标产品');
   });
 
