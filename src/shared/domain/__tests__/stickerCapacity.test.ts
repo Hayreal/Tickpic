@@ -72,9 +72,73 @@ describe('sticker capacity', () => {
     });
   });
 
+  it('rounds exact half-cent conversion boundaries up without floating-point drift', () => {
+    expect(normalizeStickerCapacity('64.3223625ml')).toEqual({
+      labelText: 'NET: 64.3223625ML / 2.18 FL.OZ',
+    });
+    expect(normalizeStickerCapacity('61.6601625g')).toEqual({
+      labelText: 'NET: 61.6601625G / 2.18 OZ',
+    });
+  });
+
+  it('accepts a whitespace-delimited NET prefix without a colon', () => {
+    expect(normalizeStickerCapacity('NET 120ML')).toEqual({
+      labelText: 'NET: 120ML / 4.06 FL.OZ',
+    });
+    expect(normalizeStickerCapacity('  net   120 g  ')).toEqual({
+      labelText: 'NET: 120G / 4.23 OZ',
+    });
+  });
+
+  it('does not mistake words beginning with NET for a capacity prefix', () => {
+    expect(normalizeStickerCapacity('NETWORK 120ML')).toEqual({
+      labelText: 'NET: NETWORK 120ML',
+      warning: '无法自动换算为 ML/FL.OZ 或 G/OZ，请确认标签规格文案',
+    });
+  });
+
+  it('declines automatic conversion beyond the ordinary label precision limit', () => {
+    expect(normalizeStickerCapacity('1234567890123456 ml')).toEqual({
+      labelText: 'NET: 1234567890123456 ML',
+      warning: '无法自动换算为 ML/FL.OZ 或 G/OZ，请确认标签规格文案',
+    });
+  });
+
+  it('keeps extremely long metric input usable without Infinity or scientific notation', () => {
+    const digits = '9'.repeat(1_000);
+
+    expect(() => normalizeStickerCapacity(`${digits}ml`)).not.toThrow();
+    expect(normalizeStickerCapacity(`${digits}ml`)).toEqual({
+      labelText: `NET: ${digits}ML`,
+      warning: '无法自动换算为 ML/FL.OZ 或 G/OZ，请确认标签规格文案',
+    });
+  });
+
+  it('does not apply the single-unit precision limit to explicit dual-unit copy', () => {
+    expect(normalizeStickerCapacity('12345678901234567890 ml / 1 fl.oz')).toEqual({
+      labelText: 'NET: 12345678901234567890ML / 1 FL.OZ',
+    });
+  });
+
   it('never formats a zero conversion as negative zero', () => {
     expect(normalizeStickerCapacity('0 ml')).toEqual({
       labelText: 'NET: 0ML / 0 FL.OZ',
+    });
+  });
+
+  it.each([
+    ['1e2 ml', 'NET: 1E2 ML'],
+    ['-10 g', 'NET: -10 G'],
+  ])('treats unsupported numeric syntax in %j as warning copy', (input, labelText) => {
+    expect(normalizeStickerCapacity(input)).toEqual({
+      labelText,
+      warning: '无法自动换算为 ML/FL.OZ 或 G/OZ，请确认标签规格文案',
+    });
+  });
+
+  it('keeps supported decimal piece counts stable', () => {
+    expect(normalizeStickerCapacity('1.50 pcs')).toEqual({
+      labelText: 'NET: 1.5 PIECES',
     });
   });
 

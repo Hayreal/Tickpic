@@ -3,8 +3,12 @@ export interface NormalizedStickerCapacity {
   warning?: string;
 }
 
-const MILLILITERS_PER_US_FLUID_OUNCE = 29.5735;
-const GRAMS_PER_OUNCE = 28.3495;
+const MILLILITERS_PER_US_FLUID_OUNCE_SCALED = 295735n;
+const GRAMS_PER_OUNCE_SCALED = 283495n;
+const CONVERSION_CONSTANT_SCALE = 10000n;
+const OUTPUT_DECIMAL_SCALE = 100n;
+const MAX_AUTO_CONVERSION_SIGNIFICANT_DIGITS = 15;
+const MAX_AUTO_CONVERSION_DECIMAL_PLACES = 15;
 const UNKNOWN_CAPACITY_WARNING = '无法自动换算为 ML/FL.OZ 或 G/OZ，请确认标签规格文案';
 const NUMBER_PATTERN = '(?:\\d+(?:\\.\\d+)?|\\.\\d+)';
 
@@ -28,7 +32,10 @@ export function normalizeStickerCapacity(input: string): NormalizedStickerCapaci
     return undefined;
   }
 
-  const capacityText = trimmed.replace(/^net\s*:\s*/i, '').replace(/\s+/g, ' ').trim();
+  const capacityText = trimmed
+    .replace(/^net(?:\s*:\s*|\s+)/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!capacityText) {
     return undefined;
   }
@@ -50,9 +57,16 @@ export function normalizeStickerCapacity(input: string): NormalizedStickerCapaci
   const metric = capacityText.match(METRIC_PATTERN);
   if (metric) {
     const metricValue = normalizeNumber(metric[1]);
+    if (!canAutoConvertMetric(metricValue)) {
+      return createWarningCapacity(capacityText);
+    }
+
     const isVolume = metric[2].toLowerCase() === 'ml';
     const convertedValue = formatConvertedValue(
-      Number(metricValue) / (isVolume ? MILLILITERS_PER_US_FLUID_OUNCE : GRAMS_PER_OUNCE),
+      metricValue,
+      isVolume
+        ? MILLILITERS_PER_US_FLUID_OUNCE_SCALED
+        : GRAMS_PER_OUNCE_SCALED,
     );
 
     return {
@@ -69,6 +83,10 @@ export function normalizeStickerCapacity(input: string): NormalizedStickerCapaci
     };
   }
 
+  return createWarningCapacity(capacityText);
+}
+
+function createWarningCapacity(capacityText: string): NormalizedStickerCapacity {
   return {
     labelText: `NET: ${capacityText.toUpperCase()}`,
     warning: UNKNOWN_CAPACITY_WARNING,
@@ -85,7 +103,27 @@ function normalizeNumber(value: string): string {
     : normalizedInteger;
 }
 
-function formatConvertedValue(value: number): string {
-  const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
-  return normalizeNumber(Object.is(rounded, -0) ? '0' : rounded.toFixed(2));
+function canAutoConvertMetric(value: string): boolean {
+  const [integerPart, fractionalPart = ''] = value.split('.');
+  const significantDigits = `${integerPart}${fractionalPart}`.replace(/^0+/, '').length || 1;
+
+  return significantDigits <= MAX_AUTO_CONVERSION_SIGNIFICANT_DIGITS
+    && fractionalPart.length <= MAX_AUTO_CONVERSION_DECIMAL_PLACES;
+}
+
+function formatConvertedValue(metricValue: string, conversionConstantScaled: bigint): string {
+  const [integerPart, fractionalPart = ''] = metricValue.split('.');
+  const metricNumerator = BigInt(`${integerPart}${fractionalPart}`);
+  const metricScale = 10n ** BigInt(fractionalPart.length);
+  const scaledNumerator = metricNumerator * CONVERSION_CONSTANT_SCALE * OUTPUT_DECIMAL_SCALE;
+  const denominator = metricScale * conversionConstantScaled;
+  const quotient = scaledNumerator / denominator;
+  const remainder = scaledNumerator % denominator;
+  const roundedHundredths = remainder * 2n >= denominator
+    ? quotient + 1n
+    : quotient;
+
+  const wholePart = roundedHundredths / OUTPUT_DECIMAL_SCALE;
+  const fractionalHundredths = String(roundedHundredths % OUTPUT_DECIMAL_SCALE).padStart(2, '0');
+  return normalizeNumber(`${wholePart}.${fractionalHundredths}`);
 }
