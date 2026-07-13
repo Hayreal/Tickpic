@@ -6,6 +6,7 @@ interface FeatureWorkspaceLayoutProps {
   submitId: string;
   onSubmit: () => void;
   isSubmitting: boolean;
+  submitDisabled?: boolean;
   progressLabel: string;
   taskInProgress: boolean;
   drawerOpen: boolean;
@@ -20,6 +21,7 @@ export default function FeatureWorkspaceLayout({
   submitId,
   onSubmit,
   isSubmitting,
+  submitDisabled = false,
   progressLabel,
   taskInProgress,
   drawerOpen,
@@ -62,10 +64,10 @@ export default function FeatureWorkspaceLayout({
             id={submitId}
             type="button"
             onClick={onSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || submitDisabled}
             className={cn(
               'inline-flex cursor-pointer items-center gap-2 rounded-lg px-5 py-2 text-xs font-bold uppercase tracking-wide transition-all',
-              isSubmitting
+              isSubmitting || submitDisabled
                 ? 'bg-primary/80 text-primary-foreground cursor-wait'
                 : 'bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98]',
             )}

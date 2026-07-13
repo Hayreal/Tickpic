@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ImageTaskRequest } from '../../shared/domain/imageFeatureApi';
+import type { TaskRecord } from '../../shared/domain/tasks';
 import StickerGen from '../StickerGen';
 
 const submitMany = vi.fn();
@@ -13,6 +14,16 @@ const desktopClient = {
     get: imageTaskGet,
   },
 };
+const { inferStickerSourceAspectRatio } = vi.hoisted(() => ({
+  inferStickerSourceAspectRatio: vi.fn(() => Promise.resolve('7:5')),
+}));
+
+vi.mock('../../lib/aspectRatioFromImage', () => ({
+  formatAspectRatio: (width: number, height: number) => width === 700 && height === 500
+    ? '7:5'
+    : `${width}:${height}`,
+  inferStickerSourceAspectRatio,
+}));
 
 vi.mock('../../hooks/useImageTask', () => ({
   useImageTask: () => ({
@@ -61,19 +72,16 @@ afterEach(() => {
 });
 
 describe('StickerGen', () => {
-  it('defaults sticker replica logo text to wkau', async () => {
+  it('submits the canonical replica output fields without legacy product or logo fields', async () => {
     submitMany.mockResolvedValue(undefined);
 
     render(<StickerGen restoredTask={createStickerReplicaTask()} />);
 
     fireEvent.click(screen.getByText('高级参数'));
 
-    const logoTextInput = await waitFor(() => {
-      const input = document.getElementById('copy-logo-text-input') as HTMLInputElement | null;
-      expect(input).not.toBeNull();
-      return input!;
-    });
-    expect(logoTextInput.value).toBe('wkau');
+    expect(document.getElementById('copy-logo-text-input')).toBeNull();
+    expect(document.getElementById('copy-brand-input')).toHaveValue('wkau');
+    fireEvent.change(document.getElementById('copy-brand-input')!, { target: { value: '   ' } });
 
     fireEvent.click(document.getElementById('submit-sticker-copy')!);
 
@@ -84,8 +92,85 @@ describe('StickerGen', () => {
     expect(requests).toHaveLength(1);
     expect(requests[0]).toMatchObject({
       feature: 'sticker_replica',
-      logoText: 'wkau',
+      aspectRatio: '21:5',
+      outputQuality: '1K',
+      brand: 'wkau',
     });
+    expect(requests[0]).not.toHaveProperty('productRatio');
+    expect(requests[0]).not.toHaveProperty('logoText');
+  });
+
+  it('keeps output quality independent for each tab and submits a selected 2K value', async () => {
+    submitMany.mockResolvedValue(undefined);
+    render(<StickerGen restoredTask={createStickerReplicaTask()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '2K' }));
+    fireEvent.click(document.getElementById('sticker-subtab-variation')!);
+    expect(screen.getByRole('button', { name: '1K' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(document.getElementById('sticker-subtab-copy')!);
+    expect(screen.getByRole('button', { name: '2K' })).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(document.getElementById('submit-sticker-copy')!);
+    await waitFor(() => expect(submitMany).toHaveBeenCalled());
+    const requests = submitMany.mock.calls[0][0] as ImageTaskRequest[];
+    expect(requests[0].outputQuality).toBe('2K');
+  });
+
+  it('shows capacity preview and non-blocking warning while keeping the logo upload', async () => {
+    render(<StickerGen restoredTask={createStickerReplicaTask()} />);
+    fireEvent.click(screen.getByText(/高级参数/));
+
+    fireEvent.change(document.getElementById('copy-capacity-input')!, { target: { value: '100 ml' } });
+    expect(screen.getByText('NET: 100ML / 3.38 FL.OZ')).toBeInTheDocument();
+    fireEvent.change(document.getElementById('copy-capacity-input')!, { target: { value: 'family pack' } });
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(document.getElementById('submit-sticker-copy')).not.toBeDisabled();
+    expect(screen.getByLabelText(/Logo/)).toBeInTheDocument();
+  });
+
+  it('resolves auto output ratios from region, source or style before submission', async () => {
+    submitMany.mockResolvedValue(undefined);
+    const copyTask = createStickerReplicaTask();
+    copyTask.request.aspectRatio = 'auto';
+    copyTask.imports = [storedImage('/authorized/input/package.png')];
+    copyTask.request.regions = [{ id: 'region-1', x: 0, y: 0, width: 700, height: 500 }];
+    render(<StickerGen restoredTask={copyTask} />);
+    fireEvent.click(document.getElementById('submit-sticker-copy')!);
+    await waitFor(() => expect(submitMany).toHaveBeenCalled());
+    expect((submitMany.mock.calls[0][0] as ImageTaskRequest[])[0].aspectRatio).toBe('7:5');
+
+    cleanup();
+    submitMany.mockClear();
+    render(<StickerGen restoredTask={createStickerVariationTask()} />);
+    fireEvent.click(document.getElementById('submit-sticker-variation')!);
+    await waitFor(() => expect(submitMany).toHaveBeenCalled());
+    expect((submitMany.mock.calls[0][0] as ImageTaskRequest[])[0].aspectRatio).toBe('7:5');
+
+    cleanup();
+    submitMany.mockClear();
+    render(<StickerGen restoredTask={createStickerOriginalTask()} />);
+    fireEvent.click(document.getElementById('submit-sticker-original')!);
+    await waitFor(() => expect(submitMany).toHaveBeenCalled());
+    expect((submitMany.mock.calls[0][0] as ImageTaskRequest[])[0].aspectRatio).toBe('7:5');
+
+    cleanup();
+    submitMany.mockClear();
+    render(<StickerGen />);
+    fireEvent.click(document.getElementById('sticker-subtab-original')!);
+    fireEvent.click(document.getElementById('submit-sticker-original')!);
+    await waitFor(() => expect(submitMany).toHaveBeenCalled());
+    expect((submitMany.mock.calls[0][0] as ImageTaskRequest[])[0].aspectRatio).toBe('1:1');
+  });
+
+  it('disables an extreme custom ratio at 1K and re-enables it at 2K', () => {
+    render(<StickerGen restoredTask={createStickerReplicaTask()} />);
+    fireEvent.click(document.getElementById('copy-product-ratio-select')!);
+    fireEvent.click(screen.getByRole('option', { name: /自定义/ }));
+    fireEvent.change(screen.getByRole('textbox', { name: '比例宽' }), { target: { value: '100' } });
+    fireEvent.change(screen.getByRole('textbox', { name: '比例高' }), { target: { value: '1' } });
+    expect(document.getElementById('submit-sticker-copy')).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: '2K' }));
+    expect(document.getElementById('submit-sticker-copy')).not.toBeDisabled();
   });
 
   it('defaults variation and original brand fields to wkau', async () => {
@@ -151,6 +236,7 @@ describe('StickerGen', () => {
       screen.getByRole('button', { name: /裂变方向.*不指定/ })
     ));
     expect(document.getElementById('variation-direction-select')).not.toBeInstanceOf(HTMLSelectElement);
+    expect(directionButton.parentElement?.parentElement).toHaveClass('sm:col-span-3');
 
     fireEvent.click(directionButton);
     expect(screen.getByRole('listbox', { name: '裂变方向' })).toBeInTheDocument();
@@ -189,7 +275,7 @@ describe('StickerGen', () => {
   });
 });
 
-function createStickerReplicaTask() {
+function createStickerReplicaTask(): TaskRecord {
   return {
     taskId: 'task-copy',
     batchId: 'batch-copy',
@@ -202,13 +288,16 @@ function createStickerReplicaTask() {
       feature: 'sticker_replica' as const,
       images: [{ role: 'source' as const, path: '/authorized/input/package.png' }],
       count: 1,
+      aspectRatio: '21:5',
+      outputQuality: '1K',
+      brand: 'wkau',
     },
     createdAt: '2026-06-10T00:00:00.000Z',
     updatedAt: '2026-06-10T00:00:00.000Z',
   };
 }
 
-function createStickerVariationTask() {
+function createStickerVariationTask(): TaskRecord {
   return {
     taskId: 'task-variation',
     batchId: 'batch-variation',
@@ -224,5 +313,37 @@ function createStickerVariationTask() {
     },
     createdAt: '2026-06-10T00:00:00.000Z',
     updatedAt: '2026-06-10T00:00:00.000Z',
+  };
+}
+
+function createStickerOriginalTask(): TaskRecord {
+  return {
+    taskId: 'task-original',
+    batchId: 'batch-original',
+    category: '贴纸',
+    feature: '贴纸原创',
+    status: 'Pending',
+    imports: [],
+    outputs: [],
+    request: {
+      feature: 'sticker_original',
+      images: [{ role: 'style', path: '/authorized/input/style.png' }],
+      count: 1,
+      aspectRatio: 'auto',
+      brand: 'wkau',
+    },
+    createdAt: '2026-06-10T00:00:00.000Z',
+    updatedAt: '2026-06-10T00:00:00.000Z',
+  };
+}
+
+function storedImage(filePath: string) {
+  return {
+    id: 'source-0',
+    fileName: 'package.png',
+    filePath,
+    fileSize: 1,
+    mimeType: 'image/png',
+    createdAt: '2026-06-10T00:00:00.000Z',
   };
 }

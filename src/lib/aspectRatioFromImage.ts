@@ -57,7 +57,7 @@ export function loadImageDimensions(src: string): Promise<{ width: number; heigh
   });
 }
 
-export async function inferStickerSourceAspectRatio(filePath: string): Promise<ImageAspectRatioValue> {
+export async function inferStickerSourceAspectRatio(filePath: string): Promise<string> {
   const dimensions = await loadImageDimensions(toDisplaySrc(filePath));
-  return closestAspectRatioOption(dimensions.width, dimensions.height);
+  return formatAspectRatio(dimensions.width, dimensions.height);
 }

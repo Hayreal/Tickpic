@@ -1,4 +1,5 @@
 import React from 'react';
+import { normalizeStickerCapacity } from '../shared/domain/stickerCapacity';
 
 interface StickerFieldProps {
   id: string;
@@ -114,6 +115,8 @@ export default function StickerParameterFields({
   styleField,
   colorBlockLayoutField,
 }: StickerParameterFieldsProps) {
+  const normalizedCapacity = normalizeStickerCapacity(capacity);
+
   return (
     <>
       {showBrand ? (
@@ -157,14 +160,24 @@ export default function StickerParameterFields({
         />
       ) : null}
       {showCapacity ? (
-        <StickerTextField
-          id={capacityField?.id ?? `${prefix}-capacity-input`}
-          label={capacityField?.label ?? '容量'}
-          value={capacity}
-          onChange={onCapacityChange}
-          placeholder={capacityField?.placeholder ?? '例如：50ml、100g、6PIECES'}
-          className={capacityField?.className}
-        />
+        <div className={capacityField?.className ?? 'space-y-2'}>
+          <StickerTextField
+            id={capacityField?.id ?? `${prefix}-capacity-input`}
+            label={capacityField?.label ?? '容量'}
+            value={capacity}
+            onChange={onCapacityChange}
+            placeholder={capacityField?.placeholder ?? '例如：50ml、100g、6PIECES'}
+            className="space-y-2"
+          />
+          {normalizedCapacity ? (
+            <p className="text-xs text-muted-foreground">{normalizedCapacity.labelText}</p>
+          ) : null}
+          {normalizedCapacity?.warning ? (
+            <p role="alert" className="text-xs text-amber-700 dark:text-amber-400">
+              {normalizedCapacity.warning}
+            </p>
+          ) : null}
+        </div>
       ) : null}
       {showColorScheme ? (
         <StickerTextField
