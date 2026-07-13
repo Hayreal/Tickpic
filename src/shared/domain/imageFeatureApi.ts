@@ -1,4 +1,6 @@
 import type { StickerVariationDirection } from './stickerPrompts.js';
+import { isStickerOutputQuality } from './stickerOutputSpec.js';
+import type { StickerOutputQuality } from './stickerOutputSpec.js';
 
 export const IMAGE_FEATURES = [
   'sticker_replica',
@@ -63,6 +65,7 @@ export interface ImageTaskRequest {
   brand?: string;
   sellingPoints?: string[];
   capacity?: string;
+  /** @deprecated Retained only for restoring legacy tasks. */
   logoText?: string;
   material?: string;
   style?: string;
@@ -72,7 +75,9 @@ export interface ImageTaskRequest {
   /** When set, multiple tasks from one UI batch share the same output folder. */
   outputBatchId?: string;
   aspectRatio?: string;
+  /** @deprecated Retained only for restoring legacy tasks. */
   productRatio?: string;
+  outputQuality?: StickerOutputQuality;
   showProduct?: boolean;
   modelOverrides?: {
     vision?: string;
@@ -252,6 +257,10 @@ export function validateImageTaskRequest(input: ImageTaskRequest): ImageTaskRequ
 
   if (input.count !== undefined && (!Number.isInteger(input.count) || input.count <= 0)) {
     throw new Error('count must be a positive integer');
+  }
+
+  if (input.outputQuality !== undefined && !isStickerOutputQuality(input.outputQuality)) {
+    throw new Error('清晰度必须是 1K 或 2K');
   }
 
   for (const region of input.regions ?? []) {

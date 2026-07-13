@@ -74,6 +74,22 @@ describe('image feature API contract', () => {
     })).toThrow('region bad-region width must be a non-negative number');
   });
 
+  it.each(['1K', '2K'] as const)('accepts %s sticker output quality', (outputQuality) => {
+    const request = validateImageTaskRequest({
+      feature: 'sticker_original',
+      outputQuality,
+    });
+
+    expect(request.outputQuality).toBe(outputQuality);
+  });
+
+  it('rejects unsupported sticker output quality', () => {
+    expect(() => validateImageTaskRequest({
+      feature: 'sticker_original',
+      outputQuality: '4K' as never,
+    })).toThrow('清晰度必须是 1K 或 2K');
+  });
+
   it('routes sticker replica logo images to execution as logo role', () => {
     const roles = getExecutionImageRoles({
       feature: 'sticker_replica',
