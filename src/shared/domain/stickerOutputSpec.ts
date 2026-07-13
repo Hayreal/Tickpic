@@ -35,7 +35,18 @@ export function normalizeStickerAspectRatio(value: string): string {
     throw new Error('产品比例必须大于 0');
   }
 
-  return `${width}:${height}`;
+  return `${normalizeDecimalToken(match[1])}:${normalizeDecimalToken(match[2])}`;
+}
+
+function normalizeDecimalToken(value: string): string {
+  const unsignedValue = value.startsWith('+') ? value.slice(1) : value;
+  const [integerPart, fractionalPart = ''] = unsignedValue.split('.');
+  const normalizedInteger = integerPart.replace(/^0+(?=\d)/, '') || '0';
+  const normalizedFraction = fractionalPart.replace(/0+$/, '');
+
+  return normalizedFraction
+    ? `${normalizedInteger}.${normalizedFraction}`
+    : normalizedInteger;
 }
 
 export function resolveStickerOutputSpec(
