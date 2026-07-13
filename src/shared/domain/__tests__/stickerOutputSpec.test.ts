@@ -51,6 +51,21 @@ describe('sticker output spec', () => {
     },
   );
 
+  it('keeps dimensions finite and aligned for very large finite ratio values', () => {
+    const side = `1${'0'.repeat(308)}`;
+    const spec = resolveStickerOutputSpec(`${side}:${side}`);
+
+    expect(spec).toMatchObject({
+      width: 1024,
+      height: 1024,
+      size: '1024x1024',
+    });
+    expect(Number.isFinite(spec.width)).toBe(true);
+    expect(Number.isFinite(spec.height)).toBe(true);
+    expect(spec.width % 16).toBe(0);
+    expect(spec.height % 16).toBe(0);
+  });
+
   it('rejects ratios whose raw short edge is below 16 pixels', () => {
     expect(() => resolveStickerOutputSpec('100:1')).toThrow(
       '产品比例过于极端，短边不能小于 16 像素',

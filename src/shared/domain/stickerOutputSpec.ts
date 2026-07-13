@@ -50,9 +50,8 @@ export function resolveStickerOutputSpec(
   const [ratioWidth, ratioHeight] = aspectRatio.split(':').map(Number);
   const longEdge = STICKER_OUTPUT_LONG_EDGES[outputQuality];
   const isLandscape = ratioWidth >= ratioHeight;
-  const rawShortEdge = isLandscape
-    ? longEdge * ratioHeight / ratioWidth
-    : longEdge * ratioWidth / ratioHeight;
+  const shortToLongRatio = Math.min(ratioWidth, ratioHeight) / Math.max(ratioWidth, ratioHeight);
+  const rawShortEdge = longEdge * shortToLongRatio;
   const shortEdge = Math.round(rawShortEdge / 16) * 16;
 
   if (rawShortEdge < 16 || shortEdge < 16) {
