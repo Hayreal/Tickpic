@@ -26,7 +26,7 @@ describe('protocolClients', () => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
-  it('uses OpenAI image generation when execution has no image inputs', async () => {
+  it('uses OpenAI image generation without unsupported output parameters', async () => {
     const openai = {
       chat: { completions: { create: vi.fn() } },
       images: {
@@ -53,12 +53,13 @@ describe('protocolClients', () => {
         prompt: 'final prompt',
         n: 2,
         size: '1024x1536',
-        output_format: 'png',
       }),
       expect.objectContaining({
         signal: expect.any(AbortSignal),
       }),
     );
+    expect(openai.images.generate.mock.calls[0][0]).not.toHaveProperty('background');
+    expect(openai.images.generate.mock.calls[0][0]).not.toHaveProperty('output_format');
     expect(openai.images.edit).not.toHaveBeenCalled();
     expect(Buffer.from(result.images[0].buffer).toString()).toBe('generated');
   });
@@ -129,7 +130,7 @@ describe('protocolClients', () => {
     );
   });
 
-  it('uses OpenAI image edit when execution has image inputs', async () => {
+  it('uses OpenAI image edit without unsupported optional parameters', async () => {
     const openai = {
       chat: { completions: { create: vi.fn() } },
       images: {
@@ -149,18 +150,19 @@ describe('protocolClients', () => {
         prompt: 'final prompt',
         n: 2,
         size: '1024x1536',
-        output_format: 'png',
-        input_fidelity: 'high',
       }),
       expect.objectContaining({
         signal: expect.any(AbortSignal),
       }),
     );
+    expect(openai.images.edit.mock.calls[0][0]).not.toHaveProperty('input_fidelity');
+    expect(openai.images.edit.mock.calls[0][0]).not.toHaveProperty('background');
+    expect(openai.images.edit.mock.calls[0][0]).not.toHaveProperty('output_format');
     expect(openai.images.generate).not.toHaveBeenCalled();
     expect(Buffer.from(result.images[0].buffer).toString()).toBe('edited');
   });
 
-  it('uses low OpenAI input fidelity for sticker variation edits', async () => {
+  it('omits input fidelity for sticker variation edits', async () => {
     const openai = {
       chat: { completions: { create: vi.fn() } },
       images: {
@@ -174,14 +176,7 @@ describe('protocolClients', () => {
 
     await client.executeImage(createStickerVariationExecutionInput(imagePath));
 
-    expect(openai.images.edit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        input_fidelity: 'low',
-      }),
-      expect.objectContaining({
-        signal: expect.any(AbortSignal),
-      }),
-    );
+    expect(openai.images.edit.mock.calls[0][0]).not.toHaveProperty('input_fidelity');
   });
 
   it('uses Gemini generateContent for image execution', async () => {

@@ -206,9 +206,6 @@ async function main(): Promise<void> {
     prompt: options.prompt,
     size: options.size,
     quality: options.quality,
-    background: "opaque",
-    output_format: "png",
-    input_fidelity: "high",
   });
 
   fs.writeFileSync(responsePath, `${JSON.stringify(sanitizeImageResponse(response), null, 2)}\n`, "utf8");
