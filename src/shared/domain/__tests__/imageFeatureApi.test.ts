@@ -86,6 +86,20 @@ describe('image feature API contract', () => {
     expect(roles).toEqual(['source', 'logo']);
   });
 
+  it('routes sticker original style images into execution', () => {
+    expect(getExecutionImageRoles({
+      feature: 'sticker_original',
+      images: [{ role: 'style', path: '/authorized/input/style.png' }],
+    })).toEqual(['style']);
+  });
+
+  it('rejects negative prompts longer than 500 characters', () => {
+    expect(() => validateImageTaskRequest({
+      feature: 'sticker_original',
+      negativePrompt: 'x'.repeat(501),
+    })).toThrow('negativePrompt must be at most 500 characters');
+  });
+
   it('defines sticker replica as product-sticker extraction without fixed aspect ratio', () => {
     const definition = getImageFeatureDefinition('sticker_replica');
 

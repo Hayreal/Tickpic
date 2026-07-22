@@ -29,7 +29,29 @@ Structured parameters are rendered as natural lines:
 - `colorScheme`: color/style direction.
 - `showProduct`: whether to show the product.
 
-`aspectRatio` is passed only as a model API parameter (`size` / Gemini `aspectRatio`), not appended to the execution prompt text.
+For non-sticker features, `aspectRatio` is passed only as a model API parameter (`size` / Gemini `aspectRatio`) and is not appended to the execution prompt text. Sticker features also state the resolved request ratio in their canvas guidance so the prompt contract and API parameter agree.
+
+## Sticker Prompt Contract
+
+The three sticker features bypass the generic natural-parameter summary and use the dedicated builder in `electron/main/services/image-tasks/stickerExecutionPrompt.ts`. The execution instructions are written in Chinese, while visible product copy remains natural English except for exact brand and capacity literals.
+
+Sticker prompts use a compact five-section contract:
+
+1. Output target: resolved canvas ratio and a flat 2D label whose background, texture, and decoration fill the entire canvas and extend naturally to every edge, with no visible outline, border, edge strip, padding, backing, product, container, scene, or mockup. The 6%–8% safe distance controls content placement only and must never be rendered as a line or solid-color frame.
+2. Current task: replica, variation, or original mode; numbered reference-image roles; one selected bounded variation direction; and non-empty visual-direction fields.
+3. Visible-copy sources: user-provided product name, selling points, and capacity take priority. For replica and variation requests, any missing field may fall back to clearly readable source-label copy; Chinese source copy is translated into concise natural English, while readable English is preserved. The specified brand always replaces every source brand.
+4. Bounded user input: supplemental instructions apply only when compatible with the contract; the optional 500-character avoid-list is preserved as prohibited data and must not be rendered, repeated, translated, paraphrased, or implied.
+5. One short final check: flat label artwork fills the entire canvas, no visible border, no copy outside the allowed user/source inputs, no empty text placeholders, and no user-prohibited content.
+
+Sticker variation uses conditional copy-source instructions to protect model attention. When a field is supplied, the prompt says to use only that user value and omits the source fallback. When product name, capacity, or selling points are missing, the prompt asks the model to preserve the corresponding clearly readable source-label copy. It keeps at most three real source selling points, translates Chinese copy to natural English, and omits the entire selling-point module when the text cannot be read reliably; empty bullets, bars, and text placeholders are forbidden.
+
+Prompt order is deliberate: mode and image roles first, visible-copy sources second, then optional visual directions. The final check repeats only the highest-risk outcomes instead of restating the full contract.
+
+Each of the eight variation directions declares both allowed changes and required invariants. Color variation changes only the primary/supporting palette and color proportions; background variation changes only the label's internal background; fusion may borrow abstract layout, palette, and decorative patterns but cannot copy another brand, product, or literal text.
+
+Original sticker requests without images use image generation. When a style/reference image is attached, it is included in the execution image list, causing the OpenAI protocol path to use image edits; Gemini includes the reference image in its request content. The image is style-only and must not contribute brands, products, or literal copy.
+
+The legacy sticker-replica extraction suffix and universal sticker-variation redesign suffix are not appended during finalization. This prevents duplicate rules and avoids conflicts with surgical directions such as color-only changes.
 
 ## Feature Main Prompts
 

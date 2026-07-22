@@ -92,6 +92,19 @@ describe('imageTaskPlan', () => {
     expect(plan.openaiImageSize).toBe('1024x1536');
   });
 
+  it('passes sticker original style images into execution while keeping image-free originals generative', () => {
+    const withStyle = buildImageTaskPlan({
+      feature: 'sticker_original',
+      images: [{ role: 'style', path: '/authorized/input/style.png' }],
+    }, config);
+    const withoutStyle = buildImageTaskPlan({ feature: 'sticker_original' }, config);
+
+    expect(withStyle.executionImages).toEqual([
+      { role: 'style', path: '/authorized/input/style.png' },
+    ]);
+    expect(withoutStyle.executionImages).toEqual([]);
+  });
+
   it('passes auto sizing through to execution params', () => {
     const plan = buildImageTaskPlan({
       feature: 'replace_logo',

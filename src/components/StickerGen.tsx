@@ -45,6 +45,7 @@ import GenerationTaskStatus from './GenerationTaskStatus';
 import FeatureWorkspaceLayout from './FeatureWorkspaceLayout';
 import FeatureParameterPanels, { REFERENCE_UPLOAD_STACK } from './FeatureParameterPanels';
 import StickerParameterFields from './StickerParameterFields';
+import StickerNegativePromptField from './StickerNegativePromptField';
 import {
   DEFAULT_STICKER_BRAND,
   DEFAULT_STICKER_REPLICA_LOGO_TEXT,
@@ -234,12 +235,14 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
   const [copyColorBlockLayout, setCopyColorBlockLayout] = useState('');
   const [copyLogoText, setCopyLogoText] = useState(DEFAULT_STICKER_REPLICA_LOGO_TEXT);
   const [copyPrompt, setCopyPrompt] = useState('');
+  const [copyNegativePrompt, setCopyNegativePrompt] = useState('');
   const [copyColorScheme, setCopyColorScheme] = useState('');
   const [copyRegions, setCopyRegions] = useState<RegionMap>({});
 
   // STICKER VARIATION (Tab 2) state
   const [variationBatch, setVariationBatch] = useState<ImportBatch | null>(null);
   const [variationPrompt, setVariationPrompt] = useState('');
+  const [variationNegativePrompt, setVariationNegativePrompt] = useState('');
   const [variationCount, setVariationCount] = useState<number>(DEFAULT_IMAGE_COUNT);
   const [variationAspectRatio, setVariationAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
   const [variationProductRatio, setVariationProductRatio] = useState<StickerProductRatioSelection>('');
@@ -271,6 +274,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
   const [originalStyle, setOriginalStyle] = useState('');
   const [originalColorBlockLayout, setOriginalColorBlockLayout] = useState('');
   const [originalColorScheme, setOriginalColorScheme] = useState('');
+  const [originalNegativePrompt, setOriginalNegativePrompt] = useState('');
 
   useEffect(() => {
     if (!restoredTask?.request?.feature) {
@@ -299,6 +303,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
     setCopyColorBlockLayout(restored.copyColorBlockLayout);
     setCopyLogoText(restored.copyLogoText);
     setCopyPrompt(restored.copyPrompt);
+    setCopyNegativePrompt(restored.copyNegativePrompt);
     setCopyColorScheme(restored.copyColorScheme);
     setCopyRegions(restored.copyRegions);
     setCopyCount(restored.copyCount);
@@ -313,6 +318,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
     setVariationStyle(restored.variationStyle);
     setVariationColorBlockLayout(restored.variationColorBlockLayout);
     setVariationPrompt(restored.variationPrompt);
+    setVariationNegativePrompt(restored.variationNegativePrompt);
     setVariationCount(restored.variationCount);
     setVariationAspectRatio(restored.variationAspectRatio);
     setVariationProductRatio(restored.variationProductRatio);
@@ -331,6 +337,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
     setOriginalStyle(restored.originalStyle);
     setOriginalColorBlockLayout(restored.originalColorBlockLayout);
     setOriginalColorScheme(restored.originalColorScheme);
+    setOriginalNegativePrompt(restored.originalNegativePrompt);
 
     const fallbackTask = imageTaskRecordFromTaskRecord(restoredTask);
     if (fallbackTask) {
@@ -402,6 +409,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
             style: copyStyle || undefined,
             colorBlockLayout: copyColorBlockLayout || undefined,
             prompt: copyPrompt || undefined,
+            negativePrompt: copyNegativePrompt.trim() || undefined,
             logoText: copyLogoText || undefined,
             colorScheme: copyColorScheme || undefined,
             aspectRatio: copyAspectRatio,
@@ -427,6 +435,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
             colorScheme: variationColorScheme || undefined,
             stickerVariationDirection: variationDirection || undefined,
             prompt: variationPrompt || undefined,
+            negativePrompt: variationNegativePrompt.trim() || undefined,
             aspectRatio: variationAspectRatio,
             productRatio: variationProductRatio || undefined,
           });
@@ -449,6 +458,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
           style: originalStyle || undefined,
           colorBlockLayout: originalColorBlockLayout || undefined,
           colorScheme: originalColorScheme || undefined,
+          negativePrompt: originalNegativePrompt.trim() || undefined,
           aspectRatio: originalAspectRatio,
           productRatio: originalProductRatio || undefined,
         });
@@ -613,6 +623,11 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
                         className="ui-textarea h-16 text-xs"
                       />
                     </div>
+                    <StickerNegativePromptField
+                      prefix="copy"
+                      value={copyNegativePrompt}
+                      onChange={setCopyNegativePrompt}
+                    />
                   </>
                 )}
               />
@@ -684,6 +699,11 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
                         className="ui-textarea h-16 text-xs"
                       />
                     </div>
+                    <StickerNegativePromptField
+                      prefix="variation"
+                      value={variationNegativePrompt}
+                      onChange={setVariationNegativePrompt}
+                    />
                   </>
                 )}
               />
@@ -764,6 +784,11 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
                         label: '容量/规格',
                         placeholder: '例如：50ml、100g、1L',
                       }}
+                    />
+                    <StickerNegativePromptField
+                      prefix="original"
+                      value={originalNegativePrompt}
+                      onChange={setOriginalNegativePrompt}
                     />
                   </>
                 )}

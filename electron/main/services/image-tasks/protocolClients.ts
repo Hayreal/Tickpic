@@ -18,8 +18,6 @@ export interface ProtocolClientOptions {
   baseUrl: string;
 }
 
-type OpenAIInputFidelity = 'low' | 'high';
-
 type ImageResponseItem = {
   b64_json?: string;
   base64?: string;
@@ -34,7 +32,6 @@ export function createOpenAIProtocolClient(
 ): ProtocolModelClient {
   return {
     async executeImage(input) {
-      const inputFidelity = resolveOpenAIInputFidelity(input);
       const executionPayload = input.images.length > 0
         ? {
           operation: 'edit',
@@ -48,9 +45,6 @@ export function createOpenAIProtocolClient(
           n: input.count,
           ...(input.size ? { size: input.size } : {}),
           quality: 'auto',
-          background: 'opaque',
-          output_format: 'png',
-          input_fidelity: inputFidelity,
         }
         : {
           operation: 'generate',
@@ -59,7 +53,6 @@ export function createOpenAIProtocolClient(
           n: input.count,
           ...(input.size ? { size: input.size } : {}),
           quality: 'auto',
-          output_format: 'png',
         };
       logModelRequest('execution', {
         protocol: 'openai',
@@ -77,9 +70,6 @@ export function createOpenAIProtocolClient(
           n: input.count,
           ...(input.size ? { size: input.size } : {}),
           quality: 'auto',
-          background: 'opaque',
-          output_format: 'png',
-          input_fidelity: inputFidelity,
         }, {
           signal: input.abortSignal,
         })
@@ -89,7 +79,6 @@ export function createOpenAIProtocolClient(
           n: input.count,
           ...(input.size ? { size: input.size } : {}),
           quality: 'auto',
-          output_format: 'png',
         }, {
           signal: input.abortSignal,
         });
@@ -173,13 +162,6 @@ export function createGeminiProtocolClient(
       return result;
     },
   };
-}
-
-function resolveOpenAIInputFidelity(input: ModelExecutionClientInput): OpenAIInputFidelity {
-  if (input.task.feature === 'sticker_variation') {
-    return 'low';
-  }
-  return 'high';
 }
 
 async function buildGeminiParts(text: string, images: ImageInput[]) {
