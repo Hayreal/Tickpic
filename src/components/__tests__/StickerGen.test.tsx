@@ -203,8 +203,7 @@ describe('StickerGen', () => {
   });
 
   it('restores mode-specific negative prompts for variation and original tasks', async () => {
-    const variationTask = createStickerVariationTask();
-    variationTask.request.negativePrompt = '不要产品';
+    const variationTask = createStickerVariationTask('不要产品');
     const { unmount } = render(<StickerGen restoredTask={variationTask} />);
 
     fireEvent.click(screen.getByText('高级参数'));
@@ -242,7 +241,7 @@ function createStickerReplicaTask() {
   };
 }
 
-function createStickerVariationTask() {
+function createStickerVariationTask(negativePrompt?: string) {
   return {
     taskId: 'task-variation',
     batchId: 'batch-variation',
@@ -254,6 +253,7 @@ function createStickerVariationTask() {
     request: {
       feature: 'sticker_variation' as const,
       images: [{ role: 'source' as const, path: '/authorized/input/sticker.png' }],
+      negativePrompt,
       count: 1,
     },
     createdAt: '2026-06-10T00:00:00.000Z',
