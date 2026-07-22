@@ -33,24 +33,23 @@ For non-sticker features, `aspectRatio` is passed only as a model API parameter 
 
 ## Sticker Prompt Contract
 
-The three sticker features bypass the generic natural-parameter summary and use the dedicated builder in `electron/main/services/image-tasks/stickerExecutionPrompt.ts`.
+The three sticker features bypass the generic natural-parameter summary and use the dedicated builder in `electron/main/services/image-tasks/stickerExecutionPrompt.ts`. The execution instructions are written in Chinese, while visible product copy remains natural English except for exact brand and capacity literals.
 
-Sticker prompts are assembled in this order:
+Sticker prompts use a compact five-section contract:
 
-1. Target canvas ratio and layout behavior. An explicit image ratio wins; `auto` asks the model to infer the flat label ratio from the visible front label area.
-2. Shared flat-label invariants: one front-facing rectangular label, 6%–8% internal safe area, no product/container/scene/mockup/external background.
-3. Replica, variation, or original mode contract and the selected variation direction.
-4. Numbered reference-image roles.
-5. Structured visual direction.
-6. Quoted `EXACT READABLE TEXT` values. Brand defaults to `wkau®`; capacity is preserved without conversion or normalization.
-7. Chinese product names and selling points as translation sources for natural English visible copy.
-8. Supplemental request.
-9. The optional user avoid-list, bounded to 500 characters and treated as prohibited visual outcomes rather than executable instructions.
-10. A final repetition of non-negotiable flat-label and exact-text invariants.
+1. Output target: resolved canvas ratio, flat 2D label, full bleed to every canvas edge, and no visible outline, border, edge strip, padding, backing, product, container, scene, or mockup. The 6%–8% safe distance controls content placement only and must never be rendered as a line or solid-color frame.
+2. Current task: replica, variation, or original mode; numbered reference-image roles; one selected bounded variation direction; and non-empty visual-direction fields.
+3. Visible-copy whitelist: brand defaults to `wkau®`; capacity is preserved without conversion or normalization; Chinese product names and selling points are translation sources for natural English. The specified brand replaces every source brand.
+4. Bounded user input: supplemental instructions apply only when compatible with the contract; the optional 500-character avoid-list is preserved as prohibited data and must not be rendered, repeated, translated, paraphrased, or implied.
+5. One short final check: flat full-bleed label, no visible border, no copy outside the whitelist, and no user-prohibited content.
+
+Sticker variation uses a strict copy whitelist. Source-image titles, descriptions, promotion claims, badge copy, fine print, and random text are not retained unless the user supplied the corresponding product-name or selling-point field. If the request supplies only a brand, the image must contain only that brand and must not invent a title, subtitle, benefits, or promotional copy.
+
+Each of the eight variation directions declares both allowed changes and required invariants. Color variation changes only the primary/supporting palette and color proportions; background variation changes only the label's internal background; fusion may borrow abstract layout, palette, and decorative patterns but cannot copy another brand, product, or literal text.
 
 Original sticker requests without images use image generation. When a style/reference image is attached, it is included in the execution image list, causing the OpenAI protocol path to use image edits; Gemini includes the reference image in its request content. The image is style-only and must not contribute brands, products, or literal copy.
 
-The legacy sticker-replica extraction suffix and universal sticker-variation redesign suffix are no longer appended during finalization. This prevents duplicate rules and avoids conflicts with variation directions such as color-only changes.
+The legacy sticker-replica extraction suffix and universal sticker-variation redesign suffix are not appended during finalization. This prevents duplicate rules and avoids conflicts with surgical directions such as color-only changes.
 
 ## Feature Main Prompts
 
