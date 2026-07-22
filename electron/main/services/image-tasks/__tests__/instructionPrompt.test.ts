@@ -42,7 +42,7 @@ describe('instructionPrompt', () => {
       images: [],
     };
 
-    expect(buildFallbackFinalPrompt(input)).toContain('MODE: REPLICA');
+    expect(buildFallbackFinalPrompt(input)).toContain('模式: 贴纸复刻。');
     expect(buildFallbackFinalPrompt(input)).toContain('keep layout');
     expect(buildFallbackFinalPrompt(input)).toContain('Serum');
   });
@@ -113,9 +113,9 @@ describe('instructionPrompt', () => {
       aspectRatio: '1:1',
     }, '生成同品类贴纸变体，可调整布局、标题区、卖点区与色块。');
 
-    expect(text).toContain('TARGET CANVAS ASPECT RATIO: "1:1"');
+    expect(text).toContain('目标画布比例: "1:1"');
     expect(text).toContain('summer style');
-    expect(text).toContain('FLAT 2D LABEL ONLY');
+    expect(text).toContain('四边出血');
     expect(text).not.toContain('Write one concise');
     expect(text).not.toContain('Extra:');
     expect(text).not.toContain('mainPrompt');
@@ -128,10 +128,10 @@ describe('instructionPrompt', () => {
       prompt: '保留原来的清洁剂品类',
     }, '基于输入产品图贴纸，做贴纸裂变设计。');
 
-    expect(text).toContain('SELECTED VARIATION: 排版打乱重组。');
-    expect(text).toContain('将原本的文字、产品图、功效图、色块和装饰元素重新安排');
+    expect(text).toContain('裂变方向: 排版打乱重组。');
+    expect(text).toContain('允许变化：重新安排白名单文字、图形和色块的位置与组合');
     expect(text).toContain('保留原来的清洁剂品类');
-    expect(text).toContain('Render no Chinese characters');
+    expect(text).toContain('其他可见文字必须是自然英文');
   });
 
   it('does not infer original sticker logo text from product name', () => {
@@ -150,10 +150,10 @@ describe('instructionPrompt', () => {
       },
     });
 
-    expect(text).toContain('Product name: "wuku"');
-    expect(text).toContain('Product category source: "汽车玻璃水"');
-    expect(text).toContain('Selling point source: "清洁强"');
-    expect(text).not.toContain('Logo text: "wuku"');
+    expect(text).toContain('产品名: "wuku"');
+    expect(text).toContain('产品品类: "汽车玻璃水"');
+    expect(text).toContain('卖点来源: "清洁强"');
+    expect(text).not.toContain('品牌: "wuku"');
   });
 
   it('adds spray prefix only when the model omits spray or mist', () => {
@@ -249,15 +249,15 @@ describe('instructionPrompt', () => {
       colorScheme: 'black and gold',
     }, STICKER_REPLICA_MAIN_PROMPT);
 
-    expect(text).toContain('MODE: REPLICA');
-    expect(text).toContain('Brand: "WKUA®"');
-    expect(text).toContain('Product name: "Serum Pro"');
-    expect(text).toContain('Product category source: "car belt silencer"');
-    expect(text).toContain('Color direction: "black and gold"');
+    expect(text).toContain('模式: 贴纸复刻。');
+    expect(text).toContain('品牌: "WKUA®"');
+    expect(text).toContain('产品名: "Serum Pro"');
+    expect(text).toContain('产品品类: "car belt silencer"');
+    expect(text).toContain('配色方向: "black and gold"');
     expect(text).not.toContain('Write one concise');
     expect(text).not.toContain('Extra:');
     expect(text).not.toContain('/tmp/logo.png');
-    expect(text).toContain('Image 2: brand reference only');
+    expect(text).toContain('图片 2：品牌参考图');
   });
 
   it('leaves legacy sticker replica finalization neutral because the builder owns guardrails', () => {
