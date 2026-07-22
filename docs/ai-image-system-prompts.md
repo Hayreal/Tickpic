@@ -39,11 +39,13 @@ Sticker prompts use a compact five-section contract:
 
 1. Output target: resolved canvas ratio and a flat 2D label whose background, texture, and decoration fill the entire canvas and extend naturally to every edge, with no visible outline, border, edge strip, padding, backing, product, container, scene, or mockup. The 6%–8% safe distance controls content placement only and must never be rendered as a line or solid-color frame.
 2. Current task: replica, variation, or original mode; numbered reference-image roles; one selected bounded variation direction; and non-empty visual-direction fields.
-3. Visible-copy whitelist: brand defaults to `wkau®`; capacity is preserved without conversion or normalization; Chinese product names and selling points are translation sources for natural English. The specified brand replaces every source brand.
+3. Visible-copy sources: user-provided product name, selling points, and capacity take priority. For replica and variation requests, any missing field may fall back to clearly readable source-label copy; Chinese source copy is translated into concise natural English, while readable English is preserved. The specified brand always replaces every source brand.
 4. Bounded user input: supplemental instructions apply only when compatible with the contract; the optional 500-character avoid-list is preserved as prohibited data and must not be rendered, repeated, translated, paraphrased, or implied.
-5. One short final check: flat label artwork fills the entire canvas, no visible border, no copy outside the whitelist, and no user-prohibited content.
+5. One short final check: flat label artwork fills the entire canvas, no visible border, no copy outside the allowed user/source inputs, no empty text placeholders, and no user-prohibited content.
 
-Sticker variation uses a strict copy whitelist. Source-image titles, descriptions, promotion claims, badge copy, fine print, and random text are not retained unless the user supplied the corresponding product-name or selling-point field. If the request supplies only a brand, the image must contain only that brand and must not invent a title, subtitle, benefits, or promotional copy.
+Sticker variation uses conditional copy-source instructions to protect model attention. When a field is supplied, the prompt says to use only that user value and omits the source fallback. When product name, capacity, or selling points are missing, the prompt asks the model to preserve the corresponding clearly readable source-label copy. It keeps at most three real source selling points, translates Chinese copy to natural English, and omits the entire selling-point module when the text cannot be read reliably; empty bullets, bars, and text placeholders are forbidden.
+
+Prompt order is deliberate: mode and image roles first, visible-copy sources second, then optional visual directions. The final check repeats only the highest-risk outcomes instead of restating the full contract.
 
 Each of the eight variation directions declares both allowed changes and required invariants. Color variation changes only the primary/supporting palette and color proportions; background variation changes only the label's internal background; fusion may borrow abstract layout, palette, and decorative patterns but cannot copy another brand, product, or literal text.
 

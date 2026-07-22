@@ -38,6 +38,6 @@ describe('STICKER_VARIATION_DIRECTIONS', () => {
   it('prevents fusion from copying brands or literal copy', () => {
     const fusion = STICKER_VARIATION_DIRECTIONS.find(({ value }) => value === 'fusion');
 
-    expect(fusion?.prompt).toContain('不得复制其他品牌、产品或字面文字');
+    expect(fusion?.prompt).toContain('不得复制其他品牌、产品或无关字面文字');
   });
 });

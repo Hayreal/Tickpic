@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the three sticker execution prompts with compact Chinese contracts that bleed artwork to every canvas edge, prevent visible borders, enforce a strict variation-copy whitelist, and bound every variation direction.
+**Goal:** Replace the three sticker execution prompts with compact Chinese contracts that fill the canvas edge to edge, prevent visible borders, use attention-aware conditional copy sources, and bound every variation direction.
 
 **Architecture:** Keep `buildStickerExecutionPrompt()` as the only sticker execution-prompt entry point. Reshape it into five compact sections, while keeping request types, UI, persistence, model routing, aspect-ratio resolution, and non-sticker prompts unchanged. Keep reusable variation-direction boundaries in the shared domain module so the UI and execution builder use one source of truth.
 
@@ -13,10 +13,10 @@
 ## File Map
 
 - Modify `electron/main/services/image-tasks/stickerExecutionPrompt.ts`: produce the five-section Chinese prompt contract.
-- Modify `electron/main/services/image-tasks/__tests__/stickerExecutionPrompt.test.ts`: specify Chinese shared rules, copy whitelist, brand replacement, mode behavior, and user-input boundaries.
+- Modify `electron/main/services/image-tasks/__tests__/stickerExecutionPrompt.test.ts`: specify Chinese shared rules, conditional copy-source priority, brand replacement, mode behavior, and user-input boundaries.
 - Modify `src/shared/domain/stickerPrompts.ts`: make all eight variation directions explicit about allowed and preserved changes.
 - Create `src/shared/domain/__tests__/stickerPrompts.test.ts`: lock down variation-direction boundaries independently of the execution builder.
-- Modify `docs/ai-image-system-prompts.md`: document the Chinese five-section contract and strict variation-copy whitelist.
+- Modify `docs/ai-image-system-prompts.md`: document the Chinese five-section contract and conditional user/source copy priority.
 
 ### Task 1: Specify the compact Chinese execution contract
 
@@ -65,23 +65,25 @@ it.each(['sticker_replica', 'sticker_variation'] as const)(
 );
 ```
 
-- [ ] **Step 3: Add a failing strict-whitelist test for variation**
+- [ ] **Step 3: Add failing conditional copy-source tests for variation**
 
 ```ts
-it('裂变模式只允许显示用户提供的可见文案', () => {
+it('裂变模式在用户未填写文案时从源标签可靠提取且不生成空占位', () => {
   const prompt = buildStickerExecutionPrompt({
     feature: 'sticker_variation',
     brand: 'wkau',
     images: [{ role: 'source', path: '/tmp/source.png' }],
   });
 
-  expect(prompt).toContain('可见文案白名单');
+  expect(prompt).toContain('可见文案来源');
   expect(prompt).toContain('品牌: "wkau®"');
-  expect(prompt).toContain('白名单之外的源图文字不得复制、翻译或改写');
-  expect(prompt).toContain('不得自动补充产品名、标题、副标题、卖点或促销文字');
-  expect(prompt).not.toContain('卖点:');
+  expect(prompt).toContain('用户未提供卖点：从源标签提取 1–3 条');
+  expect(prompt).toContain('无法可靠识别卖点时，省略整个卖点模块');
+  expect(prompt).toContain('不得生成空圆点、空色条或文字占位符');
 });
 ```
+
+Add a complementary request with user-provided selling points and assert that it includes only the user-selling-point rule and omits every `用户未提供卖点` fallback. Also assert prompt order: mode → visible-copy sources → visual requirements.
 
 - [ ] **Step 4: Update exact-text, translation, negative-input, mode, and ratio assertions to Chinese**
 
@@ -109,7 +111,7 @@ Run:
 pnpm test electron/main/services/image-tasks/__tests__/stickerExecutionPrompt.test.ts
 ```
 
-Expected: FAIL because the current builder still emits English section headings, does not prohibit visible borders explicitly, preserves the source brand in variation, and lacks the strict copy whitelist.
+Expected: FAIL because the current builder still emits English section headings, does not prohibit visible borders explicitly, preserves the source brand in variation, and lacks conditional user/source copy priority.
 
 - [ ] **Step 6: Commit the failing specification tests**
 
@@ -234,25 +236,26 @@ Replica and variation must begin with:
 
 Use Chinese indexed image roles. Original references remain style-only. Variation appends exactly one selected bounded direction and never adds a universal redesign suffix.
 
-- [ ] **Step 3: Implement brand replacement and the variation whitelist**
+- [ ] **Step 3: Implement brand replacement and conditional copy sources**
 
 Generate a quoted copy list with Chinese keys:
 
 ```text
-可见文案白名单:
+可见文案来源:
 品牌: "wkau®"
 容量: "NET:xxML/xxfl.oz"
 产品名: "Helmet Cleaner"
 卖点: "Fast Dry"
 ```
 
-For variation, append:
+When the user omits selling points, append only this fallback branch:
 
 ```text
-只允许显示以上白名单文字。白名单之外的源图文字不得复制、翻译或改写；不得自动补充产品名、标题、副标题、卖点、促销文字、徽章文字或细则。
+用户未提供卖点：从源标签提取 1–3 条清晰、真实的核心卖点。
+无法可靠识别卖点时，省略整个卖点模块，不得生成空圆点、空色条或文字占位符。
 ```
 
-Always state that the specified brand replaces every source brand. Keep the existing registered-mark helper and Chinese-to-English routing behavior.
+When the user supplies selling points, include only the exact/translation entries plus `用户已提供卖点：只使用上述用户卖点，不再从源图提取卖点`. Apply the same mutually exclusive pattern to product name and capacity. Always state that the specified brand replaces every source brand. Keep the existing registered-mark helper and Chinese-to-English routing behavior.
 
 - [ ] **Step 4: Implement bounded supplemental and avoid-list content**
 
@@ -301,7 +304,7 @@ git commit -m "fix: simplify Chinese sticker execution prompts"
 
 - [ ] **Step 1: Replace the old ten-step sticker contract documentation**
 
-Document the five sections, Chinese instruction language, edge-to-edge artwork/no-visible-border rule, brand replacement, variation copy whitelist, bounded negative input, and the fact that visible product copy remains English except exact brand/capacity literals.
+Document the five sections, Chinese instruction language, edge-to-edge artwork/no-visible-border rule, brand replacement, conditional user/source copy priority, bounded negative input, and the fact that visible product copy remains English except exact brand/capacity literals.
 
 - [ ] **Step 2: Run documentation and repository checks**
 
@@ -309,7 +312,7 @@ Run:
 
 ```bash
 git diff --check
-rg -n "five-section|entire canvas|copy whitelist|Chinese" docs/ai-image-system-prompts.md
+rg -n "five-section|entire canvas|copy sources|Chinese" docs/ai-image-system-prompts.md
 ```
 
 Expected: no whitespace errors and all four concepts documented.

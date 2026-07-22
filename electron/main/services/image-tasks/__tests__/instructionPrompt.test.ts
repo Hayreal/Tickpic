@@ -130,7 +130,7 @@ describe('instructionPrompt', () => {
     }, '基于输入产品图贴纸，做贴纸裂变设计。');
 
     expect(text).toContain('裂变方向: 排版打乱重组。');
-    expect(text).toContain('允许变化：重新安排白名单文字、图形和色块的位置与组合');
+    expect(text).toContain('允许变化：重新安排允许文案来源中的文字、图形和色块的位置与组合');
     expect(text).toContain('保留原来的清洁剂品类');
     expect(text).toContain('其他可见文字必须是自然英文');
   });

@@ -19,7 +19,7 @@ export function buildStickerExecutionPrompt(request: ImageTaskRequest): string {
   return [
     buildOutputTargetSection(request),
     buildTaskSection(request),
-    buildVisibleCopySection(request, brand),
+    buildContentSection(request, brand),
     buildBoundedUserInputSection(request),
     buildFinalCheckSection(request),
   ].filter(Boolean).join('\n\n');
@@ -46,8 +46,14 @@ function buildTaskSection(request: ImageTaskRequest) {
     '当前任务:',
     buildModeSection(request),
     buildImageRoleLines(request),
-    buildVisualDirectionLines(request),
   ].filter(Boolean).join('\n');
+}
+
+function buildContentSection(request: ImageTaskRequest, brand: string) {
+  return [
+    buildVisibleCopySection(request, brand),
+    buildVisualDirectionSection(request),
+  ].filter(Boolean).join('\n\n');
 }
 
 function buildModeSection(request: ImageTaskRequest) {
@@ -66,9 +72,6 @@ function buildModeSection(request: ImageTaskRequest) {
       '模式: 贴纸裂变。',
       '将输入的产品照片转换为一张独立平面标签设计。输入图片仅作为标签信息参考，不得保留原产品照片构图。',
       '保留品类识别、用户已提供的卖点语义和同系列商业识别，只执行一个已选择的裂变方向。',
-      request.productName?.trim()
-        ? '用户已提供产品名：主标题视觉高度相对源图缩小约 20%，仍保持第一视觉层级和清晰可读。'
-        : '用户未提供产品名：不得从源图复制或自行生成主标题。',
       direction ? `裂变方向: ${direction.label}。${direction.prompt}` : '',
     ].filter(Boolean).join('\n');
   }
@@ -100,7 +103,7 @@ function buildImageRoleLines(request: ImageTaskRequest) {
   }).join('\n');
 }
 
-function buildVisualDirectionLines(request: ImageTaskRequest) {
+function buildVisualDirectionSection(request: ImageTaskRequest) {
   const values = [
     request.productCategory?.trim() ? `产品品类: ${quoted(request.productCategory.trim())}` : '',
     request.material?.trim() ? `素材/图形方向: ${quoted(request.material.trim())}` : '',
@@ -108,23 +111,30 @@ function buildVisualDirectionLines(request: ImageTaskRequest) {
     request.style?.trim() ? `风格方向: ${quoted(request.style.trim())}` : '',
     request.colorBlockLayout?.trim() ? `版式方向: ${quoted(request.colorBlockLayout.trim())}` : '',
   ].filter(Boolean);
-  return values.join('\n');
+  return values.length ? `视觉要求:\n${values.join('\n')}` : '';
 }
 
 function buildVisibleCopySection(request: ImageTaskRequest, brand: string) {
+  const productName = request.productName?.trim();
+  const capacity = request.capacity?.trim();
+  const sellingPoints = (request.sellingPoints ?? [])
+    .map((point) => point.trim())
+    .filter(Boolean);
+  const canReadSourceCopy = request.feature !== 'sticker_original'
+    && (request.images ?? []).some((image) => image.role === 'source');
   const exact = [
     `品牌: ${quoted(brand)}`,
-    request.capacity?.trim() ? `容量: ${quoted(request.capacity.trim())}` : '',
+    capacity ? `容量: ${quoted(capacity)}` : '',
   ];
   const translate: string[] = [];
 
-  addCommercialCopy('产品名', request.productName, exact, translate);
-  for (const point of request.sellingPoints ?? []) {
+  addCommercialCopy('产品名', productName, exact, translate);
+  for (const point of sellingPoints) {
     addCommercialCopy('卖点', point, exact, translate);
   }
 
   const lines = [
-    '可见文案白名单:',
+    '可见文案来源:',
     ...exact.filter(Boolean),
   ];
   if (translate.length) {
@@ -133,14 +143,36 @@ function buildVisibleCopySection(request: ImageTaskRequest, brand: string) {
 
   lines.push(
     `删除并替换源图中的任何品牌；只显示指定品牌 ${quoted(brand)}，不得混用、保留或虚构其他品牌。品牌必须是纯白文字，不得生成图形 Logo、徽记或额外品牌符号。`,
-    '品牌和容量必须逐字准确；容量不得换算、补充或规范化。除品牌和容量原文外，其他可见文字必须是自然英文。',
+    '品牌必须逐字准确。除品牌和容量原文外，其他可见文字必须是自然英文。',
   );
 
-  if (request.feature === 'sticker_variation') {
-    lines.push('只允许显示以上白名单文字。白名单之外的源图文字不得复制、翻译或改写；不得自动补充产品名、标题、副标题、卖点或促销文字，也不要徽章文字、细则、假品牌或随机字符。');
+  if (productName) {
+    lines.push('用户已提供产品名：只使用上述用户产品名，不再从源图提取产品名。裂变模式中主标题视觉高度相对源图缩小约 20%，仍保持第一视觉层级和清晰可读。');
+  } else if (canReadSourceCopy) {
+    lines.push('用户未提供产品名：从源标签提取原产品名；清晰可辨时保留其语义和信息层级，不得另行编造标题。');
   } else {
-    lines.push('不得自行编造白名单之外的细则、促销语、假品牌或随机可读文字。');
+    lines.push('用户未提供产品名且没有源标签文案：不生成产品名或标题。');
   }
+
+  if (capacity) {
+    lines.push('用户已提供容量：逐字显示上述容量，不得换算、补充或规范化。');
+  } else if (canReadSourceCopy) {
+    lines.push('用户未提供容量：仅在源标签容量清晰可辨时原样保留，不得换算、补充或规范化；无法可靠识别时省略容量。');
+  }
+
+  if (sellingPoints.length) {
+    lines.push('用户已提供卖点：只使用上述用户卖点，不再从源图提取卖点。');
+  } else if (canReadSourceCopy) {
+    lines.push(
+      '用户未提供卖点：从源标签提取 1–3 条清晰、真实的核心卖点，保持原意和原有信息层级，不得增加源图不存在的功效或营销承诺。',
+      '源文案是中文时翻译成简洁自然的英文；源文案是英文时准确保留。',
+      '无法可靠识别卖点时，省略整个卖点模块，不得生成空圆点、空色条或文字占位符。',
+    );
+  } else {
+    lines.push('用户未提供卖点且没有源标签文案：省略整个卖点模块，不生成空占位符。');
+  }
+
+  lines.push('不得添加用户提供或从源标签可靠识别之外的促销语、细则、假品牌或随机可读文字。');
 
   return lines.join('\n');
 }
@@ -176,10 +208,10 @@ function buildBoundedUserInputSection(request: ImageTaskRequest) {
 }
 
 function buildFinalCheckSection(request: ImageTaskRequest) {
-  const whitelistRule = request.feature === 'sticker_variation'
-    ? '只显示可见文案白名单中的文字'
-    : '不编造未提供的可读文字';
-  return `最终检查:\n只输出设计铺满整个画布、没有任何可见边框的平面标签；${whitelistRule}；用户禁止项不得出现。`;
+  const copyRule = request.feature === 'sticker_original'
+    ? '只显示用户提供的文案'
+    : '只显示用户提供或从源标签可靠提取的文案';
+  return `最终检查:\n只输出设计铺满整个画布、没有任何可见边框的平面标签；${copyRule}；不得生成空文字占位；用户禁止项不得出现。`;
 }
 
 function registeredBrand(raw?: string) {

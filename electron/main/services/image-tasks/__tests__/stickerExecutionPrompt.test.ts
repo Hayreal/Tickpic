@@ -63,18 +63,51 @@ describe('stickerExecutionPrompt', () => {
     expect(prompt).not.toContain('make a clearly different layout');
   });
 
-  it('裂变模式只允许显示用户提供的可见文案', () => {
+  it('裂变模式在用户未填写文案时从源标签可靠提取且不生成空占位', () => {
     const prompt = buildStickerExecutionPrompt({
       feature: 'sticker_variation',
       brand: 'wkau',
       images: [{ role: 'source', path: '/tmp/source.png' }],
     });
 
-    expect(prompt).toContain('可见文案白名单:');
+    expect(prompt).toContain('可见文案来源:');
     expect(prompt).toContain('品牌: "wkau®"');
-    expect(prompt).toContain('白名单之外的源图文字不得复制、翻译或改写');
-    expect(prompt).toContain('不得自动补充产品名、标题、副标题、卖点或促销文字');
-    expect(prompt).not.toContain('卖点:');
+    expect(prompt).toContain('用户未提供产品名：从源标签提取原产品名');
+    expect(prompt).toContain('用户未提供卖点：从源标签提取 1–3 条清晰、真实的核心卖点');
+    expect(prompt).toContain('源文案是中文时翻译成简洁自然的英文');
+    expect(prompt).toContain('无法可靠识别卖点时，省略整个卖点模块');
+    expect(prompt).toContain('不得生成空圆点、空色条或文字占位符');
+    expect(prompt).toContain('用户未提供容量：仅在源标签容量清晰可辨时原样保留');
+    expect(prompt).not.toContain('只允许显示以上白名单文字');
+  });
+
+  it('用户提供卖点时只使用用户卖点并省略源图兜底规则', () => {
+    const prompt = buildStickerExecutionPrompt({
+      feature: 'sticker_variation',
+      productName: 'Belt Silencer',
+      sellingPoints: ['Reduce Noise', 'Protect Belt'],
+      capacity: 'NET 100ML',
+      images: [{ role: 'source', path: '/tmp/source.png' }],
+    });
+
+    expect(prompt).toContain('卖点: "Reduce Noise"');
+    expect(prompt).toContain('卖点: "Protect Belt"');
+    expect(prompt).toContain('用户已提供卖点：只使用上述用户卖点，不再从源图提取卖点');
+    expect(prompt).not.toContain('用户未提供卖点');
+    expect(prompt).not.toContain('用户未提供产品名');
+    expect(prompt).not.toContain('用户未提供容量');
+  });
+
+  it('按模式、文案来源、视觉要求的顺序分配提示词注意力', () => {
+    const prompt = buildStickerExecutionPrompt({
+      feature: 'sticker_variation',
+      colorScheme: 'black and teal',
+      images: [{ role: 'source', path: '/tmp/source.png' }],
+    });
+
+    expect(prompt.indexOf('模式: 贴纸裂变。')).toBeLessThan(prompt.indexOf('可见文案来源:'));
+    expect(prompt.indexOf('可见文案来源:')).toBeLessThan(prompt.indexOf('视觉要求:'));
+    expect(prompt.indexOf('视觉要求:')).toBeLessThan(prompt.indexOf('配色方向: "black and teal"'));
   });
 
   it('treats original references as style only without a source-relative headline rule', () => {
