@@ -37,11 +37,11 @@ The three sticker features bypass the generic natural-parameter summary and use 
 
 Sticker prompts use a compact five-section contract:
 
-1. Output target: resolved canvas ratio, flat 2D label, full bleed to every canvas edge, and no visible outline, border, edge strip, padding, backing, product, container, scene, or mockup. The 6%–8% safe distance controls content placement only and must never be rendered as a line or solid-color frame.
+1. Output target: resolved canvas ratio and a flat 2D label whose background, texture, and decoration fill the entire canvas and extend naturally to every edge, with no visible outline, border, edge strip, padding, backing, product, container, scene, or mockup. The 6%–8% safe distance controls content placement only and must never be rendered as a line or solid-color frame.
 2. Current task: replica, variation, or original mode; numbered reference-image roles; one selected bounded variation direction; and non-empty visual-direction fields.
 3. Visible-copy whitelist: brand defaults to `wkau®`; capacity is preserved without conversion or normalization; Chinese product names and selling points are translation sources for natural English. The specified brand replaces every source brand.
 4. Bounded user input: supplemental instructions apply only when compatible with the contract; the optional 500-character avoid-list is preserved as prohibited data and must not be rendered, repeated, translated, paraphrased, or implied.
-5. One short final check: flat full-bleed label, no visible border, no copy outside the whitelist, and no user-prohibited content.
+5. One short final check: flat label artwork fills the entire canvas, no visible border, no copy outside the whitelist, and no user-prohibited content.
 
 Sticker variation uses a strict copy whitelist. Source-image titles, descriptions, promotion claims, badge copy, fine print, and random text are not retained unless the user supplied the corresponding product-name or selling-point field. If the request supplies only a brand, the image must contain only that brand and must not invent a title, subtitle, benefits, or promotional copy.
 

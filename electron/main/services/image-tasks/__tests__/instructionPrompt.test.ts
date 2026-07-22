@@ -115,7 +115,8 @@ describe('instructionPrompt', () => {
 
     expect(text).toContain('目标画布比例: "1:1"');
     expect(text).toContain('summer style');
-    expect(text).toContain('四边出血');
+    expect(text).toContain('标签设计铺满整个画布');
+    expect(text).not.toContain('四边出血');
     expect(text).not.toContain('Write one concise');
     expect(text).not.toContain('Extra:');
     expect(text).not.toContain('mainPrompt');

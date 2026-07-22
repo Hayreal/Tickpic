@@ -30,11 +30,12 @@ Use assertions equivalent to:
 
 ```ts
 it.each(['sticker_replica', 'sticker_variation', 'sticker_original'] as const)(
-  '%s 输出四边出血且不绘制边框',
+  '%s 设计铺满画布且不使用印刷出血术语',
   (feature) => {
     const prompt = buildStickerExecutionPrompt({ feature });
 
-    expect(prompt).toContain('四边出血');
+    expect(prompt).toContain('标签设计铺满整个画布');
+    expect(prompt).not.toContain('四边出血');
     expect(prompt).toContain('画布边缘只是裁切边界');
     expect(prompt).toContain('禁止描边、边框、边缘色带、留白、衬底或外框');
     expect(prompt).toContain('不得用线条或纯色色框表现安全距离');
@@ -221,7 +222,7 @@ export function buildStickerExecutionPrompt(request: ImageTaskRequest): string {
 }
 ```
 
-`buildOutputTargetSection()` must include the resolved ratio, full-bleed artwork, an invisible crop boundary, no product/container/scene, and no visible border/frame/background. Describe 6%–8% only as content positioning, never as an outline.
+`buildOutputTargetSection()` must include the resolved ratio, artwork that fills the entire canvas and extends naturally to every edge, an invisible crop boundary, no product/container/scene, and no visible border/frame/background. Describe 6%–8% only as content positioning, never as an outline.
 
 - [ ] **Step 2: Implement concise Chinese task and image-role sections**
 
@@ -263,7 +264,7 @@ Preserve user text and line breaks, but wrap it with Chinese data boundaries:
 <verbatim user content>
 ```
 
-Finish with one short check only: flat label, full bleed/no border, whitelist only, avoid-list absent.
+Finish with one short check only: flat label artwork fills the entire canvas, no border, whitelist only, avoid-list absent.
 
 - [ ] **Step 5: Run focused tests and verify GREEN**
 
@@ -300,7 +301,7 @@ git commit -m "fix: simplify Chinese sticker execution prompts"
 
 - [ ] **Step 1: Replace the old ten-step sticker contract documentation**
 
-Document the five sections, Chinese instruction language, full-bleed/no-visible-border rule, brand replacement, variation copy whitelist, bounded negative input, and the fact that visible product copy remains English except exact brand/capacity literals.
+Document the five sections, Chinese instruction language, edge-to-edge artwork/no-visible-border rule, brand replacement, variation copy whitelist, bounded negative input, and the fact that visible product copy remains English except exact brand/capacity literals.
 
 - [ ] **Step 2: Run documentation and repository checks**
 
@@ -308,7 +309,7 @@ Run:
 
 ```bash
 git diff --check
-rg -n "five-section|full bleed|copy whitelist|Chinese" docs/ai-image-system-prompts.md
+rg -n "five-section|entire canvas|copy whitelist|Chinese" docs/ai-image-system-prompts.md
 ```
 
 Expected: no whitespace errors and all four concepts documented.

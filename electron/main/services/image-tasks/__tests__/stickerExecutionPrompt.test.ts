@@ -3,16 +3,18 @@ import { buildStickerExecutionPrompt } from '../stickerExecutionPrompt';
 
 describe('stickerExecutionPrompt', () => {
   it.each(['sticker_replica', 'sticker_variation', 'sticker_original'] as const)(
-    '%s 输出四边出血且不绘制边框',
+    '%s 设计铺满画布且不使用印刷出血术语',
     (feature) => {
       const prompt = buildStickerExecutionPrompt({ feature });
 
-      expect(prompt).toContain('四边出血');
+      expect(prompt).toContain('标签设计铺满整个画布');
+      expect(prompt).toContain('底色、纹理和装饰自然延伸至画布四边');
       expect(prompt).toContain('画布边缘只是裁切边界');
       expect(prompt).toContain('禁止描边、边框、边缘色带、留白、衬底或外框');
       expect(prompt).toContain('不得用线条或纯色色框表现安全距离');
       expect(prompt).toContain('禁止瓶、罐、盒、产品主体、场景或样机');
       expect(prompt).not.toContain('FLAT 2D LABEL ONLY');
+      expect(prompt).not.toContain('四边出血');
     },
   );
 

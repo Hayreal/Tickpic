@@ -35,7 +35,7 @@ function buildOutputTargetSection(request: ImageTaskRequest) {
     '输出目标:',
     `目标画布比例: ${quoted(ratio)}`,
     `比例规则: ${ratioRule}`,
-    '只输出一张独立、正视的二维直角矩形标签。标签底色、纹理和装饰图形必须自然延伸并四边出血；画布边缘只是裁切边界，不是可见元素。',
+    '只输出一张独立、正视的二维直角矩形标签。标签设计铺满整个画布，底色、纹理和装饰自然延伸至画布四边；画布边缘只是裁切边界，不是可见元素。',
     '禁止描边、边框、边缘色带、留白、衬底或外框。重要文字和主体图形通过位置自然保留约 6%–8% 的内容安全距离，不得用线条或纯色色框表现安全距离。',
     '禁止瓶、罐、盒、产品主体、场景或样机，也不要手持、展示台、外部背景、透视、厚度、曲面、阴影或反光。',
   ].join('\n');
@@ -179,7 +179,7 @@ function buildFinalCheckSection(request: ImageTaskRequest) {
   const whitelistRule = request.feature === 'sticker_variation'
     ? '只显示可见文案白名单中的文字'
     : '不编造未提供的可读文字';
-  return `最终检查:\n只输出四边出血、没有任何可见边框的平面标签；${whitelistRule}；用户禁止项不得出现。`;
+  return `最终检查:\n只输出设计铺满整个画布、没有任何可见边框的平面标签；${whitelistRule}；用户禁止项不得出现。`;
 }
 
 function registeredBrand(raw?: string) {
