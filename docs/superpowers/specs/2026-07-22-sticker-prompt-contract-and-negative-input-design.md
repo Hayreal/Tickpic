@@ -144,15 +144,19 @@ negativePrompt?: string;
 ```text
 EXACT READABLE TEXT:
 - Brand: "wkau®"
-- Product name: "..."
-- Selling points: "..." / "..."
 - Net content: "<用户容量原文>"
+- Product name: "<已经是英文时逐字保留>"
+- Selling points: "<已经是英文时逐字保留>" / "..."
+
+TRANSLATE TO NATURAL ENGLISH FOR VISIBLE TEXT:
+- Product name source: "<包含中文时的用户原文>"
+- Selling point source: "<包含中文时的用户原文>"
 ```
 
 规则：
 
 - 品牌和容量使用处理后的精确字面值，不翻译、不改写。
-- 产品名称和卖点如果为中文，提示模型翻译为自然英文；已经是英文时逐字保留。
+- 产品名称和卖点如果包含中文，放入单独的英文翻译来源区块，不同时要求逐字保留；已经是英文时进入精确文字清单并逐字保留。
 - 空字段不生成对应行，也不要求模型凭空补充文字。
 - 所列文字必须清晰、拼写正确、完整出现；未列出的细小装饰文字不得随机生成假品牌或乱码。
 
