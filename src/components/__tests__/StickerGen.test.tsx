@@ -187,6 +187,40 @@ describe('StickerGen', () => {
     expect(requests[0].stickerVariationDirection).toBeUndefined();
     expect(requests[0].brand).toBe('wkau');
   });
+
+  it('submits the sticker replica negative prompt with preserved newlines', async () => {
+    submitMany.mockResolvedValue(undefined);
+    render(<StickerGen restoredTask={createStickerReplicaTask()} />);
+    fireEvent.click(screen.getByText('高级参数'));
+
+    const input = await waitFor(() => document.getElementById('copy-negative-prompt-input')!);
+    fireEvent.change(input, { target: { value: '禁止 BEST\n不要金色渐变' } });
+    fireEvent.click(document.getElementById('submit-sticker-copy')!);
+
+    await waitFor(() => expect(submitMany).toHaveBeenCalled());
+    const requests = submitMany.mock.calls[0][0] as ImageTaskRequest[];
+    expect(requests[0].negativePrompt).toBe('禁止 BEST\n不要金色渐变');
+  });
+
+  it('restores mode-specific negative prompts for variation and original tasks', async () => {
+    const variationTask = createStickerVariationTask();
+    variationTask.request.negativePrompt = '不要产品';
+    const { unmount } = render(<StickerGen restoredTask={variationTask} />);
+
+    fireEvent.click(screen.getByText('高级参数'));
+    await waitFor(() => {
+      expect((document.getElementById('variation-negative-prompt-input') as HTMLTextAreaElement).value)
+        .toBe('不要产品');
+    });
+    unmount();
+
+    render(<StickerGen restoredTask={createStickerOriginalTask('不要金色')} />);
+    fireEvent.click(screen.getByText('高级参数'));
+    await waitFor(() => {
+      expect((document.getElementById('original-negative-prompt-input') as HTMLTextAreaElement).value)
+        .toBe('不要金色');
+    });
+  });
 });
 
 function createStickerReplicaTask() {
@@ -220,6 +254,27 @@ function createStickerVariationTask() {
     request: {
       feature: 'sticker_variation' as const,
       images: [{ role: 'source' as const, path: '/authorized/input/sticker.png' }],
+      count: 1,
+    },
+    createdAt: '2026-06-10T00:00:00.000Z',
+    updatedAt: '2026-06-10T00:00:00.000Z',
+  };
+}
+
+function createStickerOriginalTask(negativePrompt?: string) {
+  return {
+    taskId: 'task-original',
+    batchId: 'batch-original',
+    category: '贴纸',
+    feature: '贴纸原创',
+    status: 'Pending' as const,
+    imports: [],
+    outputs: [],
+    request: {
+      feature: 'sticker_original' as const,
+      productCategory: '清洁剂',
+      brand: 'wkau',
+      negativePrompt,
       count: 1,
     },
     createdAt: '2026-06-10T00:00:00.000Z',

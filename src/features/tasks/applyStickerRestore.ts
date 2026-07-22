@@ -30,6 +30,7 @@ export interface StickerRestoreState {
   copyColorBlockLayout: string;
   copyLogoText: string;
   copyPrompt: string;
+  copyNegativePrompt: string;
   copyColorScheme: string;
   copyRegions: RegionMap;
   copyCount: number;
@@ -44,6 +45,7 @@ export interface StickerRestoreState {
   variationStyle: string;
   variationColorBlockLayout: string;
   variationPrompt: string;
+  variationNegativePrompt: string;
   variationCount: number;
   variationAspectRatio: ImageAspectRatioValue;
   variationProductRatio: StickerProductRatioSelection;
@@ -62,6 +64,7 @@ export interface StickerRestoreState {
   originalStyle: string;
   originalColorBlockLayout: string;
   originalColorScheme: string;
+  originalNegativePrompt: string;
 }
 
 function aspectRatioFrom(value?: string): ImageAspectRatioValue {
@@ -105,6 +108,7 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
     copyColorBlockLayout: '',
     copyLogoText: DEFAULT_STICKER_REPLICA_LOGO_TEXT,
     copyPrompt: '',
+    copyNegativePrompt: '',
     copyColorScheme: '',
     copyRegions: {},
     copyCount: DEFAULT_IMAGE_COUNT,
@@ -119,6 +123,7 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
     variationStyle: '',
     variationColorBlockLayout: '',
     variationPrompt: '',
+    variationNegativePrompt: '',
     variationCount: DEFAULT_IMAGE_COUNT,
     variationAspectRatio: 'auto' as ImageAspectRatioValue,
     variationProductRatio: '',
@@ -137,6 +142,7 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
     originalStyle: '',
     originalColorBlockLayout: '',
     originalColorScheme: '',
+    originalNegativePrompt: '',
   };
 
   switch (request.feature) {
@@ -157,6 +163,7 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
         copyColorBlockLayout: structured.colorBlockLayout,
         copyLogoText: request.logoText ?? DEFAULT_STICKER_REPLICA_LOGO_TEXT,
         copyPrompt: request.prompt ?? '',
+        copyNegativePrompt: request.negativePrompt ?? '',
         copyColorScheme: structured.colorScheme,
         copyRegions: regionMapFromTask(task.imports, request.regions),
         copyCount: request.count ?? DEFAULT_IMAGE_COUNT,
@@ -176,6 +183,7 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
         variationStyle: structured.style,
         variationColorBlockLayout: structured.colorBlockLayout,
         variationPrompt: request.prompt ?? '',
+        variationNegativePrompt: request.negativePrompt ?? '',
         variationCount: request.count ?? DEFAULT_IMAGE_COUNT,
         variationAspectRatio: aspectRatioFrom(request.aspectRatio),
         variationProductRatio: resolveStickerProductRatio(request.productRatio),
@@ -203,6 +211,7 @@ export function applyStickerRestore(task: TaskRecord): StickerRestoreState | nul
         originalStyle: structured.style,
         originalColorBlockLayout: structured.colorBlockLayout,
         originalColorScheme: structured.colorScheme,
+        originalNegativePrompt: request.negativePrompt ?? '',
       };
     default:
       return null;
