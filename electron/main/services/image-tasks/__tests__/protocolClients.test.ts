@@ -160,6 +160,75 @@ describe('protocolClients', () => {
     expect(Buffer.from(result.images[0].buffer).toString()).toBe('edited');
   });
 
+  it('uploads OpenAI edit images as File with image MIME type, not octet-stream', async () => {
+    const jpegPath = path.join(tempDir, 'input.jpg');
+    await writeFile(jpegPath, Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
+
+    const openai = {
+      chat: { completions: { create: vi.fn() } },
+      images: {
+        generate: vi.fn(),
+        edit: vi.fn().mockResolvedValue({
+          data: [{ b64_json: Buffer.from('edited').toString('base64') }],
+        }),
+      },
+    };
+    const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
+
+    await client.executeImage({
+      ...createExecutionInput(jpegPath),
+      images: [
+        { role: 'source', path: jpegPath },
+        { role: 'product', path: jpegPath, mimeType: 'application/octet-stream' },
+      ],
+    });
+
+    const editArgs = openai.images.edit.mock.calls[0]?.[0] as {
+      image: Array<{ name: string; type: string }>;
+    };
+    expect(editArgs.image).toHaveLength(2);
+    for (const file of editArgs.image) {
+      expect(file).toBeInstanceOf(File);
+      expect(file.name).toBe('input.jpg');
+      expect(file.type).toBe('image/jpeg');
+    }
+  });
+
+  it('coerces Gemini inlineData MIME away from application/octet-stream', async () => {
+    const gemini = {
+      models: {
+        generateContent: vi.fn().mockResolvedValue({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    inlineData: {
+                      mimeType: 'image/png',
+                      data: Buffer.from('gemini image').toString('base64'),
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      },
+    };
+    const client = createGeminiProtocolClient(gemini, { baseUrl: TEST_BASE_URL });
+
+    await client.executeImage({
+      ...createExecutionInput(imagePath),
+      images: [{ role: 'source', path: imagePath, mimeType: 'application/octet-stream' }],
+    });
+
+    const call = gemini.models.generateContent.mock.calls[0]?.[0] as {
+      contents: Array<{ parts: Array<{ inlineData?: { mimeType: string } }> }>;
+    };
+    const inlineData = call.contents[0].parts.find((part) => part.inlineData)?.inlineData;
+    expect(inlineData?.mimeType).toBe('image/png');
+  });
+
   it('uses low OpenAI input fidelity for sticker variation edits', async () => {
     const openai = {
       chat: { completions: { create: vi.fn() } },

@@ -1,5 +1,4 @@
 import { readFile } from 'node:fs/promises';
-import fs from 'node:fs';
 import path from 'node:path';
 import type { ImageInput } from '../../../../src/shared/domain/imageFeatureApi.js';
 import type { ImageExecutionModelResult, GeneratedImageOutput } from './imageTaskExecutor.js';
@@ -71,7 +70,7 @@ export function createOpenAIProtocolClient(
 
       const response = input.images.length > 0
         ? await openai.images.edit({
-          image: input.images.map((image) => fs.createReadStream(image.path)),
+          image: await Promise.all(input.images.map((image) => buildOpenAIImageFile(image))),
           model: input.model,
           prompt: input.finalPrompt,
           n: input.count,
@@ -182,18 +181,32 @@ function resolveOpenAIInputFidelity(input: ModelExecutionClientInput): OpenAIInp
   return 'high';
 }
 
+async function buildOpenAIImageFile(image: ImageInput): Promise<File> {
+  const buffer = await readFile(image.path);
+  return new File([buffer], path.basename(image.path), {
+    type: resolveImageMimeType(image),
+  });
+}
+
 async function buildGeminiParts(text: string, images: ImageInput[]) {
   const parts: unknown[] = [{ text }];
   for (const image of images) {
     const buffer = await readFile(image.path);
     parts.push({
       inlineData: {
-        mimeType: image.mimeType ?? inferMimeType(image.path),
+        mimeType: resolveImageMimeType(image),
         data: buffer.toString('base64'),
       },
     });
   }
   return parts;
+}
+
+function resolveImageMimeType(image: ImageInput) {
+  if (image.mimeType?.startsWith('image/')) {
+    return image.mimeType;
+  }
+  return inferMimeType(image.path);
 }
 
 async function extractOpenAIImages(response: unknown): Promise<GeneratedImageOutput[]> {
