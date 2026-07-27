@@ -46,12 +46,20 @@ function buildStickerReplicaExecutionPrompt(request: ImageTaskRequest, brand: st
   ].filter(Boolean);
   const supplemental = request.prompt?.trim();
   const avoid = request.negativePrompt?.trim();
+  const brandReferences = (request.images ?? [])
+    .map((image, index) => (
+      image.role === 'logo' || image.role === 'reference'
+        ? `图片 ${index + 1}：品牌参考图；仅用于品牌内容替换。`
+        : ''
+    ))
+    .filter(Boolean);
 
   return [
     '模式: 贴纸复刻。',
     '从输入产品图中识别标签，将标签去透视并展平成一张正视的二维矩形标签。',
     ratio !== 'auto' ? `目标画布比例: ${quoted(ratio)}` : '',
     '严格复刻源标签设计：保留原版式、配色、字体风格、字号层级、卖点样式、图形、间距和元素相对位置；不要美化、放大、删减或重新排版。',
+    ...brandReferences,
     `仅替换以下用户指定内容，未列出的文字和样式保持源标签：\n${replacements.join('\n')}`,
     supplemental ? `附加要求: ${supplemental}` : '',
     avoid ? `不要出现: ${avoid}` : '',
@@ -91,15 +99,6 @@ function buildContentSection(request: ImageTaskRequest, brand: string) {
 }
 
 function buildModeSection(request: ImageTaskRequest) {
-  if (request.feature === 'sticker_replica') {
-    return [
-      '模式: 贴纸复刻。',
-      '将输入的产品照片转换为一张独立平面标签设计。输入图片仅作为标签信息参考，不得保留原产品照片构图。',
-      '对标签去透视、展平并补全弧面压缩或侧面遮挡的内容；保留源标签的版式、配色、视觉语言、装饰图形和元素相对位置。',
-      '主标题视觉高度相对源图缩小约 20%，仍保持第一视觉层级和清晰可读。',
-    ].join('\n');
-  }
-
   if (request.feature === 'sticker_variation') {
     const direction = getStickerVariationDirection(request.stickerVariationDirection);
     return [
