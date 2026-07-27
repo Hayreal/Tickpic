@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildStickerExecutionPrompt } from '../stickerExecutionPrompt';
 
 describe('stickerExecutionPrompt', () => {
-  it.each(['sticker_replica', 'sticker_variation', 'sticker_original'] as const)(
+  it.each(['sticker_variation', 'sticker_original'] as const)(
     '%s 设计铺满画布且不使用印刷出血术语',
     (feature) => {
       const prompt = buildStickerExecutionPrompt({ feature });
@@ -18,22 +18,26 @@ describe('stickerExecutionPrompt', () => {
     },
   );
 
-  it('builds replica instructions with source roles and a smaller headline', () => {
+  it('builds a minimal replica edit prompt that locks the source design', () => {
     const prompt = buildStickerExecutionPrompt({
       feature: 'sticker_replica',
-      images: [
-        { role: 'source', path: '/tmp/source.png' },
-        { role: 'logo', path: '/tmp/logo.png' },
-      ],
+      brand: 'wkau',
+      images: [{ role: 'source', path: '/tmp/source.png' }],
     });
 
-    expect(prompt).toContain('图片 1：源产品/标签照片');
-    expect(prompt).toContain('图片 2：品牌参考图');
-    expect(prompt).toContain('去透视、展平并补全');
-    expect(prompt).toContain('相对源图缩小约 20%');
+    expect(prompt).toContain('将标签去透视并展平成一张正视的二维矩形标签');
+    expect(prompt).toContain('严格复刻源标签设计');
+    expect(prompt).toContain('字号层级、卖点样式、图形、间距和元素相对位置');
+    expect(prompt).toContain('不要美化、放大、删减或重新排版');
+    expect(prompt).toContain('品牌: "wkau®"');
+    expect(prompt).toContain('最终只输出标签本身');
+    expect(prompt).not.toContain('主标题视觉高度相对源图缩小约 20%');
+    expect(prompt).not.toContain('内容安全距离');
+    expect(prompt).not.toContain('用户未提供卖点');
+    expect(prompt).not.toContain('最终检查:');
   });
 
-  it.each(['sticker_replica', 'sticker_variation'] as const)(
+  it.each(['sticker_variation'] as const)(
     '%s 把源图作为标签信息参考并替换源品牌',
     (feature) => {
       const prompt = buildStickerExecutionPrompt({

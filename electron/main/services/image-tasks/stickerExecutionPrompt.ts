@@ -16,6 +16,9 @@ export function isStickerFeature(feature: ImageFeature): boolean {
 
 export function buildStickerExecutionPrompt(request: ImageTaskRequest): string {
   const brand = registeredBrand(request.brand);
+  if (request.feature === 'sticker_replica') {
+    return buildStickerReplicaExecutionPrompt(request, brand);
+  }
   return [
     buildOutputTargetSection(request),
     buildTaskSection(request),
@@ -23,6 +26,37 @@ export function buildStickerExecutionPrompt(request: ImageTaskRequest): string {
     buildBoundedUserInputSection(request),
     buildFinalCheckSection(request),
   ].filter(Boolean).join('\n\n');
+}
+
+function buildStickerReplicaExecutionPrompt(request: ImageTaskRequest, brand: string) {
+  const ratio = targetRatio(request);
+  const replacements = [
+    `品牌: ${quoted(brand)}`,
+    request.productName?.trim() ? `产品名: ${quoted(request.productName.trim())}` : '',
+    request.capacity?.trim() ? `容量: ${quoted(request.capacity.trim())}` : '',
+    ...(request.sellingPoints ?? [])
+      .map((point) => point.trim())
+      .filter(Boolean)
+      .map((point) => `卖点: ${quoted(point)}`),
+    request.productCategory?.trim() ? `产品品类: ${quoted(request.productCategory.trim())}` : '',
+    request.material?.trim() ? `素材/图形方向: ${quoted(request.material.trim())}` : '',
+    request.colorScheme?.trim() ? `配色方向: ${quoted(request.colorScheme.trim())}` : '',
+    request.style?.trim() ? `风格方向: ${quoted(request.style.trim())}` : '',
+    request.colorBlockLayout?.trim() ? `版式方向: ${quoted(request.colorBlockLayout.trim())}` : '',
+  ].filter(Boolean);
+  const supplemental = request.prompt?.trim();
+  const avoid = request.negativePrompt?.trim();
+
+  return [
+    '模式: 贴纸复刻。',
+    '从输入产品图中识别标签，将标签去透视并展平成一张正视的二维矩形标签。',
+    ratio !== 'auto' ? `目标画布比例: ${quoted(ratio)}` : '',
+    '严格复刻源标签设计：保留原版式、配色、字体风格、字号层级、卖点样式、图形、间距和元素相对位置；不要美化、放大、删减或重新排版。',
+    `仅替换以下用户指定内容，未列出的文字和样式保持源标签：\n${replacements.join('\n')}`,
+    supplemental ? `附加要求: ${supplemental}` : '',
+    avoid ? `不要出现: ${avoid}` : '',
+    '最终只输出标签本身，不输出瓶身、产品、场景或样机。',
+  ].filter(Boolean).join('\n');
 }
 
 function buildOutputTargetSection(request: ImageTaskRequest) {
