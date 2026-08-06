@@ -86,9 +86,6 @@ export async function editStickerImage(
     prompt: imageEditPrompt,
     size: imageSize,
     quality: "auto",
-    background: "opaque",
-    output_format: "png",
-    input_fidelity: "high",
   });
 
   const sanitizedResponse = sanitizeImageResponse(response);

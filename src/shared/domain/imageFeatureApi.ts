@@ -29,6 +29,8 @@ export type ImageExecutionModel = 'generation' | 'edit';
 export type ImageModelProtocol = 'gemini' | 'openai';
 export type ImageTaskStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled';
 
+export const MAX_NEGATIVE_PROMPT_LENGTH = 500;
+
 export interface ImageTaskProgress {
   completed: number;
   total: number;
@@ -55,6 +57,7 @@ export interface RegionInput {
 export interface ImageTaskRequest {
   feature: ImageFeature;
   prompt?: string;
+  negativePrompt?: string;
   images?: ImageInput[];
   regions?: RegionInput[];
   count?: number;
@@ -150,7 +153,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
     acceptedImageRoles: ['reference', 'style'],
     requiredImageRoles: [],
     executionModel: 'generation',
-    executionImageRoles: [],
+    executionImageRoles: ['style', 'reference'],
   },
   remove_product: {
     feature: 'remove_product',
@@ -252,6 +255,10 @@ export function validateImageTaskRequest(input: ImageTaskRequest): ImageTaskRequ
 
   if (input.count !== undefined && (!Number.isInteger(input.count) || input.count <= 0)) {
     throw new Error('count must be a positive integer');
+  }
+
+  if (input.negativePrompt !== undefined && input.negativePrompt.length > MAX_NEGATIVE_PROMPT_LENGTH) {
+    throw new Error(`negativePrompt must be at most ${MAX_NEGATIVE_PROMPT_LENGTH} characters`);
   }
 
   for (const region of input.regions ?? []) {

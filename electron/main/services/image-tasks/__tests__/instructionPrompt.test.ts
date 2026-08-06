@@ -42,7 +42,7 @@ describe('instructionPrompt', () => {
       images: [],
     };
 
-    expect(buildFallbackFinalPrompt(input)).toContain('extract sticker');
+    expect(buildFallbackFinalPrompt(input)).toContain('模式: 贴纸复刻。');
     expect(buildFallbackFinalPrompt(input)).toContain('keep layout');
     expect(buildFallbackFinalPrompt(input)).toContain('Serum');
   });
@@ -113,10 +113,10 @@ describe('instructionPrompt', () => {
       aspectRatio: '1:1',
     }, '生成同品类贴纸变体，可调整布局、标题区、卖点区与色块。');
 
-    expect(text).toBe(withEnglishOnlyRule(
-      '生成同品类贴纸变体，可调整布局、标题区、卖点区与色块。',
-      '补充要求：summer style',
-    ));
+    expect(text).toContain('目标画布比例: "1:1"');
+    expect(text).toContain('summer style');
+    expect(text).toContain('标签设计铺满整个画布');
+    expect(text).not.toContain('四边出血');
     expect(text).not.toContain('Write one concise');
     expect(text).not.toContain('Extra:');
     expect(text).not.toContain('mainPrompt');
@@ -129,10 +129,10 @@ describe('instructionPrompt', () => {
       prompt: '保留原来的清洁剂品类',
     }, '基于输入产品图贴纸，做贴纸裂变设计。');
 
-    expect(text).toContain('贴纸裂变方向是排版打乱重组。');
-    expect(text).toContain('将原本的文字、产品图、功效图、色块和装饰元素重新安排');
-    expect(text).toContain('补充要求：保留原来的清洁剂品类');
-    expect(text).toContain(ENGLISH_ONLY_VISIBLE_TEXT_RULE);
+    expect(text).toContain('裂变方向: 排版打乱重组。');
+    expect(text).toContain('允许变化：重新安排允许文案来源中的文字、图形和色块的位置与组合');
+    expect(text).toContain('保留原来的清洁剂品类');
+    expect(text).toContain('其他可见文字必须是自然英文');
   });
 
   it('does not infer original sticker logo text from product name', () => {
@@ -151,10 +151,10 @@ describe('instructionPrompt', () => {
       },
     });
 
-    expect(text).toContain('产品名称是 wuku。');
-    expect(text).toContain('产品品类是 汽车玻璃水。');
-    expect(text).toContain('卖点包括 清洁强。');
-    expect(text).not.toContain('Logo 文案是 wuku。');
+    expect(text).toContain('产品名: "wuku"');
+    expect(text).toContain('产品品类: "汽车玻璃水"');
+    expect(text).toContain('卖点来源: "清洁强"');
+    expect(text).not.toContain('品牌: "wuku"');
   });
 
   it('adds spray prefix only when the model omits spray or mist', () => {
@@ -250,21 +250,18 @@ describe('instructionPrompt', () => {
       colorScheme: 'black and gold',
     }, STICKER_REPLICA_MAIN_PROMPT);
 
-    expect(text).toBe(withEnglishOnlyRule(
-      STICKER_REPLICA_MAIN_PROMPT,
-      '补充要求：品牌名换成 WKUA，整体保留原图的高级黑金风格。',
-      '品牌是 WKUA。',
-      '产品名称是 Serum Pro。',
-      '产品品类是 car belt silencer。',
-      '整体保留原图的 black and gold 风格。',
-    ));
+    expect(text).toContain('模式: 贴纸复刻。');
+    expect(text).toContain('品牌: "WKUA®"');
+    expect(text).toContain('产品名: "Serum Pro"');
+    expect(text).toContain('产品品类: "car belt silencer"');
+    expect(text).toContain('配色方向: "black and gold"');
     expect(text).not.toContain('Write one concise');
     expect(text).not.toContain('Extra:');
     expect(text).not.toContain('/tmp/logo.png');
-    expect(text.match(/Logo 图/g)).toHaveLength(1);
+    expect(text).toContain('图片 2：品牌参考图');
   });
 
-  it('appends sticker-extraction guardrail to sticker replica execution instructions', () => {
+  it('leaves legacy sticker replica finalization neutral because the builder owns guardrails', () => {
     const finalized = finalizeImageInstruction(
       'sticker_replica',
       'Replicate the pink effervescent-tablet label with bold red English typography and the wkau logo.',
@@ -277,12 +274,10 @@ describe('instructionPrompt', () => {
       },
     );
 
-    expect(finalized).toContain('Output only the extracted flat 2D sticker/label');
-    expect(finalized).toContain('no product body, bottle, box, jar, packaging mockup');
-    expect(finalized).not.toContain('similar rectangular layout');
+    expect(finalized).toBe('Replicate the pink effervescent-tablet label with bold red English typography and the wkau logo.');
   });
 
-  it('appends meaningful-redesign guardrail to sticker variation execution instructions', () => {
+  it('does not append a universal redesign guardrail to sticker variations', () => {
     const finalized = finalizeImageInstruction(
       'sticker_variation',
       'Edit the source sticker to produce a flat 2D black-and-white spray label with a central diamond 8 card-suit emblem and matching corner markings.',
@@ -292,10 +287,8 @@ describe('instructionPrompt', () => {
       },
     );
 
-    expect(finalized).toContain('make a clearly different layout');
-    expect(finalized).toContain('not a small text, icon, suit, or color swap');
-    expect(finalized).not.toContain('substantially rework');
-    expect(finalized).not.toContain('near-copy');
+    expect(finalized).not.toContain('make a clearly different layout');
+    expect(finalized).toContain('central diamond 8 card-suit emblem');
   });
 
   it('does not duplicate sticker variation redesign guardrail when already present', () => {

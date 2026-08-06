@@ -13,7 +13,7 @@
     "dev:electron:app": "pnpm build:electron && wait-on http://127.0.0.1:3000 && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:3000 electron --no-sandbox dist-electron/electron/main.js",
     "desktop": "pnpm build && pnpm build:electron && electron --no-sandbox dist-electron/electron/main.js",
     "build": "vite build",
-    "build:electron": "tsc -p tsconfig.electron.json && esbuild electron/preload.ts --bundle --platform=node --format=cjs --outfile=dist-electron/electron/preload.js --external:electron --sourcemap && esbuild electron/activation-preload.ts --bundle --platform=node --format=cjs --outfile=dist-electron/electron/activation-preload.js --external:electron --sourcemap",
+    "build:electron": "tsc -p tsconfig.electron.json && esbuild electron/preload.ts --bundle --platform=node --format=cjs --outfile=dist-electron/electron/preload.js --external:electron --sourcemap",
     "smoke:image-task": "node --env-file=.env --import tsx scripts/smoke-image-task.ts",
     "dist:win": "pnpm build && pnpm build:electron && electron-builder --win nsis --publish never",
     "dist:mac": "pnpm build && pnpm build:electron && electron-builder --mac dmg zip --publish never",
@@ -94,11 +94,6 @@
     },
     "dmg": {
       "writeUpdateInfo": false
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "include": "installer.nsh"
     }
   },
   "pnpm": {

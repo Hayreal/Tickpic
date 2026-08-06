@@ -5,7 +5,6 @@ import path from 'node:path';
 import { getStoragePaths } from './services/storage/storagePaths.js';
 import { registerDesktopHandlers } from './ipc/registerDesktopHandlers.js';
 import { createMainWindow } from './app/createMainWindow.js';
-import { ensureMacActivation } from './app/ensureMacActivation.js';
 import { getAppLogger } from './services/logger/appLogger.js';
 import { LOCAL_FILE_PROTOCOL, registerLocalFileProtocol } from './services/storage/localFileProtocol.js';
 
@@ -30,15 +29,9 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
-app.whenReady().then(async () => {
+app.whenReady().then(() => {
   const logger = getAppLogger();
   logger.info('app', 'Electron 应用已就绪', { platform: process.platform, version: app.getVersion() });
-
-  const activated = await ensureMacActivation(paths.activationFile, __dirname);
-  if (!activated) {
-    logger.info('app', '未完成激活，应用退出');
-    return;
-  }
 
   const desktopHandlers = registerDesktopHandlers({
     settingsFile: paths.settingsFile,

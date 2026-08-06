@@ -1,5 +1,4 @@
 import { readFile } from 'node:fs/promises';
-import fs from 'node:fs';
 import path from 'node:path';
 import type { ImageInput } from '../../../../src/shared/domain/imageFeatureApi.js';
 import type { ImageExecutionModelResult, GeneratedImageOutput } from './imageTaskExecutor.js';
@@ -18,8 +17,6 @@ export interface ProtocolClientOptions {
   baseUrl: string;
 }
 
-type OpenAIInputFidelity = 'low' | 'high';
-
 type ImageResponseItem = {
   b64_json?: string;
   base64?: string;
@@ -34,7 +31,6 @@ export function createOpenAIProtocolClient(
 ): ProtocolModelClient {
   return {
     async executeImage(input) {
-      const inputFidelity = resolveOpenAIInputFidelity(input);
       const executionPayload = input.images.length > 0
         ? {
           operation: 'edit',
@@ -48,9 +44,6 @@ export function createOpenAIProtocolClient(
           n: input.count,
           ...(input.size ? { size: input.size } : {}),
           quality: 'auto',
-          background: 'opaque',
-          output_format: 'png',
-          input_fidelity: inputFidelity,
         }
         : {
           operation: 'generate',
@@ -59,7 +52,6 @@ export function createOpenAIProtocolClient(
           n: input.count,
           ...(input.size ? { size: input.size } : {}),
           quality: 'auto',
-          output_format: 'png',
         };
       logModelRequest('execution', {
         protocol: 'openai',
@@ -71,15 +63,12 @@ export function createOpenAIProtocolClient(
 
       const response = input.images.length > 0
         ? await openai.images.edit({
-          image: input.images.map((image) => fs.createReadStream(image.path)),
+          image: await Promise.all(input.images.map((image) => buildOpenAIImageFile(image))),
           model: input.model,
           prompt: input.finalPrompt,
           n: input.count,
           ...(input.size ? { size: input.size } : {}),
           quality: 'auto',
-          background: 'opaque',
-          output_format: 'png',
-          input_fidelity: inputFidelity,
         }, {
           signal: input.abortSignal,
         })
@@ -89,7 +78,6 @@ export function createOpenAIProtocolClient(
           n: input.count,
           ...(input.size ? { size: input.size } : {}),
           quality: 'auto',
-          output_format: 'png',
         }, {
           signal: input.abortSignal,
         });
@@ -175,11 +163,11 @@ export function createGeminiProtocolClient(
   };
 }
 
-function resolveOpenAIInputFidelity(input: ModelExecutionClientInput): OpenAIInputFidelity {
-  if (input.task.feature === 'sticker_variation') {
-    return 'low';
-  }
-  return 'high';
+async function buildOpenAIImageFile(image: ImageInput): Promise<File> {
+  const buffer = await readFile(image.path);
+  return new File([buffer], path.basename(image.path), {
+    type: resolveImageMimeType(image),
+  });
 }
 
 async function buildGeminiParts(text: string, images: ImageInput[]) {
@@ -188,12 +176,19 @@ async function buildGeminiParts(text: string, images: ImageInput[]) {
     const buffer = await readFile(image.path);
     parts.push({
       inlineData: {
-        mimeType: image.mimeType ?? inferMimeType(image.path),
+        mimeType: resolveImageMimeType(image),
         data: buffer.toString('base64'),
       },
     });
   }
   return parts;
+}
+
+function resolveImageMimeType(image: ImageInput) {
+  if (image.mimeType?.startsWith('image/')) {
+    return image.mimeType;
+  }
+  return inferMimeType(image.path);
 }
 
 async function extractOpenAIImages(response: unknown): Promise<GeneratedImageOutput[]> {
