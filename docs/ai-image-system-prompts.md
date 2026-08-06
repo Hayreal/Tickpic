@@ -11,13 +11,17 @@ Runtime source of truth:
 
 ## Execution Prompt Assembly
 
-Assembly order:
+产品套图（`product_main_image`、`product_comparison_image`、`product_multi_scene`）按以下顺序组装：
 
 1. Feature `mainPrompt` from `getImageFeatureDefinition(feature).mainPrompt`.
-2. User `prompt`, if present, as `补充要求：...`.
-3. Structured parameters as short natural-language lines.
-4. Region summary and region operation hints, if present.
-5. Sticker-replication logo role warning, when a separate logo/reference image is provided and the feature prompt does not already include that warning.
+2. 套图结构化控制项，以及其他 structured parameters、region summary 和 region operation hints。
+3. 显式优先级护栏：用户具体场景、补充要求和反向要求只执行不与前述功能硬规则及结构化控制项冲突的部分；冲突内容由模型忽略，以前述规则为准。
+4. Product image set `scenePrompt`, when present.
+5. User `prompt`, if present, as `补充要求：...`.
+6. User `negativePrompt`, if present, as a separate avoidance line.
+7. `variantIndex` / `variantTotal` 的批次差异要求，when both are present.
+
+非套图保持原有顺序：`mainPrompt`、用户 `prompt`、其他 structured parameters/regions、批次差异要求；若贴纸复刻提供独立 Logo/reference 图且功能主提示词未包含对应说明，最后追加贴纸 Logo 角色说明。
 
 Structured parameters are rendered as natural lines:
 
@@ -28,6 +32,11 @@ Structured parameters are rendered as natural lines:
 - `logoText`: logo copy.
 - `colorScheme`: color/style direction.
 - `showProduct`: whether to show the product.
+- Product image set controls: main-image hand-held/effect modes; comparison layout, After product visibility and intensity; multi-scene single/collage/grid layout.
+- `scenePrompt`: a specific scene for main and comparison images.
+- `negativePrompt`: rendered as `反向要求：避免出现以下内容：...` only when non-empty.
+
+冲突处理不尝试用自然语言 parser 删除用户文本。套图把上述显式优先级护栏写入高优先级段，要求模型忽略与 Feature 硬规则或结构化控制项冲突的用户内容。
 
 For non-sticker features, `aspectRatio` is passed only as a model API parameter (`size` / Gemini `aspectRatio`) and is not appended to the execution prompt text. Sticker features also state the resolved request ratio in their canvas guidance so the prompt contract and API parameter agree.
 
@@ -67,6 +76,15 @@ The legacy sticker-replica extraction suffix and universal sticker-variation red
 | `scene_variation` | 生成新的具体使用场景素材，默认无具体产品。 |
 | `create_new_scene` | 创作新的电商使用场景图，按品类发散真实生活场景。 |
 | `prompt_only_main_asset` | 根据用户描述完成电商主图或广告素材生成 |
+| `product_main_image` | 以 SKU 产品图为唯一产品依据，生成商品主图；保持产品外观、包装和品牌信息准确，自动生成英文大标题，并突出核心场景。手持与具体效果由结构化选项控制。 |
+| `product_comparison_image` | 以 SKU 产品图为依据，每张只生成一个场景的一组 Before/After；Before 不展示 SKU，After 展示由结构化选项控制，布局可自动、左右或上下，并使用英文标识。 |
+| `product_multi_scene` | 以 SKU 产品图为依据发散真实适用场景；用户提示词可选，画面模式可为单场景、拼图或宫格；SKU 可不露出，默认不添加营销文字。 |
+
+## Product Image Set Variants
+
+套图处理的主图、对比图和多场景图会将所选生成数量拆分为同一 `outputBatchId` 下的多个任务；即使只生成一张，也会拥有独立的 `outputBatchId`。每个任务的 `variantIndex` 和 `variantTotal` 用于标识该任务在整套图中的位置，例如 `variantIndex: 2`、`variantTotal: 3` 表示第 2 张，共 3 张。
+
+变体之间应在构图、场景、展示角度或卖点表达上有所差异，同时保持同一 SKU 产品的外观与品牌信息一致。`variantIndex` 和 `variantTotal` 只用于任务编排与变体差异说明，不参与模型尺寸参数；图片尺寸仍仅由 `aspectRatio` 映射到模型 API 的 `size` 或 Gemini `aspectRatio`。
 
 ## Example
 

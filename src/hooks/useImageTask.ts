@@ -10,9 +10,16 @@ import { useDesktopClient } from './useDesktopClient';
 type TaskMap = Partial<Record<ImageFeature, ImageTaskRecord[]>>;
 type ErrorMap = Partial<Record<ImageFeature, string>>;
 
+export interface SubmitManyOptions {
+  /** Default batch ID for requests whose outputBatchId is missing or blank. */
+  outputBatchId?: string;
+  /** Generate one shared batch ID for requests whose outputBatchId is missing or blank. */
+  forceOutputBatchId?: boolean;
+}
+
 export interface UseImageTaskReturn {
   submit: (request: ImageTaskRequest) => Promise<ImageTaskSubmitResult>;
-  submitMany: (requests: ImageTaskRequest[]) => Promise<ImageTaskSubmitResult[]>;
+  submitMany: (requests: ImageTaskRequest[], options?: SubmitManyOptions) => Promise<ImageTaskSubmitResult[]>;
   bindTask: (taskId: string, feature: ImageFeature) => Promise<void>;
   restoreTask: (task: ImageTaskRecord) => void;
   getTask: (feature: ImageFeature) => ImageTaskRecord | null;
@@ -74,6 +81,7 @@ export function useImageTask(): UseImageTaskReturn {
   const [tasksByFeature, setTasksByFeature] = useState<TaskMap>({});
   const [errorsByFeature, setErrorsByFeature] = useState<ErrorMap>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const activeSubmissionCountRef = useRef(0);
   const trackedTaskIdsRef = useRef<Set<string>>(new Set());
   const mountedRef = useRef(true);
 
@@ -126,6 +134,18 @@ export function useImageTask(): UseImageTaskReturn {
     trackTask(task);
   }, [trackTask]);
 
+  const beginSubmission = useCallback(() => {
+    activeSubmissionCountRef.current += 1;
+    setIsSubmitting(true);
+  }, []);
+
+  const endSubmission = useCallback(() => {
+    activeSubmissionCountRef.current = Math.max(0, activeSubmissionCountRef.current - 1);
+    if (mountedRef.current && activeSubmissionCountRef.current === 0) {
+      setIsSubmitting(false);
+    }
+  }, []);
+
   const submitOne = useCallback(async (
     request: ImageTaskRequest,
     options: { manageSubmitting?: boolean } = { manageSubmitting: true },
@@ -143,7 +163,7 @@ export function useImageTask(): UseImageTaskReturn {
       return next;
     });
     if (options.manageSubmitting !== false) {
-      setIsSubmitting(true);
+      beginSubmission();
     }
 
     try {
@@ -166,37 +186,46 @@ export function useImageTask(): UseImageTaskReturn {
       }));
       throw err;
     } finally {
-      if (mountedRef.current && options.manageSubmitting !== false) {
-        setIsSubmitting(false);
+      if (options.manageSubmitting !== false) {
+        endSubmission();
       }
     }
-  }, [desktopClient, trackTask]);
+  }, [beginSubmission, desktopClient, endSubmission, trackTask]);
 
   const submit = useCallback((request: ImageTaskRequest) => submitOne(request), [submitOne]);
 
-  const submitMany = useCallback(async (requests: ImageTaskRequest[]): Promise<ImageTaskSubmitResult[]> => {
+  const submitMany = useCallback(async (
+    requests: ImageTaskRequest[],
+    options: SubmitManyOptions = {},
+  ): Promise<ImageTaskSubmitResult[]> => {
     if (!desktopClient) {
       throw new Error('Desktop bridge unavailable');
     }
 
-    setIsSubmitting(true);
+    beginSubmission();
     try {
       requests.forEach(assertNoBlobImages);
-      const outputBatchId = requests.length > 1 ? crypto.randomUUID() : undefined;
+      const optionOutputBatchId = options.outputBatchId?.trim() || undefined;
+      const outputBatchId = optionOutputBatchId
+        ?? (requests.length > 1 || options.forceOutputBatchId ? crypto.randomUUID() : undefined);
       const results: ImageTaskSubmitResult[] = [];
       for (const request of requests) {
+        const requestOutputBatchId = request.outputBatchId?.trim();
+        const requestWithBatchId = requestOutputBatchId
+          ? { ...request, outputBatchId: requestOutputBatchId }
+          : outputBatchId
+            ? { ...request, outputBatchId }
+            : { ...request, outputBatchId: undefined };
         results.push(await submitOne(
-          outputBatchId ? { ...request, outputBatchId } : request,
+          requestWithBatchId,
           { manageSubmitting: false },
         ));
       }
       return results;
     } finally {
-      if (mountedRef.current) {
-        setIsSubmitting(false);
-      }
+      endSubmission();
     }
-  }, [desktopClient, submitOne]);
+  }, [beginSubmission, desktopClient, endSubmission, submitOne]);
 
   const getTasks = useCallback((feature: ImageFeature) => tasksByFeature[feature] ?? [], [tasksByFeature]);
 
@@ -212,7 +241,6 @@ export function useImageTask(): UseImageTaskReturn {
       setTasksByFeature({});
       setErrorsByFeature({});
       trackedTaskIdsRef.current.clear();
-      setIsSubmitting(false);
       return;
     }
 

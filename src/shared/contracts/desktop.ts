@@ -40,14 +40,14 @@ export const IPC_CHANNELS = {
 } as const;
 
 export interface SaveImportBatchRequest {
-  page: 'sticker' | 'product';
+  page: ImportBatch['page'];
   feature: string;
   files: { name: string; type: string; buffer: ArrayBuffer }[];
 }
 
 export interface SaveTaskOutputsRequest {
   taskId: string;
-  page: 'sticker' | 'product';
+  page: ImportBatch['page'];
   feature: string;
   outputs: { name: string; buffer: ArrayBuffer }[];
 }

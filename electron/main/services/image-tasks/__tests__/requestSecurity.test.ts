@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateImageTaskRequestForMain } from '../requestSecurity';
 
 const ONE_BY_ONE_PNG = Buffer.from(
@@ -61,6 +61,39 @@ describe('requestSecurity', () => {
       },
       authorizedRoots: [importsDir, workspaceDir],
     })).rejects.toThrow('image file does not exist');
+  });
+
+  it.each([
+    {
+      name: 'an invalid product set enum',
+      request: {
+        feature: 'product_main_image' as const,
+        images: [{ role: 'product' as const, path: () => allowedImagePath, mimeType: 'image/png' }],
+        productHandheldMode: 'hands_free' as never,
+      },
+      message: 'productHandheldMode must be one of handheld, not_handheld',
+    },
+    {
+      name: 'an image role that does not belong to the feature',
+      request: {
+        feature: 'product_main_image' as const,
+        images: [{ role: 'source' as const, path: () => allowedImagePath, mimeType: 'image/png' }],
+      },
+      message: 'product_main_image does not accept image role source',
+    },
+  ])('rejects $name before filesystem access', async ({ request, message }) => {
+    const resolvedRequest = {
+      ...request,
+      images: request.images.map((image) => ({
+        ...image,
+        path: path.join(importsDir, 'missing-before-filesystem-access.png'),
+      })),
+    };
+
+    await expect(validateImageTaskRequestForMain({
+      request: resolvedRequest,
+      authorizedRoots: [importsDir, workspaceDir],
+    })).rejects.toThrow(message);
   });
 
   it('rejects regions that reference a missing image role', async () => {

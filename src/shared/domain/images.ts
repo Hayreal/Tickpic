@@ -9,7 +9,7 @@ export interface StoredImageRecord {
 
 export interface ImportBatch {
   batchId: string;
-  page: 'sticker' | 'product';
+  page: 'sticker' | 'product' | 'productSet';
   feature: string;
   images: StoredImageRecord[];
   createdAt: string;

@@ -135,4 +135,246 @@ describe('image feature API contract', () => {
     expect(definition.mainPrompt).toContain('生活方式场景、英文标题、卖点卡片');
     expect(definition.mainPrompt).toContain('明显不同的场景、标题排版或主视觉构图');
   });
+
+  it('defines product-set features as product-only edit operations', () => {
+    const expectations = [
+      [
+        'product_main_image',
+        ['多张 SKU', 'AI 自动生成清晰的英文大标题', '核心使用场景', '产品为主视觉', '不得重新设计 SKU', '不得出现中文营销文字', '无关装饰不堆叠'],
+        true,
+      ],
+      [
+        'product_comparison_image',
+        ['一个场景', '一组 Before/After', 'Before 始终不展示 SKU', 'After 是否展示 SKU 由结构化选项控制', '环境、对象、视角、构图与光线必须保持一致', 'BEFORE', 'AFTER', '不得出现中文营销文字', '不得拆成多图或四阶段过程图'],
+        true,
+      ],
+      [
+        'product_multi_scene',
+        ['真实适用场景', '单场景、拼图或宫格', '结构化选项控制', 'SKU 可以不出现', '默认不添加标题、卖点或营销文字', '除非用户明确要求'],
+        false,
+      ],
+    ] as const;
+
+    for (const [feature, promptContents, defaultShowProduct] of expectations) {
+      const definition = getImageFeatureDefinition(feature);
+
+      expect(definition.acceptedImageRoles).toEqual(['product']);
+      expect(definition.requiredImageRoles).toEqual(['product']);
+      expect(definition.executionModel).toBe('edit');
+      expect(definition.executionImageRoles).toEqual(['product']);
+      expect(definition.defaultShowProduct).toBe(defaultShowProduct);
+      for (const promptContent of promptContents) {
+        expect(definition.mainPrompt).toContain(promptContent);
+      }
+    }
+  });
+
+  it('uses the product image once for multi-scene execution', () => {
+    const roles = getExecutionImageRoles({
+      feature: 'product_multi_scene',
+      images: [
+        { role: 'product', path: '/authorized/input/product-front.png' },
+        { role: 'product', path: '/authorized/input/product-side.png' },
+      ],
+    });
+
+    expect(roles).toEqual(['product']);
+  });
+
+  it('requires a product image for each product-set feature', () => {
+    for (const feature of ['product_main_image', 'product_comparison_image', 'product_multi_scene'] as const) {
+      expect(() => validateImageTaskRequest({ feature })).toThrow(
+        `${feature} requires image role product`,
+      );
+    }
+  });
+
+  it('accepts product multi-scene requests without a prompt', () => {
+    const request = {
+      feature: 'product_multi_scene' as const,
+      images: [{ role: 'product' as const, path: '/authorized/input/product.png' }],
+    };
+
+    expect(validateImageTaskRequest(request)).toMatchObject(request);
+    expect(validateImageTaskRequest({ ...request, prompt: '   ' }).prompt).toBe('   ');
+    expect(validateImageTaskRequest({ ...request, prompt: 'Kitchen countertop cleaning' }).prompt).toBe(
+      'Kitchen countertop cleaning',
+    );
+  });
+
+  it('accepts every product-set control for its owning feature', () => {
+    const productImage = [{ role: 'product' as const, path: '/authorized/input/product.png' }];
+
+    for (const productHandheldMode of ['handheld', 'not_handheld'] as const) {
+      for (const productEffectMode of ['auto', 'show', 'hide'] as const) {
+        expect(validateImageTaskRequest({
+          feature: 'product_main_image',
+          images: productImage,
+          productHandheldMode,
+          productEffectMode,
+          prompt: 'generic prompt',
+          negativePrompt: 'no text',
+          scenePrompt: 'kitchen counter',
+        })).toMatchObject({ productHandheldMode, productEffectMode });
+      }
+    }
+
+    for (const comparisonLayout of ['auto', 'horizontal', 'vertical'] as const) {
+      for (const comparisonIntensity of ['light', 'medium', 'heavy'] as const) {
+        for (const showProduct of [true, false]) {
+          expect(validateImageTaskRequest({
+            feature: 'product_comparison_image',
+            images: productImage,
+            comparisonLayout,
+            comparisonIntensity,
+            showProduct,
+            prompt: 'generic prompt',
+            negativePrompt: 'no text',
+            scenePrompt: 'kitchen counter',
+          })).toMatchObject({ comparisonLayout, comparisonIntensity, showProduct });
+        }
+      }
+    }
+
+    for (const multiSceneLayout of ['single', 'collage', 'grid'] as const) {
+      expect(validateImageTaskRequest({
+        feature: 'product_multi_scene',
+        images: productImage,
+        multiSceneLayout,
+        prompt: 'generic prompt',
+        negativePrompt: 'no text',
+      })).toMatchObject({ multiSceneLayout });
+    }
+  });
+
+  it('rejects unknown product-set enum values and controls owned by another feature', () => {
+    const request = {
+      feature: 'product_main_image' as const,
+      images: [{ role: 'product' as const, path: '/authorized/input/product.png' }],
+    };
+
+    expect(() => validateImageTaskRequest({ ...request, productHandheldMode: 'held_by_robot' as never })).toThrow(
+      'productHandheldMode must be one of handheld, not_handheld',
+    );
+    expect(() => validateImageTaskRequest({ ...request, productEffectMode: 'sometimes' as never })).toThrow(
+      'productEffectMode must be one of auto, show, hide',
+    );
+    expect(() => validateImageTaskRequest({ ...request, comparisonLayout: 'diagonal' as never })).toThrow(
+      'comparisonLayout must be one of auto, horizontal, vertical',
+    );
+    expect(() => validateImageTaskRequest({ ...request, comparisonIntensity: 'extreme' as never })).toThrow(
+      'comparisonIntensity must be one of light, medium, heavy',
+    );
+    expect(() => validateImageTaskRequest({ ...request, multiSceneLayout: 'split' as never })).toThrow(
+      'multiSceneLayout must be one of single, collage, grid',
+    );
+    expect(() => validateImageTaskRequest({ ...request, comparisonLayout: 'horizontal' })).toThrow(
+      'comparisonLayout is not supported by product_main_image',
+    );
+    expect(() => validateImageTaskRequest({
+      ...request,
+      feature: 'product_comparison_image',
+      productEffectMode: 'show',
+    })).toThrow('productEffectMode is not supported by product_comparison_image');
+    expect(() => validateImageTaskRequest({
+      ...request,
+      feature: 'product_multi_scene',
+      scenePrompt: 'kitchen counter',
+    })).toThrow('scenePrompt is not supported by product_multi_scene');
+
+  });
+
+  it.each([
+    ['main_image_asset_variation', [{ role: 'source' as const, path: '/authorized/input/main-image.png' }]],
+    ['scene_variation', [{ role: 'source' as const, path: '/authorized/input/scene.png' }]],
+    ['create_new_scene', []],
+  ] as const)('accepts boolean showProduct for %s', (feature, images) => {
+    for (const showProduct of [true, false]) {
+      expect(validateImageTaskRequest({ feature, images: [...images], showProduct }).showProduct).toBe(showProduct);
+    }
+  });
+
+  it('validates showProduct at runtime before feature ownership', () => {
+    for (const showProduct of ['true', 1] as unknown as boolean[]) {
+      expect(() => validateImageTaskRequest({
+        feature: 'scene_variation',
+        images: [{ role: 'source', path: '/authorized/input/scene.png' }],
+        showProduct,
+      })).toThrow('showProduct must be a boolean');
+    }
+  });
+
+  it('limits showProduct to its supported features', () => {
+    const productRequest = {
+      images: [{ role: 'product' as const, path: '/authorized/input/product.png' }],
+    };
+
+    expect(validateImageTaskRequest({
+      feature: 'product_comparison_image',
+      ...productRequest,
+      showProduct: true,
+    }).showProduct).toBe(true);
+    expect(validateImageTaskRequest({
+      feature: 'product_comparison_image',
+      ...productRequest,
+      showProduct: false,
+    }).showProduct).toBe(false);
+    expect(() => validateImageTaskRequest({
+      feature: 'product_comparison_image',
+      ...productRequest,
+      showProduct: 'true' as never,
+    })).toThrow('showProduct must be a boolean');
+    expect(() => validateImageTaskRequest({
+      feature: 'remove_product',
+      images: [{ role: 'source', path: '/authorized/input/scene.png' }],
+      showProduct: true,
+    })).toThrow('showProduct is not supported by remove_product');
+    expect(() => validateImageTaskRequest({
+      feature: 'sticker_variation',
+      images: [{ role: 'source', path: '/authorized/input/sticker.png' }],
+      showProduct: false,
+    })).toThrow('showProduct is not supported by sticker_variation');
+    expect(() => validateImageTaskRequest({
+      feature: 'product_main_image',
+      ...productRequest,
+      showProduct: true,
+    })).toThrow('showProduct is not supported by product_main_image');
+    expect(() => validateImageTaskRequest({
+      feature: 'product_multi_scene',
+      ...productRequest,
+      showProduct: false,
+    })).toThrow('showProduct is not supported by product_multi_scene');
+  });
+
+  it('accepts complete positive variant metadata', () => {
+    const request = validateImageTaskRequest({
+      feature: 'product_main_image',
+      images: [{ role: 'product', path: '/authorized/input/product.png' }],
+      variantIndex: 2,
+      variantTotal: 3,
+    });
+
+    expect(request.variantIndex).toBe(2);
+    expect(request.variantTotal).toBe(3);
+  });
+
+  it('rejects incomplete or invalid variant metadata', () => {
+    const request = {
+      feature: 'product_main_image' as const,
+      images: [{ role: 'product' as const, path: '/authorized/input/product.png' }],
+    };
+
+    expect(() => validateImageTaskRequest({ ...request, variantIndex: 1 })).toThrow(
+      'variantIndex and variantTotal must be provided together',
+    );
+    expect(() => validateImageTaskRequest({ ...request, variantIndex: 0, variantTotal: 1 })).toThrow(
+      'variantIndex must be a positive integer',
+    );
+    expect(() => validateImageTaskRequest({ ...request, variantIndex: 1, variantTotal: 0 })).toThrow(
+      'variantTotal must be a positive integer',
+    );
+    expect(() => validateImageTaskRequest({ ...request, variantIndex: 2, variantTotal: 1 })).toThrow(
+      'variantIndex must be less than or equal to variantTotal',
+    );
+  });
 });

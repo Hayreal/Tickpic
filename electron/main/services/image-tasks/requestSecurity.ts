@@ -1,6 +1,7 @@
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { ImageInput, ImageTaskRequest } from '../../../../src/shared/domain/imageFeatureApi.js';
+import { validateImageTaskRequest } from '../../../../src/shared/domain/imageFeatureApi.js';
 import { readImageDimensionsFromBuffer } from './imageDimensions.js';
 
 export interface ValidateImageTaskRequestForMainInput {
@@ -11,14 +12,14 @@ export interface ValidateImageTaskRequestForMainInput {
 export async function validateImageTaskRequestForMain(
   input: ValidateImageTaskRequestForMainInput,
 ): Promise<void> {
-  const imageByRole = new Map(input.request.images?.map((image) => [image.role, image]) ?? []);
+  const request = validateImageTaskRequest(input.request);
 
-  for (const image of input.request.images ?? []) {
+  for (const image of request.images ?? []) {
     await validateAuthorizedImagePath(image, input.authorizedRoots);
   }
 
-  for (const region of input.request.regions ?? []) {
-    const targetImage = resolveRegionImage(region.imageRole, input.request.images ?? []);
+  for (const region of request.regions ?? []) {
+    const targetImage = resolveRegionImage(region.imageRole, request.images ?? []);
     if (!targetImage) {
       throw new Error(
         `region ${region.id} references missing image role ${region.imageRole ?? '(default)'}`,

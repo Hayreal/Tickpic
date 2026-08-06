@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import Sidebar from '../Sidebar';
 import { AppearanceProvider } from '../../contexts/AppearanceContext';
@@ -35,5 +35,18 @@ describe('Sidebar', () => {
       'border-r',
       'border-sidebar-border',
     );
+  });
+
+  it('navigates to product image set processing', () => {
+    const onTabChange = vi.fn();
+    render(
+      <AppearanceProvider>
+        <Sidebar activeTab="sticker" onTabChange={onTabChange} />
+      </AppearanceProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '套图处理' }));
+
+    expect(onTabChange).toHaveBeenCalledWith('productSet');
   });
 });

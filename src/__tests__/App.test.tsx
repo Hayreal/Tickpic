@@ -1,5 +1,5 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { cleanup, render, screen, fireEvent } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import React from 'react';
 
 const mockListTasks = vi.fn();
@@ -40,13 +40,34 @@ vi.mock('../components/Settings', () => ({
 
 const profileTasksSpy = vi.fn();
 vi.mock('../components/Profile', () => ({
-  default: ({ tasks, onRefresh }: { tasks: { taskId: string; feature: string }[]; onRefresh: () => void }) => {
+  default: ({ tasks, onRefresh, onRestoreTask }: {
+    tasks: { taskId: string; feature: string }[];
+    onRefresh: () => void;
+    onRestoreTask: (task: unknown) => void;
+  }) => {
     profileTasksSpy(tasks);
     return (
       <div data-testid="profile">
         {tasks.map((t, i) => (
           <span key={i} data-testid="task-entry">{t.feature}</span>
         ))}
+        <button type="button" onClick={() => onRestoreTask(tasks[0])}>restore first task</button>
+      </div>
+    );
+  },
+}));
+
+const productImageSetSpy = vi.fn();
+vi.mock('../components/ProductImageSet', () => ({
+  default: ({ restoredTask, onRestoreConsumed }: {
+    restoredTask: { taskId: string } | null;
+    onRestoreConsumed: () => void;
+  }) => {
+    productImageSetSpy(restoredTask);
+    return (
+      <div data-testid="product-image-set">
+        ProductImageSet {restoredTask?.taskId ?? 'empty'}
+        {restoredTask ? <button type="button" onClick={onRestoreConsumed}>consume restore</button> : null}
       </div>
     );
   },
@@ -55,10 +76,13 @@ vi.mock('../components/Profile', () => ({
 import App from '../App';
 
 describe('App shell', () => {
+  afterEach(() => cleanup());
+
   beforeEach(() => {
     mockListTasks.mockReset();
     mockRefresh.mockReset();
     profileTasksSpy.mockReset();
+    productImageSetSpy.mockReset();
     currentTasks = [];
   });
 
@@ -90,5 +114,37 @@ describe('App shell', () => {
     const lastCall = profileTasksSpy.mock.calls[profileTasksSpy.mock.calls.length - 1];
     expect(lastCall[0]).toHaveLength(1);
     expect(lastCall[0][0].feature).toBe('贴纸复刻');
+  });
+
+  it('shows the product image set page from sidebar navigation', () => {
+    render(<App />);
+
+    fireEvent.click(document.getElementById('sidebar-tab-productSet')!);
+
+    expect(screen.getByTestId('product-image-set')).toBeVisible();
+  });
+
+  it('restores a product multi-scene task from profile into the product image set page', () => {
+    currentTasks = [{
+      taskId: 'product-set-task',
+      batchId: 'batch-1',
+      category: '套图',
+      feature: '多场景图',
+      status: 'Completed',
+      imports: [],
+      outputs: [],
+      request: { feature: 'product_multi_scene', count: 1, images: [] },
+      createdAt: '2026-07-31T00:00:00.000Z',
+      updatedAt: '2026-07-31T00:00:00.000Z',
+    }];
+    render(<App />);
+
+    fireEvent.click(document.getElementById('sidebar-tab-profile')!);
+    fireEvent.click(screen.getByRole('button', { name: 'restore first task' }));
+
+    expect(screen.getByTestId('product-image-set')).toBeVisible();
+    expect(screen.getByTestId('product-image-set')).toHaveTextContent('product-set-task');
+    fireEvent.click(screen.getByRole('button', { name: 'consume restore' }));
+    expect(screen.getByTestId('product-image-set')).toHaveTextContent('empty');
   });
 });

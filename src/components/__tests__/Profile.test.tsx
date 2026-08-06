@@ -268,4 +268,65 @@ describe('Profile', () => {
     expect(screen.getByText('子任务')).toBeInTheDocument();
     expect(screen.getByText('输出图片 (1)')).toBeInTheDocument();
   });
+
+  it('allows restoring only product image set batch representatives', () => {
+    const onRestoreTask = vi.fn();
+    const makeBatchTask = (taskId: string, feature: 'product_multi_scene' | 'sticker_variation'): TaskRecord => ({
+      taskId,
+      batchId: 'batch-shared',
+      category: '套图',
+      feature: feature === 'product_multi_scene' ? '多场景图' : '贴纸裂变',
+      status: 'Completed',
+      imports: [],
+      outputs: [],
+      request: { feature, outputBatchId: feature },
+      createdAt: '2026-07-31T00:00:00.000Z',
+      updatedAt: `2026-07-31T00:00:0${taskId.at(-1)}.000Z`,
+    });
+    const productTasks = [
+      makeBatchTask('product-1', 'product_multi_scene'),
+      makeBatchTask('product-2', 'product_multi_scene'),
+    ];
+    const stickerTasks = [
+      makeBatchTask('sticker-1', 'sticker_variation'),
+      makeBatchTask('sticker-2', 'sticker_variation'),
+    ];
+
+    render(<Profile tasks={[...productTasks, ...stickerTasks]} onRefresh={vi.fn()} onRestoreTask={onRestoreTask} />);
+
+    const productRestore = document.getElementById('restore-task-product-2')!;
+    const stickerRestore = document.getElementById('restore-task-sticker-2')!;
+    expect(productRestore).toBeEnabled();
+    expect(stickerRestore).toBeDisabled();
+
+    fireEvent.click(productRestore);
+    fireEvent.click(stickerRestore);
+    expect(onRestoreTask).toHaveBeenCalledWith(productTasks[1]);
+    expect(onRestoreTask).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getAllByText('批量任务 · 2 项')[1]!);
+    expect(screen.getByRole('button', { name: '还原到功能页' })).toBeDisabled();
+  });
+
+  it('restores a product image set batch from its detail drawer', () => {
+    const onRestoreTask = vi.fn();
+    const tasks: TaskRecord[] = ['product-1', 'product-2'].map((taskId) => ({
+      taskId,
+      batchId: 'batch-product-set',
+      category: '套图',
+      feature: '多场景图',
+      status: 'Completed',
+      imports: [],
+      outputs: [],
+      request: { feature: 'product_multi_scene', outputBatchId: 'batch-product-set' },
+      createdAt: '2026-07-31T00:00:00.000Z',
+      updatedAt: '2026-07-31T00:00:00.000Z',
+    }));
+    render(<Profile tasks={tasks} onRefresh={vi.fn()} onRestoreTask={onRestoreTask} />);
+
+    fireEvent.click(screen.getByText('批量任务 · 2 项'));
+    fireEvent.click(screen.getByRole('button', { name: '还原到功能页' }));
+
+    expect(onRestoreTask).toHaveBeenCalledWith(tasks[0]);
+  });
 });

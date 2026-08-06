@@ -1,4 +1,4 @@
-export type ActiveTab = 'sticker' | 'product' | 'settings' | 'profile';
+export type ActiveTab = 'sticker' | 'product' | 'productSet' | 'settings' | 'profile';
 
 export type StickerSubTab = 'copy' | 'variation' | 'original';
 
@@ -10,6 +10,8 @@ export type ProductSubTab =
   | 'sceneVariation'
   | 'scene'
   | 'promptAsset';
+
+export type ProductSetSubTab = 'main' | 'comparison' | 'multiScene';
 
 export interface ResultItem {
   id: string;

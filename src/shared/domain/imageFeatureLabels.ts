@@ -16,6 +16,9 @@ export const IMAGE_FEATURE_LABELS: Record<ImageFeature, ImageFeatureLabel> = {
   scene_variation: { category: '产品', feature: '场景裂变' },
   create_new_scene: { category: '产品', feature: '创作新场景' },
   prompt_only_main_asset: { category: '产品', feature: '纯提示词主图' },
+  product_main_image: { category: '套图', feature: '主图' },
+  product_comparison_image: { category: '套图', feature: '对比图' },
+  product_multi_scene: { category: '套图', feature: '多场景图' },
 };
 
 export function getImageFeatureLabel(feature: ImageFeature): ImageFeatureLabel {

@@ -16,7 +16,7 @@ import { REFERENCE_FIELD_SPAN } from './FeatureParameterPanels';
 interface ImageUploaderProps {
   batch: ImportBatch | null;
   onBatchChange: (batch: ImportBatch | null) => void;
-  page: 'sticker' | 'product';
+  page: ImportBatch['page'];
   feature: string;
   label?: string;
   labelIcon?: React.ReactNode;

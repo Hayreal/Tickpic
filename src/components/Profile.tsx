@@ -26,8 +26,16 @@ import { Badge } from '@/src/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { cn } from '@/src/lib/utils';
 import { UI } from '../shared/view/design';
+import { getFeatureRoute } from '../shared/view/featureRoutes';
 
 const ITEMS_PER_PAGE = 10;
+
+function canRestoreGroup(group: TaskListGroup): boolean {
+  const feature = group.representative.request?.feature;
+  return Boolean(feature) && (
+    group.kind !== 'batch' || getFeatureRoute(feature).tab === 'productSet'
+  );
+}
 
 interface ProfileProps {
   tasks: TaskRecord[];
@@ -289,7 +297,7 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
                               variant="ghost"
                               size="sm"
                               className="h-8 gap-1 text-xs"
-                              disabled={item.kind === 'batch' || !representative.request?.feature}
+                               disabled={!canRestoreGroup(group)}
                               onClick={(event) => {
                                 event.stopPropagation();
                                 onRestoreTask(representative);
@@ -379,8 +387,13 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
         relatedTasks={selectedGroup?.kind === 'batch' ? selectedGroup.tasks : undefined}
         onClose={handleCloseDrawer}
         onOpenDirectory={handleOpenTaskDirectory}
-        onRestoreTask={onRestoreTask}
-        isOpeningDirectory={selectedTask ? openingTaskId === selectedTask.taskId : false}
+         onRestoreTask={(task) => {
+           if (selectedGroup && canRestoreGroup(selectedGroup)) {
+             onRestoreTask(task);
+           }
+         }}
+         canRestoreTask={selectedGroup ? canRestoreGroup(selectedGroup) : false}
+         isOpeningDirectory={selectedTask ? openingTaskId === selectedTask.taskId : false}
       />
     </div>
   );

@@ -1,10 +1,11 @@
 import type { ImageFeature } from '../domain/imageFeatureApi.js';
-import type { ActiveTab, ProductSubTab, StickerSubTab } from './ui.js';
+import type { ActiveTab, ProductSetSubTab, ProductSubTab, StickerSubTab } from './ui.js';
 
 export interface FeatureRoute {
   tab: ActiveTab;
   stickerSubTab?: StickerSubTab;
   productSubTab?: ProductSubTab;
+  productSetSubTab?: ProductSetSubTab;
 }
 
 const FEATURE_ROUTES: Record<ImageFeature, FeatureRoute> = {
@@ -18,6 +19,9 @@ const FEATURE_ROUTES: Record<ImageFeature, FeatureRoute> = {
   scene_variation: { tab: 'product', productSubTab: 'sceneVariation' },
   create_new_scene: { tab: 'product', productSubTab: 'scene' },
   prompt_only_main_asset: { tab: 'product', productSubTab: 'promptAsset' },
+  product_main_image: { tab: 'productSet', productSetSubTab: 'main' },
+  product_comparison_image: { tab: 'productSet', productSetSubTab: 'comparison' },
+  product_multi_scene: { tab: 'productSet', productSetSubTab: 'multiScene' },
 };
 
 export function getFeatureRoute(feature: ImageFeature): FeatureRoute {

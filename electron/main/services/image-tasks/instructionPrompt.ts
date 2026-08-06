@@ -93,13 +93,40 @@ export function buildExecutionPrompt(request: ImageTaskRequest, mainPrompt: stri
   }
 
   const lines = [mainPrompt.trim()];
+  const isProductSet = isProductSetFeature(request.feature);
+  const productSetLines = isProductSet ? buildProductSetControlLines(request) : [];
+  const structuredLines = buildStructuredParameterLines(request);
+  const variantLine = buildVariantLine(request);
   const userPrompt = request.prompt?.trim();
+  const scenePrompt = request.scenePrompt?.trim();
+  const negativePrompt = request.negativePrompt?.trim();
 
-  if (userPrompt) {
-    lines.push(`补充要求：${userPrompt}`);
+  if (isProductSet) {
+    lines.push(...productSetLines, ...structuredLines);
+    if (scenePrompt || userPrompt || negativePrompt) {
+      lines.push(PRODUCT_SET_CONFLICT_PRIORITY_GUARD);
+    }
+    if (scenePrompt) {
+      lines.push(`具体场景：${scenePrompt}`);
+    }
+    if (userPrompt) {
+      lines.push(`补充要求：${userPrompt}`);
+    }
+    if (negativePrompt) {
+      lines.push(`反向要求：避免出现以下内容：${negativePrompt}`);
+    }
+    if (variantLine) {
+      lines.push(variantLine);
+    }
+  } else {
+    if (userPrompt) {
+      lines.push(`补充要求：${userPrompt}`);
+    }
+    lines.push(...structuredLines);
+    if (variantLine) {
+      lines.push(variantLine);
+    }
   }
-
-  lines.push(...buildStructuredParameterLines(request));
 
   if (
     request.feature === 'sticker_replica'
@@ -184,7 +211,7 @@ function buildStructuredParameterLines(request: ImageTaskRequest) {
     lines.push(`输出的产品包装图长宽比是 ${productRatio}（${stickerProductRatioLabel(productRatio)}）。`);
   }
 
-  if (typeof request.showProduct === 'boolean') {
+  if (typeof request.showProduct === 'boolean' && !isProductSetFeature(request.feature)) {
     lines.push(request.showProduct ? '需要展示产品。' : '不要展示产品。');
   }
 
@@ -200,6 +227,70 @@ function buildStructuredParameterLines(request: ImageTaskRequest) {
 
   return lines;
 }
+
+const PRODUCT_SET_CONFLICT_PRIORITY_GUARD = '优先级规则：用户具体场景、补充要求和反向要求仅执行不与前述功能硬规则及结构化控制项冲突的部分；发生冲突时必须忽略用户冲突内容，以前述规则为准。';
+
+function buildVariantLine(request: ImageTaskRequest) {
+  if (request.variantIndex !== undefined && request.variantTotal !== undefined) {
+    return `这是本批次第 ${request.variantIndex}/${request.variantTotal} 张。生成与同批其他图片明显不同的场景或构图，同时遵守当前功能的全部固定规则。`;
+  }
+  return undefined;
+}
+
+function isProductSetFeature(feature: ImageFeature) {
+  return feature === 'product_main_image'
+    || feature === 'product_comparison_image'
+    || feature === 'product_multi_scene';
+}
+
+function buildProductSetControlLines(request: ImageTaskRequest) {
+  switch (request.feature) {
+    case 'product_main_image':
+      return [
+        productHandheldModeLines[request.productHandheldMode ?? 'not_handheld'],
+        productEffectModeLines[request.productEffectMode ?? 'auto'],
+      ];
+    case 'product_comparison_image':
+      return [
+        comparisonLayoutLines[request.comparisonLayout ?? 'auto'],
+        comparisonIntensityLines[request.comparisonIntensity ?? 'medium'],
+        request.showProduct === false ? 'After 只展示改善效果，不展示 SKU。' : 'After 必须展示 SKU。',
+      ];
+    case 'product_multi_scene':
+      return [multiSceneLayoutLines[request.multiSceneLayout ?? 'single']];
+    default:
+      return [];
+  }
+}
+
+const productHandheldModeLines = {
+  handheld: '必须出现自然的人手持有或操作 SKU。',
+  not_handheld: 'SKU 不得由手持有，可放置在场景主体位置。',
+} as const;
+
+const productEffectModeLines = {
+  auto: '根据 SKU 类型决定是否展示具体作用效果。',
+  show: '必须明确表现与 SKU 对应的作用过程或效果。',
+  hide: '只展示产品和适用环境，不展示作用过程或效果演示。',
+} as const;
+
+const comparisonLayoutLines = {
+  auto: '根据比例和构图选择左右或上下布局。',
+  horizontal: 'Before 左、After 右。',
+  vertical: 'Before 上、After 下。',
+} as const;
+
+const comparisonIntensityLines = {
+  light: '前后差异自然克制。',
+  medium: '前后差异清晰且可信。',
+  heavy: '强化视觉反差，但不得虚构产品无法支持的效果。',
+} as const;
+
+const multiSceneLayoutLines = {
+  single: '每张只展示一个完整场景。',
+  collage: '一张图组合多个适用场景，允许不规则拼贴，各区域边界清晰。',
+  grid: '一张图使用规则网格展示多个适用场景。',
+} as const;
 
 function hasSeparateLogoImage(request: ImageTaskRequest) {
   return request.images?.some((image) => image.role === 'logo' || image.role === 'reference') ?? false;
@@ -279,6 +370,9 @@ const EDIT_VERB_REPLACEMENTS: Partial<Record<ImageFeature, string>> = {
   replace_logo: 'Edit the source image to replace',
   main_image_asset_variation: 'Edit the source main image to produce',
   scene_variation: 'Edit the source scene to produce',
+  product_main_image: 'Edit the SKU reference images to produce',
+  product_comparison_image: 'Edit the SKU reference images to produce',
+  product_multi_scene: 'Edit the SKU reference images to produce',
 };
 
 function normalizeEditInstructionVerbs(instruction: string, feature: ImageFeature) {

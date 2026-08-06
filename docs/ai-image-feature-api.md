@@ -32,9 +32,17 @@ IPC 通道名应在共享契约中集中维护，Renderer 不得直接访问 `ip
 type ImageTaskRequest = {
   feature: ImageFeature;
   prompt?: string;
+  negativePrompt?: string;
+  scenePrompt?: string;
   images?: ImageInput[];
   regions?: RegionInput[];
   count?: number;
+  /** 同一 Renderer 出图批次的任务共享同一个输出目录。 */
+  outputBatchId?: string;
+  /** 套图中的第几个变体；必须和 variantTotal 成对传入。 */
+  variantIndex?: number;
+  /** 套图的变体总数；必须和 variantIndex 成对传入。 */
+  variantTotal?: number;
   productName?: string;
   productCategory?: string;
   sellingPoints?: string[];
@@ -43,6 +51,11 @@ type ImageTaskRequest = {
   colorScheme?: string;
   aspectRatio?: string;
   showProduct?: boolean;
+  productHandheldMode?: "handheld" | "not_handheld";
+  productEffectMode?: "auto" | "show" | "hide";
+  comparisonLayout?: "auto" | "horizontal" | "vertical";
+  comparisonIntensity?: "light" | "medium" | "heavy";
+  multiSceneLayout?: "single" | "collage" | "grid";
   modelOverrides?: {
     vision?: string;
     generation?: string;
@@ -57,9 +70,14 @@ type ImageTaskRequest = {
 |---|---:|---|
 | `feature` | 是 | 功能枚举，决定功能边界、主提示词、模型路由和输入校验 |
 | `prompt` | 否 | 用户附加要求或纯提示词主图的主描述 |
+| `negativePrompt` | 否 | 不希望出现的元素、文字、效果或画面问题 |
+| `scenePrompt` | 否 | 产品主图或对比图的具体场景词 |
 | `images` | 否 | 原图、参考图、目标产品图、Logo 图、风格图等 |
 | `regions` | 否 | Renderer 框选区域，作为模型理解和编辑边界提示 |
 | `count` | 否 | 出图数量；不传时使用客户端配置 |
+| `outputBatchId` | 否 | Renderer 为一次出图生成的共享批次 ID。同一批次的任务写入同一输出目录；单张请求也应带自己的批次 ID |
+| `variantIndex` | 否 | 套图中的 1 起始序号；必须与 `variantTotal` 成对传入 |
+| `variantTotal` | 否 | 套图总数；必须与 `variantIndex` 成对传入 |
 | `productName` | 否 | 产品名 |
 | `productCategory` | 否 | 产品品类 |
 | `sellingPoints` | 否 | 卖点列表 |
@@ -67,7 +85,8 @@ type ImageTaskRequest = {
 | `logoText` | 否 | Logo 或品牌文字 |
 | `colorScheme` | 否 | 色系方向，例如 `蓝绿色`、`科技感蓝白色` |
 | `aspectRatio` | 否 | 图片比例，例如 `1:1`、`4:3`、`9:16` |
-| `showProduct` | 否 | 是否展示具体产品；仅用于支持该开关的素材/场景功能 |
+| `showProduct` | 否 | 是否展示具体产品；仅可用于 `main_image_asset_variation`、`scene_variation`、`create_new_scene`、`product_comparison_image`，且必须为布尔值 |
+| 套图结构化控制 | 否 | 主图使用 `productHandheldMode`、`productEffectMode`；对比图使用 `comparisonLayout`、`comparisonIntensity`、`showProduct`；多场景图使用 `multiSceneLayout`。字段只能用于对应的产品套图功能。 |
 | `modelOverrides` | 否 | 执行阶段模型覆盖；`generation` / `edit` 按功能路由，`vision` 已废弃 |
 
 ## 4. 功能枚举
@@ -83,7 +102,10 @@ type ImageFeature =
   | "main_image_asset_variation"
   | "scene_variation"
   | "create_new_scene"
-  | "prompt_only_main_asset";
+  | "prompt_only_main_asset"
+  | "product_main_image"
+  | "product_comparison_image"
+  | "product_multi_scene";
 ```
 
 ## 5. 图片输入结构
@@ -111,7 +133,7 @@ type ImageRole =
 | `source` | 待处理原图，例如包装图、场景图、主图 |
 | `reference` | 设计、效果、内容参考图 |
 | `style` | 风格参考图 |
-| `product` | 替换产品或需要展示的目标产品图 |
+| `product` | 替换产品或需要展示的目标产品图；产品套图功能要求至少一张，且可提交多张 SKU 图作为同一产品的参考 |
 | `logo` | 替换 Logo 任务中的目标 Logo 图 |
 
 默认规则：
@@ -188,6 +210,9 @@ type ImageTaskResult = {
 | 场景裂变 | `scene_variation` | 参考当前场景，生成同品类可用的新使用场景素材。发散不同具体使用场景，而非仅改色或构图，默认不展示具体产品。 | `source`、`reference` | `prompt`、`productCategory`、`colorScheme`、`showProduct`、`count` | edit |
 | 创作新场景图 | `create_new_scene` | 根据产品品类与场景要求，创作新的电商使用场景图。自动发散多个真实生活场景，可含使用前后对比与细节图。 | `style` | `prompt`、`productCategory`、`sellingPoints`、`colorScheme`、`aspectRatio`、`showProduct` | generation |
 | 纯提示词主图/素材图 | `prompt_only_main_asset` | 根据用户描述完成电商主图或广告素材生成 | `source`、`reference`、`style`（当前不参与出图） | `prompt`、`productName`、`sellingPoints`、`colorScheme`、`aspectRatio`、`count` | generation |
+| 产品主图 | `product_main_image` | 综合参考输入的多张 SKU 图片生成一张电商主图，产品为主视觉，支持可选提示词、反向提示词、具体场景、手持和效果控制。 | 必填 `product`，可多张 | `prompt`、`negativePrompt`、`scenePrompt`、`productHandheldMode`、`productEffectMode`、`aspectRatio`、`count`、`outputBatchId`、`variantIndex`、`variantTotal` | edit |
+| 产品对比图 | `product_comparison_image` | 每张只生成一个场景的一组 Before/After；Before 始终不出现 SKU。`showProduct: true` 时 After 必须展示 SKU，`showProduct: false` 时 After 仅展示改善效果、不展示 SKU；布局和效果程度均可控制。 | 必填 `product`，可多张 | `prompt`、`negativePrompt`、`scenePrompt`、`comparisonLayout`、`comparisonIntensity`、`showProduct`、`aspectRatio`、`count`、`outputBatchId`、`variantIndex`、`variantTotal` | edit |
+| 产品多场景图 | `product_multi_scene` | 根据输入 SKU 发散真实适用场景；可选提示词与反向提示词，可选择单场景、拼图或宫格。 | 必填 `product`，可多张 | `prompt`、`negativePrompt`、`multiSceneLayout`、`aspectRatio`、`count`、`outputBatchId`、`variantIndex`、`variantTotal` | edit |
 
 说明：
 
@@ -196,6 +221,7 @@ type ImageTaskResult = {
 - 主图素材裂变和场景裂变默认不展示具体产品，除非 `showProduct: true` 或用户明确要求展示产品。
 - 纯提示词主图/素材图当前为纯文本生成，参考图不会传入图片模型。
 - 纯提示词主图/素材图的 Renderer 提交时，`prompt` 会带固定前缀 `生成电商主图或广告素材：`，再接用户输入的主描述。
+- 三个产品套图功能均使用 edit 执行模型，且至少需要一张 `product` 图片；多张 `product` 图片共同描述同一 SKU 的不同视角或细节。
 
 ## 9. 图片执行提示词组装
 
@@ -439,6 +465,35 @@ Main Process 不再调用图像理解/指令生成模型。`finalPrompt` 在本�
 }
 ```
 
+### 10.11 产品套图：多 SKU 产品主图
+
+产品套图的 Renderer 将用户选择的 `N` 个生成数量拆分为 `N` 个请求。每个请求的 `count` 固定为 `1`，共享同一个 `outputBatchId`，并以 `variantIndex` / `variantTotal` 表示在套图中的位置。即使只生成单张，也必须生成批次 ID，并传入 `variantIndex: 1` 与 `variantTotal: 1`。
+
+```json
+{
+  "feature": "product_main_image",
+  "images": [
+    {
+      "role": "product",
+      "path": "/authorized/input/sku-front.png"
+    },
+    {
+      "role": "product",
+      "path": "/authorized/input/sku-side.png"
+    },
+    {
+      "role": "product",
+      "path": "/authorized/input/sku-detail.png"
+    }
+  ],
+  "aspectRatio": "4:3",
+  "count": 1,
+  "outputBatchId": "product-set-20260731-001",
+  "variantIndex": 1,
+  "variantTotal": 3
+}
+```
+
 ## 11. 校验规则
 
 Main Process 必须在入队前完成请求校验：
@@ -450,6 +505,8 @@ Main Process 必须在入队前完成请求校验：
 | 本地路径 | 图片路径必须在用户授权范围内，规范化后不能路径穿越 |
 | 区域坐标 | `regions` 坐标必须为非负数，并落在目标图片范围内 |
 | 出图数量 | `count` 必须为正整数，并受客户端最大值限制 |
+| 套图控制归属 | `prompt`、`negativePrompt` 对三个产品套图功能均可选；`scenePrompt` 仅主图/对比图可用；各枚举控制项仅可用于对应 Feature；所有可选字符串 trim 后为空时省略。 |
+| 变体元数据 | `variantIndex` 与 `variantTotal` 必须成对传入；二者都必须为正整数，且 `variantIndex <= variantTotal`；`variantTotal` 亦不得超过运行时 `maxCount` |
 | 比例 | `aspectRatio` 必须转换为模型支持的尺寸或比例参数 |
 | 功能边界 | 用户 `prompt` 与功能边界冲突时，以功能边界为准 |
 | 模型协议 | 选定模型必须能在用户配置中找到协议映射 |

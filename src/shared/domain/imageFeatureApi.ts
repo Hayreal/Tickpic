@@ -11,9 +11,19 @@ export const IMAGE_FEATURES = [
   'scene_variation',
   'create_new_scene',
   'prompt_only_main_asset',
+  'product_main_image',
+  'product_comparison_image',
+  'product_multi_scene',
 ] as const;
 
 export type ImageFeature = typeof IMAGE_FEATURES[number];
+
+const SHOW_PRODUCT_FEATURES: readonly ImageFeature[] = [
+  'main_image_asset_variation',
+  'scene_variation',
+  'create_new_scene',
+  'product_comparison_image',
+];
 
 export const IMAGE_ROLES = [
   'source',
@@ -28,6 +38,11 @@ export type ImageRole = typeof IMAGE_ROLES[number];
 export type ImageExecutionModel = 'generation' | 'edit';
 export type ImageModelProtocol = 'gemini' | 'openai';
 export type ImageTaskStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled';
+export type ProductHandheldMode = 'handheld' | 'not_handheld';
+export type ProductEffectMode = 'auto' | 'show' | 'hide';
+export type ComparisonLayout = 'auto' | 'horizontal' | 'vertical';
+export type ComparisonIntensity = 'light' | 'medium' | 'heavy';
+export type MultiSceneLayout = 'single' | 'collage' | 'grid';
 
 export const MAX_NEGATIVE_PROMPT_LENGTH = 500;
 
@@ -58,6 +73,7 @@ export interface ImageTaskRequest {
   feature: ImageFeature;
   prompt?: string;
   negativePrompt?: string;
+  scenePrompt?: string;
   images?: ImageInput[];
   regions?: RegionInput[];
   count?: number;
@@ -72,11 +88,18 @@ export interface ImageTaskRequest {
   colorBlockLayout?: string;
   colorScheme?: string;
   stickerVariationDirection?: StickerVariationDirection;
+  variantIndex?: number;
+  variantTotal?: number;
   /** When set, multiple tasks from one UI batch share the same output folder. */
   outputBatchId?: string;
   aspectRatio?: string;
   productRatio?: string;
   showProduct?: boolean;
+  productHandheldMode?: ProductHandheldMode;
+  productEffectMode?: ProductEffectMode;
+  comparisonLayout?: ComparisonLayout;
+  comparisonIntensity?: ComparisonIntensity;
+  multiSceneLayout?: MultiSceneLayout;
   modelOverrides?: {
     vision?: string;
     generation?: string;
@@ -213,6 +236,33 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
     executionModel: 'generation',
     executionImageRoles: [],
   },
+  product_main_image: {
+    feature: 'product_main_image',
+    mainPrompt: '综合参考输入的多张 SKU 图片生成一张电商主图。画面必须包含输入 SKU 产品，由 AI 自动生成清晰的英文大标题，并呈现明确的核心使用场景；产品为主视觉。严格保持产品形状、包装、品牌、标签、颜色与关键文字一致，不得重新设计 SKU；不得出现中文营销文字。场景必须服务于产品卖点，无关装饰不堆叠。',
+    acceptedImageRoles: ['product'],
+    requiredImageRoles: ['product'],
+    executionModel: 'edit',
+    executionImageRoles: ['product'],
+    defaultShowProduct: true,
+  },
+  product_comparison_image: {
+    feature: 'product_comparison_image',
+    mainPrompt: '基于输入 SKU 生成一张对比图：每张只包含一个场景、一组 Before/After。同一组中环境、对象、视角、构图与光线必须保持一致。Before 始终不展示 SKU；After 是否展示 SKU 由结构化选项控制。使用清晰英文 BEFORE 和 AFTER 标识，不得出现中文营销文字；不得拆成多图或四阶段过程图。严格保持 SKU 的产品形状、包装、品牌、标签、颜色与关键文字一致。',
+    acceptedImageRoles: ['product'],
+    requiredImageRoles: ['product'],
+    executionModel: 'edit',
+    executionImageRoles: ['product'],
+    defaultShowProduct: true,
+  },
+  product_multi_scene: {
+    feature: 'product_multi_scene',
+    mainPrompt: '依据输入 SKU 发散真实适用场景，画面模式由结构化选项控制为单场景、拼图或宫格。SKU 可以不出现；若出现，必须严格保持产品形状、包装、品牌、标签、颜色与关键文字一致。默认不添加标题、卖点或营销文字，除非用户明确要求。',
+    acceptedImageRoles: ['product'],
+    requiredImageRoles: ['product'],
+    executionModel: 'edit',
+    executionImageRoles: ['product'],
+    defaultShowProduct: false,
+  },
 };
 
 export function getImageFeatureDefinition(feature: ImageFeature): ImageFeatureDefinition {
@@ -253,12 +303,30 @@ export function validateImageTaskRequest(input: ImageTaskRequest): ImageTaskRequ
     }
   }
 
+  validateProductSetControls(input);
+
   if (input.count !== undefined && (!Number.isInteger(input.count) || input.count <= 0)) {
     throw new Error('count must be a positive integer');
   }
 
   if (input.negativePrompt !== undefined && input.negativePrompt.length > MAX_NEGATIVE_PROMPT_LENGTH) {
     throw new Error(`negativePrompt must be at most ${MAX_NEGATIVE_PROMPT_LENGTH} characters`);
+  }
+
+  if ((input.variantIndex === undefined) !== (input.variantTotal === undefined)) {
+    throw new Error('variantIndex and variantTotal must be provided together');
+  }
+
+  if (input.variantIndex !== undefined && (!Number.isInteger(input.variantIndex) || input.variantIndex <= 0)) {
+    throw new Error('variantIndex must be a positive integer');
+  }
+
+  if (input.variantTotal !== undefined && (!Number.isInteger(input.variantTotal) || input.variantTotal <= 0)) {
+    throw new Error('variantTotal must be a positive integer');
+  }
+
+  if (input.variantIndex !== undefined && input.variantTotal !== undefined && input.variantIndex > input.variantTotal) {
+    throw new Error('variantIndex must be less than or equal to variantTotal');
   }
 
   for (const region of input.regions ?? []) {
@@ -270,6 +338,47 @@ export function validateImageTaskRequest(input: ImageTaskRequest): ImageTaskRequ
     images,
     regions: input.regions ?? [],
   };
+}
+
+function validateProductSetControls(input: ImageTaskRequest) {
+  validateEnum(input.productHandheldMode, ['handheld', 'not_handheld'], 'productHandheldMode');
+  validateEnum(input.productEffectMode, ['auto', 'show', 'hide'], 'productEffectMode');
+  validateEnum(input.comparisonLayout, ['auto', 'horizontal', 'vertical'], 'comparisonLayout');
+  validateEnum(input.comparisonIntensity, ['light', 'medium', 'heavy'], 'comparisonIntensity');
+  validateEnum(input.multiSceneLayout, ['single', 'collage', 'grid'], 'multiSceneLayout');
+
+  validateControlOwnership(input, 'productHandheldMode', ['product_main_image']);
+  validateControlOwnership(input, 'productEffectMode', ['product_main_image']);
+  validateControlOwnership(input, 'comparisonLayout', ['product_comparison_image']);
+  validateControlOwnership(input, 'comparisonIntensity', ['product_comparison_image']);
+  validateControlOwnership(input, 'multiSceneLayout', ['product_multi_scene']);
+  validateControlOwnership(input, 'scenePrompt', ['product_main_image', 'product_comparison_image']);
+
+  if (input.showProduct !== undefined) {
+    if (typeof input.showProduct !== 'boolean') {
+      throw new Error('showProduct must be a boolean');
+    }
+
+    if (!SHOW_PRODUCT_FEATURES.includes(input.feature)) {
+      throw new Error(`showProduct is not supported by ${input.feature}`);
+    }
+  }
+}
+
+function validateEnum(value: unknown, allowed: readonly string[], field: string) {
+  if (value !== undefined && (typeof value !== 'string' || !allowed.includes(value))) {
+    throw new Error(`${field} must be one of ${allowed.join(', ')}`);
+  }
+}
+
+function validateControlOwnership(
+  input: ImageTaskRequest,
+  field: keyof ImageTaskRequest,
+  supportedFeatures: readonly ImageFeature[],
+) {
+  if (input[field] !== undefined && !supportedFeatures.includes(input.feature)) {
+    throw new Error(`${field} is not supported by ${input.feature}`);
+  }
 }
 
 function validateRegion(region: RegionInput) {

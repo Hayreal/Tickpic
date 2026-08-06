@@ -81,6 +81,23 @@ describe('imageTaskPlan', () => {
     expect(plan.count).toBe(2);
   });
 
+  it('preserves every product image for product-set feature execution', () => {
+    for (const feature of ['product_main_image', 'product_comparison_image', 'product_multi_scene'] as const) {
+      const plan = buildImageTaskPlan({
+        feature,
+        images: [
+          { role: 'product', path: '/authorized/input/product-front.png' },
+          { role: 'product', path: '/authorized/input/product-detail.png' },
+        ],
+      }, config);
+
+      expect(plan.executionImages).toEqual([
+        { role: 'product', path: '/authorized/input/product-front.png' },
+        { role: 'product', path: '/authorized/input/product-detail.png' },
+      ]);
+    }
+  });
+
   it('builds output aspect-ratio params from the request', () => {
     const plan = buildImageTaskPlan({
       feature: 'sticker_original',
@@ -167,5 +184,18 @@ describe('imageTaskPlan', () => {
       productCategory: 'cleaning sheets',
       count: 5,
     }, config)).toThrow('count must be less than or equal to 4');
+  });
+
+  it('rejects product-set variant totals above the configured maximum', () => {
+    const request = {
+      feature: 'product_main_image' as const,
+      images: [{ role: 'product' as const, path: '/authorized/input/product.png' }],
+      variantIndex: 1,
+    };
+
+    expect(() => buildImageTaskPlan({ ...request, variantTotal: 5 }, config)).toThrow(
+      'variantTotal must be less than or equal to maxCount',
+    );
+    expect(buildImageTaskPlan({ ...request, variantTotal: 4 }, config).request.variantTotal).toBe(4);
   });
 });

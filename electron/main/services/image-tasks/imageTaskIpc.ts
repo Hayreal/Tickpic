@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../../../src/shared/contracts/desktop.js';
-import type { ImageTaskRequest } from '../../../../src/shared/domain/imageFeatureApi.js';
+import { validateImageTaskRequest, type ImageTaskRequest } from '../../../../src/shared/domain/imageFeatureApi.js';
 import type { ImageTaskControllerOptions } from './imageTaskController.js';
 import { createImageTaskController } from './imageTaskController.js';
 import { validateImageTaskRequestForMain } from './requestSecurity.js';
@@ -46,10 +46,11 @@ export function registerImageTaskIpc(options: RegisterImageTaskIpcOptions = {}):
   });
 
   ipcMain.handle(IPC_CHANNELS.imageTask.submit, async (_event, request: ImageTaskRequest) => {
+    const validatedRequest = validateImageTaskRequest(request);
     logger.info('image-task', '收到图片任务提交', {
-      feature: request.feature,
-      imageCount: request.images?.length ?? 0,
-      count: request.count,
+      feature: validatedRequest.feature,
+      imageCount: validatedRequest.images?.length ?? 0,
+      count: validatedRequest.count,
     });
 
     const authorizedRoots = options.resolveAuthorizedRoots
@@ -57,10 +58,10 @@ export function registerImageTaskIpc(options: RegisterImageTaskIpcOptions = {}):
       : options.authorizedRoots ?? [];
 
     await validateImageTaskRequestForMain({
-      request,
+      request: validatedRequest,
       authorizedRoots,
     });
-    const result = controller.submit(request);
+    const result = controller.submit(validatedRequest);
     logger.info('image-task', '图片任务已入队', result);
     return result;
   });

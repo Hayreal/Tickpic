@@ -20,6 +20,7 @@ interface TaskDetailDrawerProps {
   onClose: () => void;
   onOpenDirectory?: (task: TaskRecord) => void;
   onRestoreTask?: (task: TaskRecord) => void;
+  canRestoreTask?: boolean;
   isOpeningDirectory?: boolean;
 }
 
@@ -30,6 +31,14 @@ const IMAGE_ROLE_LABELS: Record<ImageRole, string> = {
   product: '产品图',
   logo: 'Logo 图',
 };
+
+const PRODUCT_SET_CONTROL_LABELS = {
+  productHandheldMode: { handheld: '手持展示', not_handheld: '不手持' },
+  productEffectMode: { auto: 'AI 自动判断', show: '展示具体效果', hide: '不展示具体效果' },
+  comparisonLayout: { auto: 'AI 自动', horizontal: '左右对比', vertical: '上下对比' },
+  comparisonIntensity: { light: '轻度', medium: '中度', heavy: '重度' },
+  multiSceneLayout: { single: '单场景', collage: '拼图', grid: '宫格' },
+} as const;
 
 function ParamRow({ label, value }: { label: string; value?: string | number | boolean | null }) {
   if (value === undefined || value === null || value === '') {
@@ -72,6 +81,28 @@ function buildRequestParams(request: ImageTaskRequest) {
   return (
     <dl>
       <ParamRow label="提示词" value={request.prompt} />
+      <ParamRow label="反向提示词" value={request.negativePrompt} />
+      <ParamRow label="具体场景词" value={request.scenePrompt} />
+      <ParamRow
+        label="手持方式"
+        value={request.productHandheldMode && PRODUCT_SET_CONTROL_LABELS.productHandheldMode[request.productHandheldMode]}
+      />
+      <ParamRow
+        label="具体效果"
+        value={request.productEffectMode && PRODUCT_SET_CONTROL_LABELS.productEffectMode[request.productEffectMode]}
+      />
+      <ParamRow
+        label="对比布局"
+        value={request.comparisonLayout && PRODUCT_SET_CONTROL_LABELS.comparisonLayout[request.comparisonLayout]}
+      />
+      <ParamRow
+        label="对比效果程度"
+        value={request.comparisonIntensity && PRODUCT_SET_CONTROL_LABELS.comparisonIntensity[request.comparisonIntensity]}
+      />
+      <ParamRow
+        label="画面模式"
+        value={request.multiSceneLayout && PRODUCT_SET_CONTROL_LABELS.multiSceneLayout[request.multiSceneLayout]}
+      />
       <ParamRow label="出图数量" value={request.count} />
       <ParamRow label="品牌" value={request.brand} />
       <ParamRow label="产品名称" value={request.productName} />
@@ -88,7 +119,7 @@ function buildRequestParams(request: ImageTaskRequest) {
       <ParamRow label="配色方案" value={request.colorScheme} />
       <ParamRow label="宽高比" value={request.aspectRatio} />
       <ParamRow
-        label="展示产品"
+        label={request.feature === 'product_comparison_image' ? 'After 产品展示' : '展示产品'}
         value={request.showProduct === undefined ? undefined : request.showProduct}
       />
       <ParamRow label="模型覆盖" value={modelSummary} />
@@ -184,6 +215,7 @@ export default function TaskDetailDrawer({
   onClose,
   onOpenDirectory,
   onRestoreTask,
+  canRestoreTask = true,
   isOpeningDirectory = false,
 }: TaskDetailDrawerProps) {
   const desktopClient = useDesktopClient();
@@ -366,7 +398,7 @@ export default function TaskDetailDrawer({
           <Button
             variant="default"
             className="w-full gap-2"
-            disabled={!task.request?.feature}
+            disabled={!canRestoreTask || !task.request?.feature}
             onClick={(event) => {
               event.stopPropagation();
               onRestoreTask?.(task);
