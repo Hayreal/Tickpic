@@ -71,7 +71,7 @@ export function applyProductImageSetRestore(task: TaskRecord): ProductImageSetRe
     comparisonIntensity: resolveEnum(request.comparisonIntensity, ['light', 'medium', 'heavy'], 'medium'),
     showProduct: request.showProduct ?? true,
     multiSceneLayout: resolveEnum(request.multiSceneLayout, ['single', 'collage', 'grid'], 'single'),
-    aspectRatio: (request.aspectRatio?.trim() || 'auto') as ImageAspectRatioValue,
+    aspectRatio: (request.aspectRatio?.trim() || '1:1') as ImageAspectRatioValue,
     count: resolveImageCount(request.variantTotal ?? request.count ?? 1),
   };
 }

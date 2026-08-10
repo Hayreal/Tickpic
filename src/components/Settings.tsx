@@ -13,6 +13,7 @@ import {
 import type { AppSettings, RendererAppSettings } from '../shared/domain/settings';
 import { KEEP_EXISTING_API_KEY, resolveModelProtocolFromSettings } from '../shared/domain/settings';
 import type { ImageModelProtocol } from '../shared/domain/imageFeatureApi';
+import { MAX_IMAGE_COUNT } from '../shared/view/imageCountOptions';
 import { cn } from '@/src/lib/utils';
 import { useDesktopClient } from '../hooks/useDesktopClient';
 import { Button } from '@/src/components/ui/button';
@@ -35,7 +36,6 @@ export default function Settings() {
   const [visionModel, setVisionModel] = useState('');
   const [workspaceDir, setWorkspaceDir] = useState('');
   const [defaultCount, setDefaultCount] = useState(1);
-  const [maxCount, setMaxCount] = useState(2);
   const [maxConcurrentTasks, setMaxConcurrentTasks] = useState(5);
 
   const [testState, setTestState] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
@@ -53,7 +53,6 @@ export default function Settings() {
       setVisionModel(settings.defaultModels.vision);
       setWorkspaceDir(settings.workspaceDir);
       setDefaultCount(settings.defaultCount);
-      setMaxCount(settings.maxCount);
       setMaxConcurrentTasks(settings.maxConcurrentTasks);
     }).catch(console.error);
   }, [desktopClient]);
@@ -73,7 +72,7 @@ export default function Settings() {
         vision: visionModel.trim(),
       },
       defaultCount,
-      maxCount,
+      maxCount: MAX_IMAGE_COUNT,
       maxConcurrentTasks,
     };
 

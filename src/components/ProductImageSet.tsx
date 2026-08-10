@@ -25,7 +25,7 @@ import {
   hasPartialOrCompleteBatchResults,
   isTaskBatchInProgress,
 } from '../features/tasks/taskProgress';
-import AspectRatioSelect, { DEFAULT_IMAGE_ASPECT_RATIO } from './AspectRatioSelect';
+import AspectRatioSelect from './AspectRatioSelect';
 import FeatureParameterPanels from './FeatureParameterPanels';
 import FeatureWorkspaceLayout from './FeatureWorkspaceLayout';
 import GenerationResult from './GenerationResult';
@@ -65,11 +65,23 @@ const TAB_LABELS: Record<ProductSetSubTab, string> = {
   multiScene: '多场景图',
 };
 
-function defaultTabState(): TabState {
+const DEFAULT_COUNT_BY_SUBTAB: Record<ProductSetSubTab, number> = {
+  main: 3,
+  comparison: 3,
+  multiScene: 2,
+};
+
+const DEFAULT_ASPECT_RATIO_BY_SUBTAB: Record<ProductSetSubTab, ImageAspectRatioValue> = {
+  main: '1:1',
+  comparison: '1:1',
+  multiScene: '1:1',
+};
+
+function defaultTabState(subTab: ProductSetSubTab): TabState {
   return {
     skuBatch: null,
-    aspectRatio: DEFAULT_IMAGE_ASPECT_RATIO,
-    count: DEFAULT_IMAGE_COUNT,
+    aspectRatio: DEFAULT_ASPECT_RATIO_BY_SUBTAB[subTab],
+    count: DEFAULT_COUNT_BY_SUBTAB[subTab],
     prompt: '',
     negativePrompt: '',
     scenePrompt: '',
@@ -85,9 +97,9 @@ function defaultTabState(): TabState {
 export default function ProductImageSet({ restoredTask, onRestoreConsumed }: ProductImageSetProps) {
   const [subTab, setSubTab] = useState<ProductSetSubTab>('main');
   const [tabStates, setTabStates] = useState<Record<ProductSetSubTab, TabState>>({
-    main: defaultTabState(),
-    comparison: defaultTabState(),
-    multiScene: defaultTabState(),
+    main: defaultTabState('main'),
+    comparison: defaultTabState('comparison'),
+    multiScene: defaultTabState('multiScene'),
   });
   const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
   const isSubmitPending = useRef(false);

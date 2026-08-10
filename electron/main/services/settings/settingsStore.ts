@@ -41,6 +41,7 @@ export function createFileSettingsStore(settingsFile: string, defaultWorkspaceDi
         return validateSettings({
           ...createDefaultAppSettings(defaultWorkspaceDir),
           ...rest,
+          maxCount: MAX_IMAGE_COUNT,
           defaultModels: {
             generation: rest.defaultModels?.generation ?? '',
             vision: rest.defaultModels?.vision ?? '',

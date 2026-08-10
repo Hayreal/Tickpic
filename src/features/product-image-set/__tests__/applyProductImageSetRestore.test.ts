@@ -110,12 +110,12 @@ describe('applyProductImageSetRestore', () => {
       count: 2,
       variantTotal: 2,
     }))))
-      .toMatchObject({ aspectRatio: 'auto', count: 2 });
+      .toMatchObject({ aspectRatio: '1:1', count: 2 });
 
     expect(applyProductImageSetRestore(createTask(createRequest('product_main_image', {
       count: 999,
     }))))
-      .toMatchObject({ aspectRatio: 'auto', count: 1 });
+      .toMatchObject({ aspectRatio: '1:1', count: 1 });
   });
 
   it('returns null for a task outside the product image set route', () => {
