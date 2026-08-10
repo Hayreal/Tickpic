@@ -247,7 +247,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   product_comparison_image: {
     feature: 'product_comparison_image',
-    mainPrompt: '基于输入 SKU 生成一张对比图：每张只包含一个场景、一组 Before/After。同一组中环境、对象、视角、构图与光线必须保持一致。Before 始终不展示 SKU；After 是否展示 SKU 由结构化选项控制。使用清晰英文 BEFORE 和 AFTER 标识，不得出现中文营销文字；不得拆成多图或四阶段过程图。严格保持 SKU 的产品形状、包装、品牌、标签、颜色与关键文字一致。',
+    mainPrompt: '基于输入 SKU 生成一张对比图：每张只包含一个场景、一组 Before/After。同一组中环境、对象、视角、构图与光线必须保持一致。Before 与 After 两个面板内部均不得展示 SKU。使用清晰英文 BEFORE 和 AFTER 标识，不得出现中文营销文字；不得拆成多图或四阶段过程图。严格保持 SKU 的产品形状、包装、品牌、标签、颜色与关键文字一致。',
     acceptedImageRoles: ['product'],
     requiredImageRoles: ['product'],
     executionModel: 'edit',
@@ -256,7 +256,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   product_multi_scene: {
     feature: 'product_multi_scene',
-    mainPrompt: '依据输入 SKU 发散真实适用场景，画面模式由结构化选项控制为单场景、拼图或宫格。SKU 可以不出现；若出现，必须严格保持产品形状、包装、品牌、标签、颜色与关键文字一致。默认不添加标题、卖点或营销文字，除非用户明确要求。',
+    mainPrompt: '输入 SKU 只用于识别产品品类、用途和适用环境。只输出目标场景、目标对象、表面、空间或环境状态；输出不得包含 SKU、输入产品、产品包装、带品牌的瓶/容器或其他可识别的产品实例；不得包含人物、身体、脸部、手部、手持动作或人物使用动作。画面模式由结构化选项控制为单场景、拼图或宫格。默认不添加标题、卖点或营销文字，除非用户明确要求且不与前述硬规则冲突。',
     acceptedImageRoles: ['product'],
     requiredImageRoles: ['product'],
     executionModel: 'edit',
