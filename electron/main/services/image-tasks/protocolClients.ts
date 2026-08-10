@@ -186,6 +186,11 @@ async function buildGeminiParts(text: string, images: ImageInput[]) {
 
 function resolveImageMimeType(image: ImageInput) {
   if (image.mimeType?.startsWith('image/')) {
+    if (image.mimeType === 'image/avif' || image.mimeType === 'image/heic' || image.mimeType === 'image/heif') {
+      throw new Error(
+        `${image.mimeType.slice('image/'.length).toUpperCase()} 输入暂不受上游图片接口支持，请先转换为 PNG、JPG 或 WEBP 后重试。`,
+      );
+    }
     return image.mimeType;
   }
   return inferMimeType(image.path);
@@ -275,6 +280,11 @@ function inferMimeType(filePath: string) {
   const ext = path.extname(filePath).toLowerCase();
   if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
   if (ext === '.webp') return 'image/webp';
+  if (ext === '.avif' || ext === '.heic' || ext === '.heif') {
+    throw new Error(
+      `上游图片接口暂不接受 ${ext.slice(1).toUpperCase()} 输入，请先转换为 PNG、JPG 或 WEBP 后重试。`,
+    );
+  }
   return 'image/png';
 }
 

@@ -6,6 +6,7 @@ import type {
 } from '../../../../src/shared/domain/imageFeatureApi.js';
 import { validateImageTaskRequest } from '../../../../src/shared/domain/imageFeatureApi.js';
 import { getAppLogger } from '../logger/appLogger.js';
+import { normalizeImageTaskError } from './providerError.js';
 
 export type ImageTaskStatusListener = (task: ImageTaskRecord) => void;
 
@@ -151,18 +152,19 @@ export function createImageTaskController(options: ImageTaskControllerOptions = 
       const current = tasks.get(task.taskId);
       if (!current || current.status !== 'running') return;
 
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error('image-task', '任务执行失败', {
-        taskId: task.taskId,
-        feature: task.feature,
-        message,
-      });
+       const normalizedError = normalizeImageTaskError(error);
+       logger.error('image-task', '任务执行失败', {
+         taskId: task.taskId,
+         feature: task.feature,
+         code: normalizedError.code,
+         message: normalizedError.message,
+       });
       updateTask({
         ...current,
         status: 'failed',
         error: {
-          code: 'image_task_failed',
-          message: error instanceof Error ? error.message : String(error),
+           code: normalizedError.code,
+           message: normalizedError.message,
         },
         updatedAt: new Date().toISOString(),
       });

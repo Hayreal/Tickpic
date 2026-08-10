@@ -196,6 +196,25 @@ describe('protocolClients', () => {
     }
   });
 
+  it('rejects AVIF inputs locally with a conversion hint', async () => {
+    const avifPath = path.join(tempDir, 'input.avif');
+    await writeFile(avifPath, Buffer.from('avif'));
+    const openai = {
+      chat: { completions: { create: vi.fn() } },
+      images: {
+        generate: vi.fn(),
+        edit: vi.fn(),
+      },
+    };
+    const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
+
+    await expect(client.executeImage({
+      ...createExecutionInput(avifPath),
+      images: [{ role: 'product', path: avifPath }],
+    })).rejects.toThrow('AVIF 输入，请先转换为 PNG、JPG 或 WEBP');
+    expect(openai.images.edit).not.toHaveBeenCalled();
+  });
+
   it('coerces Gemini inlineData MIME away from application/octet-stream', async () => {
     const gemini = {
       models: {

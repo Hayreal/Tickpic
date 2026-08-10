@@ -155,6 +155,29 @@ describe('imageTaskController', () => {
     });
   });
 
+  it('summarizes a Cloudflare HTML 403 instead of exposing the full response page', async () => {
+    const controller = createImageTaskController({
+      execute: async () => {
+        throw Object.assign(new Error('403 <!DOCTYPE html><title>Attention Required!</title> Cloudflare Ray ID: abc123'), {
+          status: 403,
+        });
+      },
+    });
+
+    const submitted = controller.submit({ feature: 'sticker_original', productCategory: 'lens cleaner' });
+
+    await waitFor(() => controller.get(submitted.taskId)?.status === 'failed');
+
+    expect(controller.get(submitted.taskId)).toMatchObject({
+      status: 'failed',
+      error: {
+        code: 'image_provider_cloudflare_blocked',
+        message: expect.stringContaining('Ray ID: abc123'),
+      },
+    });
+    expect(controller.get(submitted.taskId)?.error?.message).not.toContain('<!DOCTYPE');
+  });
+
   it('emits progressive image updates while a task is running', async () => {
     const release = createDeferred<void>();
     const controller = createImageTaskController({
