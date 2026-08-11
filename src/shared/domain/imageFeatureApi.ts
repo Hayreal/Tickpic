@@ -238,7 +238,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   product_main_image: {
     feature: 'product_main_image',
-    mainPrompt: '综合参考输入的多张 SKU 图片生成一张电商主图。画面必须包含输入 SKU 产品，由 AI 自动生成清晰的英文大标题，并呈现明确的核心使用场景；产品为主视觉。严格保持产品形状、包装、品牌、标签、颜色与关键文字一致，不得重新设计 SKU；不得出现中文营销文字。场景必须服务于产品卖点，无关装饰不堆叠。',
+    mainPrompt: 'Generate one US Temu ecommerce main product image from a single primary SKU photo. Keep SKU identity locked, include a short English headline, and freely choose the strongest commercial visual approach. Structured handheld/effect controls and batch variant index/total are encoded in the JSON execution prompt.',
     acceptedImageRoles: ['product'],
     requiredImageRoles: ['product'],
     executionModel: 'edit',
@@ -247,7 +247,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   product_comparison_image: {
     feature: 'product_comparison_image',
-    mainPrompt: '基于输入 SKU 生成一张对比图：每张只包含一个场景、一组 Before/After。同一组中环境、对象、视角、构图与光线必须保持一致。Before 与 After 两个面板内部均不得展示 SKU。使用清晰英文 BEFORE 和 AFTER 标识，不得出现中文营销文字；不得拆成多图或四阶段过程图。严格保持 SKU 的产品形状、包装、品牌、标签、颜色与关键文字一致。',
+    mainPrompt: 'Generate one US Temu before/after comparison image from a single primary SKU photo. One scene, one BEFORE/AFTER pair, panels without SKU; optional enlarged foreground product overlay. Structured layout/intensity/showProduct and batch variant index/total are encoded in the JSON execution prompt.',
     acceptedImageRoles: ['product'],
     requiredImageRoles: ['product'],
     executionModel: 'edit',
@@ -256,7 +256,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   product_multi_scene: {
     feature: 'product_multi_scene',
-    mainPrompt: '输入 SKU 只用于识别产品品类、用途和适用环境。只输出目标场景、目标对象、表面、空间或环境状态；输出不得包含 SKU、输入产品、产品包装、带品牌的瓶/容器或其他可识别的产品实例；不得包含人物、身体、脸部、手部、手持动作或人物使用动作。画面模式由结构化选项控制为单场景、拼图或宫格。默认不添加标题、卖点或营销文字，除非用户明确要求且不与前述硬规则冲突。',
+    mainPrompt: 'Generate one US Temu multi-application-scope image from a single primary SKU photo used only for category/use recognition. Never render the SKU body or people. Structured single/collage/grid layout and batch variant index/total are encoded in the JSON execution prompt.',
     acceptedImageRoles: ['product'],
     requiredImageRoles: ['product'],
     executionModel: 'edit',

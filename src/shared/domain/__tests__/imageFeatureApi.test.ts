@@ -140,17 +140,17 @@ describe('image feature API contract', () => {
     const expectations = [
       [
         'product_main_image',
-        ['多张 SKU', 'AI 自动生成清晰的英文大标题', '核心使用场景', '产品为主视觉', '不得重新设计 SKU', '不得出现中文营销文字', '无关装饰不堆叠'],
+        ['US Temu ecommerce main product image', 'single primary SKU', 'JSON execution prompt'],
         true,
       ],
       [
         'product_comparison_image',
-        ['一个场景', '一组 Before/After', 'Before 与 After 两个面板内部均不得展示 SKU', '环境、对象、视角、构图与光线必须保持一致', 'BEFORE', 'AFTER', '不得出现中文营销文字', '不得拆成多图或四阶段过程图'],
+        ['before/after comparison', 'single primary SKU', 'JSON execution prompt'],
         true,
       ],
       [
         'product_multi_scene',
-        ['输入 SKU 只用于识别产品品类、用途和适用环境', '不得包含 SKU、输入产品、产品包装、带品牌的瓶/容器或其他可识别的产品实例', '不得包含人物、身体、脸部、手部、手持动作或人物使用动作', '只输出目标场景、目标对象、表面、空间或环境状态', '单场景、拼图或宫格', '结构化选项控制', '默认不添加标题、卖点或营销文字', '除非用户明确要求'],
+        ['multi-application-scope', 'Never render the SKU body', 'JSON execution prompt'],
         false,
       ],
     ] as const;

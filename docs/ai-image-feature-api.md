@@ -210,9 +210,9 @@ type ImageTaskResult = {
 | 场景裂变 | `scene_variation` | 参考当前场景，生成同品类可用的新使用场景素材。发散不同具体使用场景，而非仅改色或构图，默认不展示具体产品。 | `source`、`reference` | `prompt`、`productCategory`、`colorScheme`、`showProduct`、`count` | edit |
 | 创作新场景图 | `create_new_scene` | 根据产品品类与场景要求，创作新的电商使用场景图。自动发散多个真实生活场景，可含使用前后对比与细节图。 | `style` | `prompt`、`productCategory`、`sellingPoints`、`colorScheme`、`aspectRatio`、`showProduct` | generation |
 | 纯提示词主图/素材图 | `prompt_only_main_asset` | 根据用户描述完成电商主图或广告素材生成 | `source`、`reference`、`style`（当前不参与出图） | `prompt`、`productName`、`sellingPoints`、`colorScheme`、`aspectRatio`、`count` | generation |
-| 产品主图 | `product_main_image` | 综合参考输入的多张 SKU 图片生成一张电商主图，产品为主视觉，支持可选提示词、反向提示词、具体场景、手持和效果控制。 | 必填 `product`，可多张 | `prompt`、`negativePrompt`、`scenePrompt`、`productHandheldMode`、`productEffectMode`、`aspectRatio`、`count`、`outputBatchId`、`variantIndex`、`variantTotal` | edit |
-| 产品对比图 | `product_comparison_image` | 每张只生成一个场景的一组 Before/After；Before 始终不出现 SKU。`showProduct: true` 时 After 必须展示 SKU，`showProduct: false` 时 After 仅展示改善效果、不展示 SKU；布局和效果程度均可控制。 | 必填 `product`，可多张 | `prompt`、`negativePrompt`、`scenePrompt`、`comparisonLayout`、`comparisonIntensity`、`showProduct`、`aspectRatio`、`count`、`outputBatchId`、`variantIndex`、`variantTotal` | edit |
-| 产品多场景图 | `product_multi_scene` | 根据输入 SKU 发散真实适用场景；可选提示词与反向提示词，可选择单场景、拼图或宫格。 | 必填 `product`，可多张 | `prompt`、`negativePrompt`、`multiSceneLayout`、`aspectRatio`、`count`、`outputBatchId`、`variantIndex`、`variantTotal` | edit |
+| 产品主图 | `product_main_image` | 以单张 SKU 主图为默认输入，生成 US Temu 电商主图；执行提示词为 JSON 技术规格，支持可选提示词、反向提示词、具体场景、手持和效果控制。 | 必填 `product`（默认同款单张，可多张补充视角） | `prompt`、`negativePrompt`、`scenePrompt`、`productHandheldMode`、`productEffectMode`、`aspectRatio`、`count`、`outputBatchId`、`variantIndex`、`variantTotal` | edit |
+| 产品对比图 | `product_comparison_image` | 每张只生成一个场景的一组 Before/After；面板内不出现 SKU。`showProduct: true` 时以放大前景商品层展示 SKU，`showProduct: false` 时整张不展示 SKU；执行提示词为 JSON。 | 必填 `product`（默认同款单张） | `prompt`、`negativePrompt`、`scenePrompt`、`comparisonLayout`、`comparisonIntensity`、`showProduct`、`aspectRatio`、`count`、`outputBatchId`、`variantIndex`、`variantTotal` | edit |
+| 产品多场景图 | `product_multi_scene` | 根据输入 SKU 识别用途并发散真实适用场景；画面不得出现 SKU/人物；可选提示词与单场景/拼图/宫格；执行提示词为 JSON。 | 必填 `product`（默认同款单张） | `prompt`、`negativePrompt`、`multiSceneLayout`、`aspectRatio`、`count`、`outputBatchId`、`variantIndex`、`variantTotal` | edit |
 
 说明：
 
