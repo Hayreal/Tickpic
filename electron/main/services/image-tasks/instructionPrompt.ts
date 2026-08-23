@@ -11,6 +11,8 @@ import {
 } from '../../../../src/shared/view/stickerProductRatioOptions.js';
 import { buildStickerExecutionPrompt, isStickerFeature } from './stickerExecutionPrompt.js';
 import { buildProductSetJsonPrompt, isProductSetFeature } from './productSetJsonPrompt.js';
+import { buildSkuExecutionPrompt, isSkuFeature } from './skuExecutionPrompt.js';
+import { buildSkuHitMainImagePrompt, isSkuHitMainImageFeature } from './skuHitMainImagePrompt.js';
 
 interface ExecutionPromptAssemblyInput {
   task: { feature: ImageFeature; request: ImageTaskRequest };
@@ -92,6 +94,14 @@ export function sanitizeRequestForInstruction(request: ImageTaskRequest) {
 export function buildExecutionPrompt(request: ImageTaskRequest, mainPrompt: string) {
   if (isStickerFeature(request.feature)) {
     return buildStickerExecutionPrompt(request);
+  }
+
+  if (isSkuHitMainImageFeature(request.feature)) {
+    return buildSkuHitMainImagePrompt(request);
+  }
+
+  if (isSkuFeature(request.feature)) {
+    return buildSkuExecutionPrompt(request);
   }
 
   if (isProductSetFeature(request.feature)) {
@@ -299,6 +309,10 @@ const EDIT_VERB_REPLACEMENTS: Partial<Record<ImageFeature, string>> = {
   product_main_image: 'Edit the SKU reference images to produce',
   product_comparison_image: 'Edit the SKU reference images to produce',
   product_multi_scene: 'Edit the SKU reference images to produce',
+  sku_replica: 'Edit the SKU package image to apply',
+  sku_variation: 'Edit the SKU package image to produce',
+  sku_original: 'Edit the SKU package image to design',
+  sku_hit_main_image: 'Edit the SKU and viral main-image reference to produce',
 };
 
 function normalizeEditInstructionVerbs(instruction: string, feature: ImageFeature) {

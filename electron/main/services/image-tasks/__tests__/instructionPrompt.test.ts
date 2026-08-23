@@ -544,4 +544,22 @@ describe('instructionPrompt', () => {
     expect(finalized).not.toContain('First fully erase foreground spray');
     expect(finalized).toContain('Inpaint removed areas to match adjacent background');
   });
+
+  it('routes sku hit main image through its own prompt instead of bottle SKU prompt', () => {
+    const prompt = buildExecutionPrompt({
+      feature: 'sku_hit_main_image',
+      images: [
+        { role: 'source', path: '/tmp/sku.png' },
+        { role: 'reference', path: '/tmp/hit-main.png' },
+      ],
+      brand: 'wkau',
+    }, 'short main prompt that should not be concatenated');
+
+    expect(prompt).toContain('图 1');
+    expect(prompt).toContain('爆款主图参考');
+    expect(prompt).toContain('品牌: "wkau"');
+    expect(prompt).not.toContain('输出一张完整的 SKU 产品图');
+    expect(prompt).not.toContain('short main prompt that should not be concatenated');
+  });
 });
+
