@@ -158,10 +158,10 @@ describe('image feature API contract', () => {
     for (const [feature, promptContents, defaultShowProduct] of expectations) {
       const definition = getImageFeatureDefinition(feature);
 
-      expect(definition.acceptedImageRoles).toEqual(feature === 'product_main_image' ? ['product', 'reference'] : ['product']);
+      expect(definition.acceptedImageRoles).toEqual(['product']);
       expect(definition.requiredImageRoles).toEqual(['product']);
       expect(definition.executionModel).toBe('edit');
-      expect(definition.executionImageRoles).toEqual(feature === 'product_main_image' ? ['product', 'reference'] : ['product']);
+      expect(definition.executionImageRoles).toEqual(['product']);
       expect(definition.defaultShowProduct).toBe(defaultShowProduct);
       for (const promptContent of promptContents) {
         expect(definition.mainPrompt).toContain(promptContent);

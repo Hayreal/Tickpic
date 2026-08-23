@@ -242,16 +242,16 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   product_main_image: {
     feature: 'product_main_image',
-    mainPrompt: 'Generate one US Temu ecommerce main product image from a single primary SKU photo. Keep SKU identity locked, include a short English headline, and freely choose the strongest commercial visual approach. Structured handheld/effect controls and optional handheld reference images are encoded in the JSON execution prompt.',
-    acceptedImageRoles: ['product', 'reference'],
+    mainPrompt: 'Generate one US Temu ecommerce main product image from a single primary SKU photo. Keep SKU identity locked, include a short English headline, and freely choose the strongest commercial visual approach. Structured handheld/effect controls and batch variant index/total are encoded in the JSON execution prompt.',
+    acceptedImageRoles: ['product'],
     requiredImageRoles: ['product'],
     executionModel: 'edit',
-    executionImageRoles: ['product', 'reference'],
+    executionImageRoles: ['product'],
     defaultShowProduct: true,
   },
   product_comparison_image: {
     feature: 'product_comparison_image',
-    mainPrompt: 'Generate one US Temu before/after comparison image from a single primary SKU photo. One scene, one BEFORE/AFTER pair, panels without SKU; optional enlarged foreground product overlay. Structured layout/intensity/showProduct and batch output count are encoded in the JSON execution prompt.',
+    mainPrompt: 'Generate one US Temu before/after comparison image from a single primary SKU photo. One scene, one BEFORE/AFTER pair, panels without SKU; optional enlarged foreground product overlay. Structured layout/intensity/showProduct and batch variant index/total are encoded in the JSON execution prompt.',
     acceptedImageRoles: ['product'],
     requiredImageRoles: ['product'],
     executionModel: 'edit',
@@ -260,7 +260,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   product_multi_scene: {
     feature: 'product_multi_scene',
-    mainPrompt: 'Generate one US Temu multi-application-scope image from a single primary SKU photo used only for category/use recognition. Never render the SKU body or people. Structured single/collage/grid layout and batch output count are encoded in the JSON execution prompt.',
+    mainPrompt: 'Generate one US Temu multi-application-scope image from a single primary SKU photo used only for category/use recognition. Never render the SKU body or people. Structured single/collage/grid layout and batch variant index/total are encoded in the JSON execution prompt.',
     acceptedImageRoles: ['product'],
     requiredImageRoles: ['product'],
     executionModel: 'edit',
@@ -408,16 +408,6 @@ function validateProductSetControls(input: ImageTaskRequest) {
 
     if (!SHOW_PRODUCT_FEATURES.includes(input.feature)) {
       throw new Error(`showProduct is not supported by ${input.feature}`);
-    }
-  }
-
-  const referenceImages = (input.images ?? []).filter((image) => image.role === 'reference');
-  if (input.feature === 'product_main_image' && referenceImages.length > 0) {
-    if (referenceImages.length > 1) {
-      throw new Error('product_main_image supports at most one reference image');
-    }
-    if (input.productHandheldMode !== 'handheld') {
-      throw new Error('reference images require productHandheldMode handheld');
     }
   }
 }
