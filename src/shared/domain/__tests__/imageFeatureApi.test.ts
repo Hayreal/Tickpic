@@ -158,10 +158,10 @@ describe('image feature API contract', () => {
     for (const [feature, promptContents, defaultShowProduct] of expectations) {
       const definition = getImageFeatureDefinition(feature);
 
-      expect(definition.acceptedImageRoles).toEqual(['product']);
+      expect(definition.acceptedImageRoles).toEqual(feature === 'product_main_image' ? ['product', 'reference'] : ['product']);
       expect(definition.requiredImageRoles).toEqual(['product']);
       expect(definition.executionModel).toBe('edit');
-      expect(definition.executionImageRoles).toEqual(['product']);
+      expect(definition.executionImageRoles).toEqual(feature === 'product_main_image' ? ['product', 'reference'] : ['product']);
       expect(definition.defaultShowProduct).toBe(defaultShowProduct);
       for (const promptContent of promptContents) {
         expect(definition.mainPrompt).toContain(promptContent);
@@ -375,6 +375,100 @@ describe('image feature API contract', () => {
     );
     expect(() => validateImageTaskRequest({ ...request, variantIndex: 2, variantTotal: 1 })).toThrow(
       'variantIndex must be less than or equal to variantTotal',
+    );
+  });
+
+  it('defines sku features as source-based edit operations', () => {
+    const replica = getImageFeatureDefinition('sku_replica');
+    const variation = getImageFeatureDefinition('sku_variation');
+    const original = getImageFeatureDefinition('sku_original');
+
+    expect(replica.requiredImageRoles).toEqual(['source', 'reference']);
+    expect(variation.requiredImageRoles).toEqual(['source']);
+    expect(original.requiredImageRoles).toEqual(['source']);
+    expect(replica.executionImageRoles).toEqual(['source', 'reference']);
+    expect(variation.executionImageRoles).toEqual(['source', 'reference']);
+    expect(original.executionImageRoles).toEqual(['source', 'reference']);
+  });
+
+  it('accepts sku replica requests with source and reference images', () => {
+    const request = validateImageTaskRequest({
+      feature: 'sku_replica',
+      images: [
+        { role: 'source', path: '/authorized/input/sku.png' },
+        { role: 'reference', path: '/authorized/input/ref.png' },
+      ],
+    });
+
+    expect(request.feature).toBe('sku_replica');
+  });
+
+  it('defines sku hit main image as a two-image edit that is not a bottle SKU shot', () => {
+    const definition = getImageFeatureDefinition('sku_hit_main_image');
+
+    expect(definition.acceptedImageRoles).toEqual(['source', 'reference']);
+    expect(definition.requiredImageRoles).toEqual(['source', 'reference']);
+    expect(definition.executionModel).toBe('edit');
+    expect(definition.executionImageRoles).toEqual(['source', 'reference']);
+    expect(definition.mainPrompt).toContain('爆款主图');
+    expect(definition.mainPrompt).toContain('不继承原画面');
+    expect(definition.mainPrompt).not.toContain('输出整瓶 SKU 产品图');
+  });
+
+  it('requires exactly one source and one reference for sku hit main image', () => {
+    const valid = {
+      feature: 'sku_hit_main_image' as const,
+      images: [
+        { role: 'source' as const, path: '/authorized/input/sku.png' },
+        { role: 'reference' as const, path: '/authorized/input/hit-main.png' },
+      ],
+    };
+
+    expect(validateImageTaskRequest(valid).feature).toBe('sku_hit_main_image');
+
+    expect(() => validateImageTaskRequest({
+      ...valid,
+      images: [{ role: 'source', path: '/authorized/input/sku.png' }],
+    })).toThrow('sku_hit_main_image requires image role reference');
+
+    expect(() => validateImageTaskRequest({
+      ...valid,
+      images: [{ role: 'reference', path: '/authorized/input/hit-main.png' }],
+    })).toThrow('sku_hit_main_image requires image role source');
+
+    expect(() => validateImageTaskRequest({
+      ...valid,
+      images: [
+        { role: 'source', path: '/authorized/input/sku.png' },
+        { role: 'source', path: '/authorized/input/sku-2.png' },
+        { role: 'reference', path: '/authorized/input/hit-main.png' },
+      ],
+    })).toThrow('sku_hit_main_image requires exactly one source image');
+
+    expect(() => validateImageTaskRequest({
+      ...valid,
+      images: [
+        { role: 'source', path: '/authorized/input/sku.png' },
+        { role: 'reference', path: '/authorized/input/hit-main.png' },
+        { role: 'reference', path: '/authorized/input/hit-main-2.png' },
+      ],
+    })).toThrow('sku_hit_main_image requires exactly one reference image');
+  });
+
+  it('rejects product-set controls on sku hit main image', () => {
+    const request = {
+      feature: 'sku_hit_main_image' as const,
+      images: [
+        { role: 'source' as const, path: '/authorized/input/sku.png' },
+        { role: 'reference' as const, path: '/authorized/input/hit-main.png' },
+      ],
+    };
+
+    expect(() => validateImageTaskRequest({ ...request, productHandheldMode: 'handheld' })).toThrow(
+      'productHandheldMode is not supported by sku_hit_main_image',
+    );
+    expect(() => validateImageTaskRequest({ ...request, showProduct: true })).toThrow(
+      'showProduct is not supported by sku_hit_main_image',
     );
   });
 });

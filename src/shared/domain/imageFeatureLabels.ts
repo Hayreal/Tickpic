@@ -19,6 +19,10 @@ export const IMAGE_FEATURE_LABELS: Record<ImageFeature, ImageFeatureLabel> = {
   product_main_image: { category: '套图', feature: '主图' },
   product_comparison_image: { category: '套图', feature: '对比图' },
   product_multi_scene: { category: '套图', feature: '多场景图' },
+  sku_replica: { category: 'SKU', feature: 'SKU 复刻' },
+  sku_variation: { category: 'SKU', feature: 'SKU 裂变' },
+  sku_original: { category: 'SKU', feature: 'SKU 原创' },
+  sku_hit_main_image: { category: 'SKU', feature: 'SKU 爆款主图' },
 };
 
 export function getImageFeatureLabel(feature: ImageFeature): ImageFeatureLabel {

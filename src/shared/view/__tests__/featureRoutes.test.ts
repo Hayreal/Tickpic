@@ -16,4 +16,23 @@ describe('feature routes', () => {
       productSetSubTab: 'multiScene',
     });
   });
+
+  it('restores sku features to their dedicated subtabs', () => {
+    expect(getFeatureRoute('sku_replica')).toEqual({
+      tab: 'sku',
+      skuSubTab: 'replica',
+    });
+    expect(getFeatureRoute('sku_variation')).toEqual({
+      tab: 'sku',
+      skuSubTab: 'variation',
+    });
+    expect(getFeatureRoute('sku_original')).toEqual({
+      tab: 'sku',
+      skuSubTab: 'original',
+    });
+    expect(getFeatureRoute('sku_hit_main_image')).toEqual({
+      tab: 'sku',
+      skuSubTab: 'hitMain',
+    });
+  });
 });

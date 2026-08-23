@@ -14,6 +14,10 @@ export const IMAGE_FEATURES = [
   'product_main_image',
   'product_comparison_image',
   'product_multi_scene',
+  'sku_replica',
+  'sku_variation',
+  'sku_original',
+  'sku_hit_main_image',
 ] as const;
 
 export type ImageFeature = typeof IMAGE_FEATURES[number];
@@ -238,16 +242,16 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   product_main_image: {
     feature: 'product_main_image',
-    mainPrompt: 'Generate one US Temu ecommerce main product image from a single primary SKU photo. Keep SKU identity locked, include a short English headline, and freely choose the strongest commercial visual approach. Structured handheld/effect controls and batch variant index/total are encoded in the JSON execution prompt.',
-    acceptedImageRoles: ['product'],
+    mainPrompt: 'Generate one US Temu ecommerce main product image from a single primary SKU photo. Keep SKU identity locked, include a short English headline, and freely choose the strongest commercial visual approach. Structured handheld/effect controls and optional handheld reference images are encoded in the JSON execution prompt.',
+    acceptedImageRoles: ['product', 'reference'],
     requiredImageRoles: ['product'],
     executionModel: 'edit',
-    executionImageRoles: ['product'],
+    executionImageRoles: ['product', 'reference'],
     defaultShowProduct: true,
   },
   product_comparison_image: {
     feature: 'product_comparison_image',
-    mainPrompt: 'Generate one US Temu before/after comparison image from a single primary SKU photo. One scene, one BEFORE/AFTER pair, panels without SKU; optional enlarged foreground product overlay. Structured layout/intensity/showProduct and batch variant index/total are encoded in the JSON execution prompt.',
+    mainPrompt: 'Generate one US Temu before/after comparison image from a single primary SKU photo. One scene, one BEFORE/AFTER pair, panels without SKU; optional enlarged foreground product overlay. Structured layout/intensity/showProduct and batch output count are encoded in the JSON execution prompt.',
     acceptedImageRoles: ['product'],
     requiredImageRoles: ['product'],
     executionModel: 'edit',
@@ -256,12 +260,44 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   product_multi_scene: {
     feature: 'product_multi_scene',
-    mainPrompt: 'Generate one US Temu multi-application-scope image from a single primary SKU photo used only for category/use recognition. Never render the SKU body or people. Structured single/collage/grid layout and batch variant index/total are encoded in the JSON execution prompt.',
+    mainPrompt: 'Generate one US Temu multi-application-scope image from a single primary SKU photo used only for category/use recognition. Never render the SKU body or people. Structured single/collage/grid layout and batch output count are encoded in the JSON execution prompt.',
     acceptedImageRoles: ['product'],
     requiredImageRoles: ['product'],
     executionModel: 'edit',
     executionImageRoles: ['product'],
     defaultShowProduct: false,
+  },
+  sku_replica: {
+    feature: 'sku_replica',
+    mainPrompt: '将参考图的标签包装设计复刻到 SKU 包材上，输出整瓶 SKU 产品图。只改标签区域；除非用户明确要求改包材形态，否则保持 SKU 图的瓶型、盖子、比例与材质一致。',
+    acceptedImageRoles: ['source', 'reference'],
+    requiredImageRoles: ['source', 'reference'],
+    executionModel: 'edit',
+    executionImageRoles: ['source', 'reference'],
+  },
+  sku_variation: {
+    feature: 'sku_variation',
+    mainPrompt: '基于 SKU 产品图对标签做风格、排版、色系裂变，输出整瓶 SKU 产品图。品牌、容量、产品名称等核心文案默认保持不变；除非用户明确要求改包材形态，否则保持 SKU 图的瓶型、盖子、比例与材质一致。',
+    acceptedImageRoles: ['source', 'reference'],
+    requiredImageRoles: ['source'],
+    executionModel: 'edit',
+    executionImageRoles: ['source', 'reference'],
+  },
+  sku_original: {
+    feature: 'sku_original',
+    mainPrompt: '在 SKU 包材上原创设计产品标签，输出整瓶 SKU 产品图。按用户提供的产品信息自由发挥；参考图只借包装设计气质；除非用户明确要求改包材形态，否则保持 SKU 图的瓶型、盖子、比例与材质一致。',
+    acceptedImageRoles: ['source', 'reference'],
+    requiredImageRoles: ['source'],
+    executionModel: 'edit',
+    executionImageRoles: ['source', 'reference'],
+  },
+  sku_hit_main_image: {
+    feature: 'sku_hit_main_image',
+    mainPrompt: '基于爆款主图参考的营销主题与文案，把新 SKU 完整替换进去，重新创作一张大差异化欧美电商主图。继承卖点，不继承原画面。',
+    acceptedImageRoles: ['source', 'reference'],
+    requiredImageRoles: ['source', 'reference'],
+    executionModel: 'edit',
+    executionImageRoles: ['source', 'reference'],
   },
 };
 
@@ -300,6 +336,17 @@ export function validateImageTaskRequest(input: ImageTaskRequest): ImageTaskRequ
   for (const requiredRole of definition.requiredImageRoles) {
     if (!images.some((image) => image.role === requiredRole)) {
       throw new Error(`${input.feature} requires image role ${requiredRole}`);
+    }
+  }
+
+  if (input.feature === 'sku_hit_main_image') {
+    const sourceCount = images.filter((image) => image.role === 'source').length;
+    const referenceCount = images.filter((image) => image.role === 'reference').length;
+    if (sourceCount !== 1) {
+      throw new Error('sku_hit_main_image requires exactly one source image');
+    }
+    if (referenceCount !== 1) {
+      throw new Error('sku_hit_main_image requires exactly one reference image');
     }
   }
 
@@ -361,6 +408,16 @@ function validateProductSetControls(input: ImageTaskRequest) {
 
     if (!SHOW_PRODUCT_FEATURES.includes(input.feature)) {
       throw new Error(`showProduct is not supported by ${input.feature}`);
+    }
+  }
+
+  const referenceImages = (input.images ?? []).filter((image) => image.role === 'reference');
+  if (input.feature === 'product_main_image' && referenceImages.length > 0) {
+    if (referenceImages.length > 1) {
+      throw new Error('product_main_image supports at most one reference image');
+    }
+    if (input.productHandheldMode !== 'handheld') {
+      throw new Error('reference images require productHandheldMode handheld');
     }
   }
 }
