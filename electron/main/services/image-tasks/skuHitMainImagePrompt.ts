@@ -19,8 +19,9 @@ export function buildSkuHitMainImagePrompt(request: ImageTaskRequest): string {
 function buildImageRolesSection() {
   return [
     '图片角色:',
-    '图 1：爆款主图参考。继承营销主题、核心英文文案、产品用途 / 使用场景类型、卖点逻辑。不是包装贴标参考。',
-    '图 2：新 SKU 产品图。产品本体唯一标准。必须完整替换图 1 原产品。',
+    '图 1 = reference = 爆款主图参考。继承营销主题、核心英文文案、产品用途 / 使用场景类型、卖点逻辑。不是包装贴标参考。',
+    '图 2 = source = 新 SKU 产品图。产品本体唯一标准。必须完整替换图 1 原产品。',
+    '即使数组里 source 在前，也必须把 reference 叫作图 1、source 叫作图 2。',
     '按角色标注，不按上传数组顺序猜测。',
   ].join('\n');
 }
@@ -39,6 +40,8 @@ function buildProductReplaceSection() {
     '产品替换（最高优先级）:',
     '删除图 1 原产品，换成图 2 SKU。',
     '锁定图 2 的包材结构、高宽比、瓶型、盖子、开口、材质、颜色、透明度、标签视觉与整体识别。',
+    '包材锁包括罐型/软管、品牌、产品名称、容量。',
+    '包材锁只作用于 SKU 本体，不阻止重做场景和版式。',
     '禁止拉长、压扁、变细、变宽或重设计图 2。',
     '整体广告配色优先从图 2 标签提取。本任务不是整瓶白底 SKU 出图。',
   ].join('\n');
@@ -48,9 +51,11 @@ function buildDifferentiationSection(request: ImageTaskRequest) {
   const lines = [
     '大差异化:',
     '禁止复制图 1 构图。每次至少同时改变 3 个以上维度。',
-    '维度包括产品位置、产品大小比例、标题位置与分行、场景构图、拍摄角度、远近景、Before/After 表现、信息区布局。',
+    '维度包括产品位置、产品大小比例、标题位置与分行、场景构图、拍摄角度、远近景、Before/After 表现、信息区布局、场景物体款式、对比区域形状、背景空间结构、产品与场景的视觉关系。',
     '禁止只做换色、左右翻转、产品左右互换、只移动标题、原场景复刻、原图换 SKU。',
     '保持图 1 的使用场景类型，但重新生成具体素材、角度和构图。',
+    '新场景不得与图 1 使用完全相同的物体、角度和构图。',
+    '若图 1 含修复前后，必须保留该营销逻辑但重做形式；产品必须有足够曝光，不得过小。',
   ];
 
   if (request.variantTotal && request.variantTotal > 1) {
@@ -84,6 +89,7 @@ function buildCopySection(request: ImageTaskRequest) {
     lines.push('未填写的品牌、产品名、容量从图 1 继承；无法识别时省略，不得编造。');
   }
 
+  lines.push('保留核心标题；允许改字号/位置；禁止改写核心标题、假英文、无意义小图标。');
   lines.push('画面可见营销文字优先自然英文；中文来源译成对应英文。');
   return lines.join('\n');
 }
@@ -109,7 +115,7 @@ function buildOutputSection() {
   return [
     '输出目标:',
     '输出一张用户所选比例的欧美 Temu / Amazon 高点击电商主图。',
-    '继承图 1 的卖点，不继承图 1 的画面。只输出最终图片。',
+    '继承图 1 的卖点，不继承图 1 的画面。只输出最终图片，不输出分析过程。',
   ].join('\n');
 }
 
