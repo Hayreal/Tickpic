@@ -62,6 +62,12 @@ export function createDesktopClient(bridge: DesktopBridgeApi | undefined) {
         return bridge.imageTask.onStatus(listener);
       },
     },
+    resources: {
+      listHandheldReferences: () => {
+        if (!bridge) return Promise.resolve([]);
+        return bridge.resources.listHandheldReferences();
+      },
+    },
     logs: {
       list: () => {
         if (!bridge) return Promise.resolve([]);

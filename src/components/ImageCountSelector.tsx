@@ -13,6 +13,7 @@ interface ImageCountSelectorProps {
   onChange: (value: ImageCountValue) => void;
   id?: string;
   label?: string;
+  options?: readonly ImageCountValue[];
 }
 
 export default function ImageCountSelector({
@@ -20,11 +21,14 @@ export default function ImageCountSelector({
   onChange,
   id,
   label = '生成数量',
+  options = IMAGE_COUNT_OPTIONS,
 }: ImageCountSelectorProps) {
   const listboxId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  const selected = resolveImageCount(value);
+  const selected = (options as readonly number[]).includes(value)
+    ? (value as ImageCountValue)
+    : resolveImageCount(value);
 
   useEffect(() => {
     if (!open) {
@@ -83,7 +87,7 @@ export default function ImageCountSelector({
             aria-label={label}
             className="overflow-auto p-1.5"
           >
-            {IMAGE_COUNT_OPTIONS.map((num) => {
+            {options.map((num) => {
               const isSelected = num === selected;
               return (
                 <li key={num} role="presentation">

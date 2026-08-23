@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildProductImageSetRequests } from '../productImageSetRequests';
 
 describe('buildProductImageSetRequests', () => {
-  it('builds main-image requests for every variant with its applicable fields', () => {
+  it('builds a single main-image request with count and optional handheld reference', () => {
     const requests = buildProductImageSetRequests({
       subTab: 'main',
       skuPaths: ['/tmp/front.png', '/tmp/back.png'],
@@ -13,6 +13,7 @@ describe('buildProductImageSetRequests', () => {
       scenePrompt: '  kitchen counter  ',
       productHandheldMode: 'handheld',
       productEffectMode: 'show',
+      handheldReferencePath: '/resources/product/handheld-pump-foam.png',
       comparisonLayout: 'auto',
       comparisonIntensity: 'medium',
       showProduct: true,
@@ -25,27 +26,10 @@ describe('buildProductImageSetRequests', () => {
         images: [
           { role: 'product', path: '/tmp/front.png' },
           { role: 'product', path: '/tmp/back.png' },
+          { role: 'reference', path: '/resources/product/handheld-pump-foam.png' },
         ],
-        count: 1,
+        count: 2,
         aspectRatio: '1:1',
-        variantIndex: 1,
-        variantTotal: 2,
-        prompt: 'bright premium composition',
-        negativePrompt: 'no extra props',
-        scenePrompt: 'kitchen counter',
-        productHandheldMode: 'handheld',
-        productEffectMode: 'show',
-      },
-      {
-        feature: 'product_main_image',
-        images: [
-          { role: 'product', path: '/tmp/front.png' },
-          { role: 'product', path: '/tmp/back.png' },
-        ],
-        count: 1,
-        aspectRatio: '1:1',
-        variantIndex: 2,
-        variantTotal: 2,
         prompt: 'bright premium composition',
         negativePrompt: 'no extra props',
         scenePrompt: 'kitchen counter',
@@ -53,6 +37,27 @@ describe('buildProductImageSetRequests', () => {
         productEffectMode: 'show',
       },
     ]);
+  });
+
+  it('omits handheld reference when not in handheld mode', () => {
+    const [request] = buildProductImageSetRequests({
+      subTab: 'main',
+      skuPaths: ['/tmp/front.png'],
+      aspectRatio: '1:1',
+      count: 1,
+      prompt: '',
+      negativePrompt: '',
+      scenePrompt: '',
+      productHandheldMode: 'not_handheld',
+      productEffectMode: 'auto',
+      handheldReferencePath: '/resources/product/handheld-pump-foam.png',
+      comparisonLayout: 'auto',
+      comparisonIntensity: 'medium',
+      showProduct: true,
+      multiSceneLayout: 'single',
+    });
+
+    expect(request.images).toEqual([{ role: 'product', path: '/tmp/front.png' }]);
   });
 
   it('builds comparison requests with only its applicable fields', () => {
@@ -74,6 +79,7 @@ describe('buildProductImageSetRequests', () => {
 
     expect(request).toEqual(expect.objectContaining({
       feature: 'product_comparison_image',
+      count: 1,
       prompt: 'clear result',
       negativePrompt: 'no claims',
       scenePrompt: 'bathroom mirror',
@@ -91,7 +97,7 @@ describe('buildProductImageSetRequests', () => {
       subTab: 'multiScene',
       skuPaths: ['/tmp/product.png'],
       aspectRatio: '3:2',
-      count: 1,
+      count: 3,
       prompt: '  a kitchen counter in morning light  ',
       negativePrompt: '  marketing text  ',
       scenePrompt: '  ignored  ',
@@ -105,6 +111,7 @@ describe('buildProductImageSetRequests', () => {
 
     expect(request).toMatchObject({
       feature: 'product_multi_scene',
+      count: 3,
       prompt: 'a kitchen counter in morning light',
       negativePrompt: 'marketing text',
       multiSceneLayout: 'collage',

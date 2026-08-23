@@ -2,6 +2,7 @@ import type { ImageTaskRecord } from '../../../../src/shared/domain/imageFeature
 import type { ImageTaskPlan, ImageTaskRuntimeConfig } from '../../../../src/shared/domain/imageTaskPlan.js';
 import { buildImageTaskPlan } from '../../../../src/shared/domain/imageTaskPlan.js';
 import { buildExecutionPrompt } from './instructionPrompt.js';
+import { isProductSetFeature } from './productSetJsonPrompt.js';
 import type { ImageTaskExecutionResult, ImageTaskExecutor } from './imageTaskController.js';
 import { getAppLogger } from '../logger/appLogger.js';
 
@@ -107,16 +108,7 @@ export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions)
       progress: { completed: 0, total: plan.count },
     });
 
-    for (let index = 0; index < plan.count; index += 1) {
-      logger.info('image-task', `开始生成第 ${index + 1}/${plan.count} 张图片`, { taskId: task.taskId });
-      const result = await options.modelGateway.executeSingleImage({
-        task,
-        plan,
-        finalPrompt,
-        abortSignal,
-      });
-
-      generatedImages.push(...result.images);
+    const ingestResult = async (result: ImageExecutionModelResult) => {
       if (result.textNotes?.length) {
         textNotes.push(...result.textNotes);
       }
@@ -124,33 +116,69 @@ export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions)
         warnings.push(...result.warnings);
       }
 
-      for (const [imageOffset, image] of result.images.entries()) {
-        await session.appendImage(image, index + imageOffset);
-      }
+      for (const image of result.images) {
+        if (session.imagePaths.length >= plan.count) {
+          return;
+        }
 
-      onProgress?.({
-        outputDir: session.outputDir,
-        requestJsonPath: session.requestJsonPath,
-        imageInstructionPath: session.imageInstructionPath,
-        outputJsonPath: session.outputJsonPath,
-        images: [...session.imagePaths],
-        progress: {
-          completed: session.imagePaths.length,
-          total: plan.count,
-        },
+        generatedImages.push(image);
+        await session.appendImage(image, session.imagePaths.length);
+        onProgress?.({
+          outputDir: session.outputDir,
+          requestJsonPath: session.requestJsonPath,
+          imageInstructionPath: session.imageInstructionPath,
+          outputJsonPath: session.outputJsonPath,
+          images: [...session.imagePaths],
+          progress: {
+            completed: session.imagePaths.length,
+            total: plan.count,
+          },
+        });
+      }
+    };
+
+    const usesProductSetBatchRequest = isProductSetFeature(task.feature) && plan.count > 1;
+
+    if (usesProductSetBatchRequest) {
+      logger.info('image-task', `开始单次生成 ${plan.count} 张图片`, { taskId: task.taskId });
+      const result = await options.modelGateway.executeImage({
+        task,
+        plan,
+        finalPrompt,
+        abortSignal,
       });
-      logger.info('image-task', `第 ${index + 1}/${plan.count} 张图片已保存`, {
-        taskId: task.taskId,
-        completed: session.imagePaths.length,
-      });
+      await ingestResult(result);
+
+      if (session.imagePaths.length < plan.count) {
+        throw new Error(
+          `图片服务在一次请求中仅返回了 ${session.imagePaths.length}/${plan.count} 张图片（n=${plan.count}）。`
+          + '请检查 API 网关是否支持批量出图，或稍后重试。',
+        );
+      }
+    } else {
+      for (let index = 0; index < plan.count; index += 1) {
+        logger.info('image-task', `开始生成第 ${index + 1}/${plan.count} 张图片`, { taskId: task.taskId });
+        const result = await options.modelGateway.executeSingleImage({
+          task,
+          plan,
+          finalPrompt,
+          abortSignal,
+        });
+        await ingestResult(result);
+      }
     }
+
+    logger.info('image-task', `已保存 ${session.imagePaths.length}/${plan.count} 张图片`, {
+      taskId: task.taskId,
+      completed: session.imagePaths.length,
+    });
 
     if (generatedImages.length === 0) {
       throw new Error('image model returned no usable image output');
     }
 
     const generated: ImageExecutionModelResult = {
-      images: generatedImages,
+      images: generatedImages.slice(0, plan.count),
       textNotes: textNotes.length > 0 ? textNotes : undefined,
       warnings,
     };

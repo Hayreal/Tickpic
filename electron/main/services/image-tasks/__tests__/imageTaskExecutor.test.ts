@@ -27,19 +27,17 @@ describe('imageTaskExecutor', () => {
         executeSingleImage: async ({ plan, finalPrompt }) => {
           calls.push(`execute:${plan.executionStage.model}:${plan.executionImages.length}:${finalPrompt}`);
           return {
-            images: [
-              {
-                fileName: 'result-1.png',
-                buffer: new Uint8Array([1, 2, 3]),
-                mimeType: 'image/png',
-              },
-            ],
+            images: [{
+              fileName: 'result-1.png',
+              buffer: new Uint8Array([1, 2, 3]),
+              mimeType: 'image/png',
+            }],
             textNotes: ['ok'],
             warnings: ['draft output'],
           };
         },
         executeImage: async () => {
-          throw new Error('executeImage should not be called directly');
+          throw new Error('executeImage should not be called for non-product-set tasks');
         },
       },
       artifactStore: {
@@ -134,24 +132,33 @@ describe('imageTaskExecutor', () => {
             }],
           };
         },
-        executeImage: async () => ({ images: [] }),
+        executeImage: async () => {
+          throw new Error('executeImage should not be called');
+        },
       },
       artifactStore: {
-        begin: async ({ task }) => ({
-          outputDir: `/outputs/${task.taskId}`,
-          requestJsonPath: `/outputs/${task.taskId}/request.json`,
-          imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
-          outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
-          imagePaths: [],
-          appendImage: async () => `/outputs/${task.taskId}/result-1.png`,
-          finalize: async () => ({
+        begin: async ({ task }) => {
+          const imagePaths: string[] = [];
+          return {
             outputDir: `/outputs/${task.taskId}`,
             requestJsonPath: `/outputs/${task.taskId}/request.json`,
             imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
             outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
-            images: [],
-          }),
-        }),
+            imagePaths,
+            appendImage: async () => {
+              const imagePath = `/outputs/${task.taskId}/result-1.png`;
+              imagePaths.push(imagePath);
+              return imagePath;
+            },
+            finalize: async () => ({
+              outputDir: `/outputs/${task.taskId}`,
+              requestJsonPath: `/outputs/${task.taskId}/request.json`,
+              imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
+              outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
+              images: imagePaths,
+            }),
+          };
+        },
         save: async ({ task }) => ({
           outputDir: `/outputs/${task.taskId}`,
           requestJsonPath: `/outputs/${task.taskId}/request.json`,
@@ -172,6 +179,116 @@ describe('imageTaskExecutor', () => {
     }), new AbortController().signal);
 
     expect(executionImageCount).toBe(0);
+  });
+
+  it('uses one batch request for product-set multi-count tasks', async () => {
+    let batchCalls = 0;
+    const executor = createImageTaskExecutor({
+      runtimeConfig,
+      modelGateway: {
+        executeImage: async ({ plan }) => {
+          batchCalls += 1;
+          expect(plan.count).toBe(3);
+          return {
+            images: Array.from({ length: 3 }, (_, index) => ({
+              fileName: `result-${index + 1}.png`,
+              buffer: new Uint8Array([index + 1]),
+              mimeType: 'image/png',
+            })),
+          };
+        },
+        executeSingleImage: async () => {
+          throw new Error('executeSingleImage should not be called for product-set batch tasks');
+        },
+      },
+      artifactStore: {
+        begin: async ({ task }) => {
+          const imagePaths: string[] = [];
+          return {
+            outputDir: `/outputs/${task.taskId}`,
+            requestJsonPath: `/outputs/${task.taskId}/request.json`,
+            imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
+            outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
+            imagePaths,
+            appendImage: async () => {
+              const imagePath = `/outputs/${task.taskId}/result-${imagePaths.length + 1}.png`;
+              imagePaths.push(imagePath);
+              return imagePath;
+            },
+            finalize: async () => ({
+              outputDir: `/outputs/${task.taskId}`,
+              requestJsonPath: `/outputs/${task.taskId}/request.json`,
+              imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
+              outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
+              images: imagePaths,
+            }),
+          };
+        },
+        save: async () => {
+          throw new Error('save should not be called directly');
+        },
+      },
+    });
+
+    const result = await executor(createTask({
+      feature: 'product_main_image',
+      count: 3,
+      images: [{ role: 'product', path: '/authorized/input/product.png' }],
+    }), new AbortController().signal);
+
+    expect(batchCalls).toBe(1);
+    expect(result.images).toHaveLength(3);
+  });
+
+  it('fails product-set batch tasks when the upstream returns fewer images than n', async () => {
+    const executor = createImageTaskExecutor({
+      runtimeConfig,
+      modelGateway: {
+        executeImage: async () => ({
+          images: [{
+            fileName: 'result-1.png',
+            buffer: new Uint8Array([1]),
+            mimeType: 'image/png',
+          }],
+        }),
+        executeSingleImage: async () => {
+          throw new Error('executeSingleImage should not be called for product-set batch tasks');
+        },
+      },
+      artifactStore: {
+        begin: async ({ task }) => {
+          const imagePaths: string[] = [];
+          return {
+            outputDir: `/outputs/${task.taskId}`,
+            requestJsonPath: `/outputs/${task.taskId}/request.json`,
+            imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
+            outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
+            imagePaths,
+            appendImage: async () => {
+              const imagePath = `/outputs/${task.taskId}/result-1.png`;
+              imagePaths.push(imagePath);
+              return imagePath;
+            },
+            finalize: async () => ({
+              outputDir: `/outputs/${task.taskId}`,
+              requestJsonPath: `/outputs/${task.taskId}/request.json`,
+              imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
+              outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
+              images: imagePaths,
+            }),
+          };
+        },
+        save: async () => {
+          throw new Error('save should not be called directly');
+        },
+      },
+    });
+
+    await expect(executor(createTask({
+      feature: 'product_main_image',
+      count: 3,
+      images: [{ role: 'product', path: '/authorized/input/product.png' }],
+    }), new AbortController().signal)).rejects.toThrow('仅返回了 1/3 张图片');
   });
 });
 

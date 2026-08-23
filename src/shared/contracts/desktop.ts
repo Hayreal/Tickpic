@@ -7,6 +7,7 @@ import type {
 } from '../domain/imageFeatureApi.js';
 import type { AppLogEntry } from '../domain/appLog.js';
 import type { AppSettings, RendererAppSettings } from '../domain/settings.js';
+import type { ProductHandheldReferenceDefinition } from '../domain/productHandheldReferences.js';
 
 export const IPC_CHANNELS = {
   storage: {
@@ -37,7 +38,14 @@ export const IPC_CHANNELS = {
     list: 'app-log:list',
     entry: 'app-log:entry',
   },
+  resources: {
+    listHandheldReferences: 'resources:list-handheld-references',
+  },
 } as const;
+
+export interface ResolvedProductHandheldReference extends ProductHandheldReferenceDefinition {
+  path: string;
+}
 
 export interface SaveImportBatchRequest {
   page: ImportBatch['page'];
@@ -96,6 +104,10 @@ export interface AppLogBridgeApi {
   onEntry(listener: (entry: AppLogEntry) => void): () => void;
 }
 
+export interface ResourcesBridgeApi {
+  listHandheldReferences(): Promise<ResolvedProductHandheldReference[]>;
+}
+
 export interface DesktopBridgeApi {
   platform: string;
   saveImportBatch(request: SaveImportBatchRequest): Promise<ImportBatch>;
@@ -109,4 +121,5 @@ export interface DesktopBridgeApi {
   settings: SettingsBridgeApi;
   imageTask: ImageTaskBridgeApi;
   logs: AppLogBridgeApi;
+  resources: ResourcesBridgeApi;
 }

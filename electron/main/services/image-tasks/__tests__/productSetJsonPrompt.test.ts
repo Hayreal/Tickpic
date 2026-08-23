@@ -1,6 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { buildProductSetJsonPrompt, parseProductSetJsonPrompt } from '../productSetJsonPrompt';
 
+const MULTI_IMAGE_BATCH_OUTPUT = {
+  meaning: 'API-level batch size: produce this many completely separate image files. Each file is one standalone final image.',
+  delivery: 'The response may contain multiple separate image outputs. Never pack multiple batch variants into one canvas.',
+  forbidden: [
+    'stacking multiple variants as horizontal/vertical strips in one image',
+    'collage or multi-panel grids of different batch variants',
+    'three-layer / multi-layer composites where each layer is a different variant',
+    'repeating the same composition N times inside one frame to satisfy count',
+  ],
+} as const;
+
+function expectBatchOutput(count: number) {
+  return {
+    count,
+    require_distinct: true,
+    ...MULTI_IMAGE_BATCH_OUTPUT,
+  };
+}
+
 describe('productSetJsonPrompt', () => {
   it('returns parseable JSON for a main-image handheld spray request', () => {
     const text = buildProductSetJsonPrompt({
@@ -10,8 +29,7 @@ describe('productSetJsonPrompt', () => {
       scenePrompt: 'fixative spray on canvas',
       prompt: 'premium commercial look',
       negativePrompt: 'extra bottles',
-      variantIndex: 1,
-      variantTotal: 3,
+      count: 3,
       aspectRatio: '1:1',
     });
 
@@ -30,7 +48,6 @@ describe('productSetJsonPrompt', () => {
     expect(spec.composition.hand_required).toBe(true);
     expect(spec.handheld.mode).toBe('handheld');
     expect(spec.handheld.required).toBe(true);
-    expect(spec.handheld.fallback).toBeUndefined();
     expect(spec.handheld.rules).toEqual(expect.arrayContaining([
       expect.stringContaining('5 fingers'),
       expect.stringContaining('thumb must be visible'),
@@ -55,44 +72,41 @@ describe('productSetJsonPrompt', () => {
       avoid: 'extra bottles',
       priority: expect.stringContaining('sku_lock'),
     });
-    expect(spec.variant).toEqual(expect.objectContaining({
-      index: 1,
-      total: 3,
-    }));
-    expect(typeof spec.variant.directive).toBe('string');
-    expect(spec.variant.directive.length).toBeGreaterThan(20);
+    expect(spec.batch_output).toEqual(expectBatchOutput(3));
+    expect(spec.variant).toBeUndefined();
   });
 
-  it('keeps main-image visual strategy free and only varies by N', () => {
-    const one = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
+  it('uses handheld_reference when a reference image is attached', () => {
+    const spec = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
       feature: 'product_main_image',
-      variantIndex: 1,
-      variantTotal: 3,
-    }));
-    const two = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
-      feature: 'product_main_image',
-      variantIndex: 2,
-      variantTotal: 3,
+      productHandheldMode: 'handheld',
+      images: [
+        { role: 'product', path: '/authorized/input/product.png' },
+        { role: 'reference', path: '/authorized/resources/product/handheld-pump-foam.png' },
+      ],
     }));
 
-    expect(one.composition.strategy).toBe('free_within_controls');
-    expect(two.composition.strategy).toBe('free_within_controls');
-    expect(one.variant.directive).not.toBe(two.variant.directive);
-    expect(one.composition.forced_style_mix).toBeUndefined();
+    expect(spec.handheld.reference_driven).toBe(true);
+    expect(spec.handheld.rules).toBeUndefined();
+    expect(spec.handheld_reference).toEqual(expect.objectContaining({
+      source: 'attached reference image',
+      apply: expect.arrayContaining(['hand grip', 'hand pose']),
+    }));
+    expect(spec.quality_targets).toEqual(expect.arrayContaining([
+      expect.stringMatching(/match the reference image/i),
+    ]));
   });
 
-  it('makes handheld a hard requirement that cannot be escaped by free composition or fallback', () => {
+  it('makes handheld a hard requirement that cannot be escaped by free composition', () => {
     const spec = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
       feature: 'product_main_image',
       productHandheldMode: 'handheld',
       productEffectMode: 'auto',
-      variantIndex: 1,
-      variantTotal: 1,
+      count: 1,
     }));
 
     expect(spec.handheld.mode).toBe('handheld');
     expect(spec.handheld.required).toBe(true);
-    expect(spec.handheld.fallback).toBeUndefined();
     expect(spec.composition.hand_required).toBe(true);
     expect(spec.composition.allowed_approaches).toEqual(expect.arrayContaining([
       expect.stringMatching(/handheld/i),
@@ -108,7 +122,7 @@ describe('productSetJsonPrompt', () => {
       expect.stringMatching(/no free-standing product without a hand|no product standing alone/i),
     ]));
     expect(spec.user_overrides.priority).toMatch(/handheld/);
-    expect(spec.variant).toBeUndefined();
+    expect(spec.batch_output).toBeUndefined();
   });
 
   it('assembles main-image JSON with hard controls before free visual fields and omits conflicting defaults', () => {
@@ -116,8 +130,7 @@ describe('productSetJsonPrompt', () => {
       feature: 'product_main_image',
       productHandheldMode: 'handheld',
       productEffectMode: 'auto',
-      variantIndex: 1,
-      variantTotal: 3,
+      count: 3,
       aspectRatio: '1:1',
     });
     const spec = parseProductSetJsonPrompt(text);
@@ -126,7 +139,7 @@ describe('productSetJsonPrompt', () => {
     expect(keys.indexOf('sku_lock')).toBeLessThan(keys.indexOf('handheld'));
     expect(keys.indexOf('handheld')).toBeLessThan(keys.indexOf('composition'));
     expect(keys.indexOf('composition')).toBeLessThan(keys.indexOf('lighting'));
-    expect(keys.indexOf('lighting')).toBeLessThan(keys.indexOf('variant'));
+    expect(keys.indexOf('lighting')).toBeLessThan(keys.indexOf('batch_output'));
     expect(spec.spray_physics).toBeUndefined();
     expect(String(spec.effect.guidance)).toMatch(/only if the SKU truly has/i);
     expect(spec.lighting.key.position).toMatch(/Front-side|Side|Back|Top/i);
@@ -135,7 +148,7 @@ describe('productSetJsonPrompt', () => {
     expect(spec.user_overrides).not.toHaveProperty('scene');
     expect(spec.user_overrides).not.toHaveProperty('supplement');
     expect(spec.user_overrides).not.toHaveProperty('avoid');
-    expect(spec.user_overrides.priority).toMatch(/variant/);
+    expect(spec.user_overrides.priority).toMatch(/batch_output/);
   });
 
   it('includes spray_physics only when effect mode is show', () => {
@@ -157,21 +170,20 @@ describe('productSetJsonPrompt', () => {
     expect(showSpec.spray_physics.spray_origin).toMatch(/nozzle/i);
   });
 
-  it('varies concrete lighting and camera by variant index', () => {
+  it('uses a stable default look instead of per-variant lighting and camera', () => {
     const one = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
       feature: 'product_main_image',
-      variantIndex: 1,
-      variantTotal: 3,
+      count: 3,
     }));
     const two = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
       feature: 'product_main_image',
-      variantIndex: 2,
-      variantTotal: 3,
+      count: 3,
+      prompt: 'different supplement',
     }));
 
-    expect(one.lighting).not.toEqual(two.lighting);
-    expect(one.camera).not.toEqual(two.camera);
-    expect(one.lighting.white_balance_k).not.toBe(two.lighting.white_balance_k);
+    expect(one.lighting).toEqual(two.lighting);
+    expect(one.camera).toEqual(two.camera);
+    expect(one.batch_output).toEqual(expectBatchOutput(3));
   });
 
   it('builds comparison JSON with enlarged foreground product when showProduct is true', () => {
@@ -181,8 +193,7 @@ describe('productSetJsonPrompt', () => {
       comparisonIntensity: 'heavy',
       showProduct: true,
       scenePrompt: 'stained bathroom tile',
-      variantIndex: 2,
-      variantTotal: 3,
+      count: 2,
     }));
 
     expect(spec.task).toBe('product_comparison_image');
@@ -198,6 +209,7 @@ describe('productSetJsonPrompt', () => {
     expect(spec.product_overlay.instances).toBe(1);
     expect(spec.intensity).toBe('heavy');
     expect(spec.user_overrides.scene).toBe('stained bathroom tile');
+    expect(spec.batch_output).toEqual(expectBatchOutput(2));
   });
 
   it('disables product overlay when comparison showProduct is false', () => {
@@ -217,8 +229,7 @@ describe('productSetJsonPrompt', () => {
       multiSceneLayout: 'grid',
       prompt: 'kitchen and bathroom surfaces',
       negativePrompt: 'marketing text',
-      variantIndex: 1,
-      variantTotal: 2,
+      count: 2,
     }));
 
     expect(spec.task).toBe('product_multi_scene');
@@ -231,6 +242,7 @@ describe('productSetJsonPrompt', () => {
     ]));
     expect(spec.user_overrides.supplement).toBe('kitchen and bathroom surfaces');
     expect(spec.user_overrides.avoid).toBe('marketing text');
+    expect(spec.batch_output).toEqual(expectBatchOutput(2));
   });
 
   it('omits empty user override fields', () => {
@@ -247,16 +259,14 @@ describe('productSetJsonPrompt', () => {
     expect(spec.user_overrides.priority).toEqual(expect.any(String));
   });
 
-  it('marks later cycles when variantIndex exceeds three directions', () => {
+  it('supports legacy variantTotal for batch_output when count is absent', () => {
     const spec = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
       feature: 'product_main_image',
       variantIndex: 4,
       variantTotal: 6,
     }));
 
-    expect(spec.variant.index).toBe(4);
-    expect(spec.variant.total).toBe(6);
-    expect(spec.variant.cycle).toBe(2);
-    expect(spec.variant.directive).toMatch(/cycle|round|previously unused/i);
+    expect(spec.batch_output).toEqual(expectBatchOutput(6));
+    expect(spec.variant).toBeUndefined();
   });
 });

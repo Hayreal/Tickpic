@@ -71,6 +71,7 @@
       "dist/**/*",
       "dist-electron/**/*",
       "resources/icon.png",
+      "resources/product/**/*",
       "package.json"
     ],
     "extraMetadata": {

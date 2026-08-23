@@ -40,7 +40,7 @@ export function createOpenAIProtocolClient(
             mimeType: image.mimeType,
           })),
           model: input.model,
-          prompt: input.finalPrompt,
+          prompt: buildOpenAIExecutionPrompt(input.finalPrompt, input.count),
           n: input.count,
           ...(input.size ? { size: input.size } : {}),
           quality: 'auto',
@@ -48,7 +48,7 @@ export function createOpenAIProtocolClient(
         : {
           operation: 'generate',
           model: input.model,
-          prompt: input.finalPrompt,
+          prompt: buildOpenAIExecutionPrompt(input.finalPrompt, input.count),
           n: input.count,
           ...(input.size ? { size: input.size } : {}),
           quality: 'auto',
@@ -65,7 +65,7 @@ export function createOpenAIProtocolClient(
         ? await openai.images.edit({
           image: await Promise.all(input.images.map((image) => buildOpenAIImageFile(image))),
           model: input.model,
-          prompt: input.finalPrompt,
+          prompt: buildOpenAIExecutionPrompt(input.finalPrompt, input.count),
           n: input.count,
           ...(input.size ? { size: input.size } : {}),
           quality: 'auto',
@@ -74,7 +74,7 @@ export function createOpenAIProtocolClient(
         })
         : await openai.images.generate({
           model: input.model,
-          prompt: input.finalPrompt,
+          prompt: buildOpenAIExecutionPrompt(input.finalPrompt, input.count),
           n: input.count,
           ...(input.size ? { size: input.size } : {}),
           quality: 'auto',
@@ -112,7 +112,10 @@ export function createGeminiProtocolClient(
 ): ProtocolModelClient {
   return {
     async executeImage(input) {
-      const executionParts = await buildGeminiParts(input.finalPrompt, input.images);
+      const executionParts = await buildGeminiParts(
+        buildGeminiExecutionPrompt(input.finalPrompt, input.count),
+        input.images,
+      );
       const executionPayload = {
         model: input.model,
         contents: [
@@ -123,7 +126,6 @@ export function createGeminiProtocolClient(
         ],
         config: {
           responseModalities: ['TEXT', 'IMAGE'],
-          candidateCount: input.count,
           ...(input.aspectRatio ? { aspectRatio: input.aspectRatio } : {}),
         },
       };
@@ -228,15 +230,17 @@ function extractGeminiExecutionResult(response: unknown): ImageExecutionModelRes
   const parts = extractGeminiParts(response);
   const images: GeneratedImageOutput[] = [];
   const textNotes: string[] = [];
+  let imageIndex = 0;
 
-  for (const [index, part] of parts.entries()) {
+  for (const part of parts) {
     if (isRecord(part) && typeof part.text === 'string' && part.text.trim()) {
       textNotes.push(part.text.trim());
     }
 
     if (isRecord(part) && isRecord(part.inlineData) && typeof part.inlineData.data === 'string') {
+      imageIndex += 1;
       images.push({
-        fileName: `result-${index + 1}${extensionForMimeType(String(part.inlineData.mimeType ?? 'image/png'))}`,
+        fileName: `result-${imageIndex}${extensionForMimeType(String(part.inlineData.mimeType ?? 'image/png'))}`,
         buffer: Buffer.from(part.inlineData.data, 'base64'),
         mimeType: String(part.inlineData.mimeType ?? 'image/png'),
       });
@@ -292,6 +296,22 @@ function extensionForMimeType(mimeType: string) {
   if (mimeType === 'image/jpeg') return '.jpg';
   if (mimeType === 'image/webp') return '.webp';
   return '.png';
+}
+
+function buildGeminiExecutionPrompt(finalPrompt: string, count: number) {
+  if (count <= 1) {
+    return finalPrompt;
+  }
+
+  return `${finalPrompt}\n\nAPI batch size is ${count}: return ${count} separate image parts in this response. Each part must be one complete standalone image. Do not collage, stack, or layer multiple variants inside a single image canvas.`;
+}
+
+function buildOpenAIExecutionPrompt(finalPrompt: string, count: number) {
+  if (count <= 1) {
+    return finalPrompt;
+  }
+
+  return `${finalPrompt}\n\nAPI parameter n=${count} already requests ${count} separate image files. Each file must be one complete standalone composition. Do not collage, stack, or layer multiple variants inside a single image canvas.`;
 }
 
 function isRecord(value: unknown): value is Record<string, any> {

@@ -158,10 +158,15 @@ describe('image feature API contract', () => {
     for (const [feature, promptContents, defaultShowProduct] of expectations) {
       const definition = getImageFeatureDefinition(feature);
 
-      expect(definition.acceptedImageRoles).toEqual(['product']);
+      if (feature === 'product_main_image') {
+        expect(definition.acceptedImageRoles).toEqual(['product', 'reference']);
+        expect(definition.executionImageRoles).toEqual(['product', 'reference']);
+      } else {
+        expect(definition.acceptedImageRoles).toEqual(['product']);
+        expect(definition.executionImageRoles).toEqual(['product']);
+      }
       expect(definition.requiredImageRoles).toEqual(['product']);
       expect(definition.executionModel).toBe('edit');
-      expect(definition.executionImageRoles).toEqual(['product']);
       expect(definition.defaultShowProduct).toBe(defaultShowProduct);
       for (const promptContent of promptContents) {
         expect(definition.mainPrompt).toContain(promptContent);
@@ -200,6 +205,30 @@ describe('image feature API contract', () => {
     expect(validateImageTaskRequest({ ...request, prompt: 'Kitchen countertop cleaning' }).prompt).toBe(
       'Kitchen countertop cleaning',
     );
+  });
+
+  it('accepts handheld reference images on product main image in handheld mode', () => {
+    const request = validateImageTaskRequest({
+      feature: 'product_main_image',
+      productHandheldMode: 'handheld',
+      images: [
+        { role: 'product', path: '/authorized/input/product.png' },
+        { role: 'reference', path: '/authorized/resources/product/handheld-pump-foam.png' },
+      ],
+    });
+
+    expect(request.images).toHaveLength(2);
+  });
+
+  it('rejects handheld reference images on product main image outside handheld mode', () => {
+    expect(() => validateImageTaskRequest({
+      feature: 'product_main_image',
+      productHandheldMode: 'not_handheld',
+      images: [
+        { role: 'product', path: '/authorized/input/product.png' },
+        { role: 'reference', path: '/authorized/resources/product/handheld-pump-foam.png' },
+      ],
+    })).toThrow('product_main_image accepts reference images only in handheld mode');
   });
 
   it('accepts every product-set control for its owning feature', () => {

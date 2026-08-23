@@ -137,8 +137,7 @@ describe('instructionPrompt', () => {
       scenePrompt: 'fixative spray',
       prompt: 'premium look',
       negativePrompt: 'extra bottles',
-      variantIndex: 1,
-      variantTotal: 3,
+      count: 3,
       aspectRatio: '1:1',
     }, 'ignored main prompt');
 
@@ -153,7 +152,11 @@ describe('instructionPrompt', () => {
     expect(spec.spray_physics.spray_origin).toMatch(/nozzle/i);
     expect(spec.negative_prompt.join(' ')).toMatch(/icon/i);
     expect(spec.user_overrides.scene).toBe('fixative spray');
-    expect(spec.variant.index).toBe(1);
+    expect(spec.batch_output).toEqual(expect.objectContaining({
+      count: 3,
+      require_distinct: true,
+    }));
+    expect(spec.variant).toBeUndefined();
   });
 
   it.each(['handheld', 'not_handheld'] as const)('maps main-image handheld mode %s into JSON', (productHandheldMode) => {
@@ -219,15 +222,20 @@ describe('instructionPrompt', () => {
     expect(spec.negative_prompt.join(' ')).toMatch(/SKU|people|hands/i);
   });
 
-  it('varies product-set JSON directives by variant index and marks later cycles', () => {
-    const first = productSetSpec({ feature: 'product_main_image', variantIndex: 1, variantTotal: 6 });
-    const second = productSetSpec({ feature: 'product_main_image', variantIndex: 2, variantTotal: 6 });
-    const repeated = productSetSpec({ feature: 'product_main_image', variantIndex: 4, variantTotal: 6 });
+  it('adds batch_output for multi-count product-set requests and forbids in-frame stacking', () => {
+    const first = productSetSpec({ feature: 'product_main_image', count: 3 });
+    const second = productSetSpec({ feature: 'product_main_image', count: 6 });
+    const one = productSetSpec({ feature: 'product_main_image', count: 1 });
 
     expect(first.composition.strategy).toBe('free_within_controls');
-    expect(first.variant.directive).not.toBe(second.variant.directive);
-    expect(repeated.variant.cycle).toBe(2);
-    expect(repeated.variant.directive).toMatch(/cycle|round|previously unused/i);
+    expect(first.batch_output).toEqual(expect.objectContaining({
+      count: 3,
+      require_distinct: true,
+    }));
+    expect(first.batch_output.forbidden.join(' ')).toMatch(/stack|collage|layer/i);
+    expect(second.batch_output.count).toBe(6);
+    expect(one.batch_output).toBeUndefined();
+    expect(first.variant).toBeUndefined();
   });
 
   it('omits variant from product-set JSON when only one variant field is present', () => {
@@ -246,8 +254,7 @@ describe('instructionPrompt', () => {
       scenePrompt: '  stained tile wall  ',
       prompt: '  keep the camera fixed  ',
       negativePrompt: '  added products  ',
-      variantIndex: 2,
-      variantTotal: 3,
+      count: 3,
     });
 
     expect(spec.user_overrides).toEqual(expect.objectContaining({
@@ -255,7 +262,9 @@ describe('instructionPrompt', () => {
       supplement: 'keep the camera fixed',
       avoid: 'added products',
     }));
-    expect(spec.variant.index).toBe(2);
+    expect(spec.batch_output).toEqual(expect.objectContaining({ count: 3 }));
+    expect(spec.composition.one_pair_only).toMatch(/exactly one BEFORE\/AFTER pair/i);
+    expect(spec.variant).toBeUndefined();
   });
 
   it('omits empty product-set override strings', () => {

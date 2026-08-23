@@ -21,16 +21,16 @@ describe('modelGateway', () => {
     const abortSignal = new AbortController().signal;
     const result = await gateway.executeImage({ task, plan, finalPrompt: 'assembled prompt', abortSignal });
 
-    expect(result.warnings).toEqual(['openai image', 'openai image']);
-    expect(result.images).toHaveLength(2);
-    expect(openai.executeImage).toHaveBeenCalledTimes(2);
+    expect(result.warnings).toEqual(['openai image']);
+    expect(result.images).toHaveLength(1);
+    expect(openai.executeImage).toHaveBeenCalledTimes(1);
     expect(openai.executeImage).toHaveBeenCalledWith({
       task,
       plan,
       model: 'gpt-image-2',
       finalPrompt: 'assembled prompt',
       images: plan.executionImages,
-      count: 1,
+      count: 2,
       aspectRatio: '4:3',
       size: '1536x1024',
       abortSignal,

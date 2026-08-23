@@ -11,6 +11,8 @@ import type { ImageTaskPlan } from '../../../../../src/shared/domain/imageTaskPl
 import type { ImageTaskRecord } from '../../../../../src/shared/domain/imageFeatureApi';
 
 const TEST_BASE_URL = 'https://api.n1n.ai';
+const MULTI_IMAGE_OPENAI_PROMPT_SUFFIX = '\n\nAPI parameter n=2 already requests 2 separate image files. Each file must be one complete standalone composition. Do not collage, stack, or layer multiple variants inside a single image canvas.';
+const MULTI_IMAGE_GEMINI_PROMPT_SUFFIX = '\n\nAPI batch size is 2: return 2 separate image parts in this response. Each part must be one complete standalone image. Do not collage, stack, or layer multiple variants inside a single image canvas.';
 
 describe('protocolClients', () => {
   let tempDir: string;
@@ -50,7 +52,7 @@ describe('protocolClients', () => {
     expect(openai.images.generate).toHaveBeenCalledWith(
       expect.objectContaining({
         model: 'gpt-image-2',
-        prompt: 'final prompt',
+        prompt: `final prompt${MULTI_IMAGE_OPENAI_PROMPT_SUFFIX}`,
         n: 2,
         size: '1024x1536',
       }),
@@ -147,7 +149,7 @@ describe('protocolClients', () => {
     expect(openai.images.edit).toHaveBeenCalledWith(
       expect.objectContaining({
         model: 'gpt-image-2',
-        prompt: 'final prompt',
+        prompt: `final prompt${MULTI_IMAGE_OPENAI_PROMPT_SUFFIX}`,
         n: 2,
         size: '1024x1536',
       }),
@@ -265,6 +267,64 @@ describe('protocolClients', () => {
     await client.executeImage(createStickerVariationExecutionInput(imagePath));
 
     expect(openai.images.edit.mock.calls[0][0]).not.toHaveProperty('input_fidelity');
+  });
+
+  it('extracts multiple Gemini image parts from one response', async () => {
+    const gemini = {
+      models: {
+        generateContent: vi.fn().mockResolvedValue({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  { text: 'batch note' },
+                  {
+                    inlineData: {
+                      mimeType: 'image/png',
+                      data: Buffer.from('image-1').toString('base64'),
+                    },
+                  },
+                  {
+                    inlineData: {
+                      mimeType: 'image/png',
+                      data: Buffer.from('image-2').toString('base64'),
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      },
+    };
+    const client = createGeminiProtocolClient(gemini, { baseUrl: TEST_BASE_URL });
+
+    const result = await client.executeImage(createExecutionInput(imagePath));
+
+    expect(gemini.models.generateContent).toHaveBeenCalledWith(expect.objectContaining({
+      contents: [
+        expect.objectContaining({
+          parts: [
+            expect.objectContaining({
+              text: `final prompt${MULTI_IMAGE_GEMINI_PROMPT_SUFFIX}`,
+            }),
+            expect.objectContaining({
+              inlineData: expect.objectContaining({ mimeType: 'image/png' }),
+            }),
+            expect.objectContaining({
+              inlineData: expect.objectContaining({ mimeType: 'image/png' }),
+            }),
+          ],
+        }),
+      ],
+      config: expect.not.objectContaining({
+        candidateCount: expect.anything(),
+      }),
+    }));
+    expect(result.textNotes).toEqual(['batch note']);
+    expect(result.images).toHaveLength(2);
+    expect(Buffer.from(result.images[0].buffer).toString()).toBe('image-1');
+    expect(Buffer.from(result.images[1].buffer).toString()).toBe('image-2');
   });
 
   it('uses Gemini generateContent for image execution', async () => {

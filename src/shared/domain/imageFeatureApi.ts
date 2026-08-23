@@ -242,11 +242,11 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   product_main_image: {
     feature: 'product_main_image',
-    mainPrompt: 'Generate one US Temu ecommerce main product image from a single primary SKU photo. Keep SKU identity locked, include a short English headline, and freely choose the strongest commercial visual approach. Structured handheld/effect controls and batch variant index/total are encoded in the JSON execution prompt.',
-    acceptedImageRoles: ['product'],
+    mainPrompt: 'Generate one US Temu ecommerce main product image from a single primary SKU photo. Keep SKU identity locked, include a short English headline, and freely choose the strongest commercial visual approach. Structured handheld/effect controls and optional handheld reference images are encoded in the JSON execution prompt.',
+    acceptedImageRoles: ['product', 'reference'],
     requiredImageRoles: ['product'],
     executionModel: 'edit',
-    executionImageRoles: ['product'],
+    executionImageRoles: ['product', 'reference'],
     defaultShowProduct: true,
   },
   product_comparison_image: {
@@ -351,6 +351,16 @@ export function validateImageTaskRequest(input: ImageTaskRequest): ImageTaskRequ
   }
 
   validateProductSetControls(input);
+
+  if (input.feature === 'product_main_image') {
+    const referenceCount = images.filter((image) => image.role === 'reference').length;
+    if (referenceCount > 1) {
+      throw new Error('product_main_image accepts at most one reference image');
+    }
+    if (referenceCount > 0 && input.productHandheldMode !== 'handheld') {
+      throw new Error('product_main_image accepts reference images only in handheld mode');
+    }
+  }
 
   if (input.count !== undefined && (!Number.isInteger(input.count) || input.count <= 0)) {
     throw new Error('count must be a positive integer');

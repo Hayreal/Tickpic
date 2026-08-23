@@ -25,6 +25,9 @@ const desktopClient = {
   listTasks,
   settings: { get: vi.fn(() => Promise.resolve(settings)) },
   imageTask: { get: imageTaskGet },
+  resources: {
+    listHandheldReferences: vi.fn(() => Promise.resolve([])),
+  },
 };
 
 vi.mock('../../hooks/useImageTask', () => ({
@@ -135,8 +138,7 @@ describe('ProductImageSet', () => {
 
     await waitFor(() => expect(submitMany).toHaveBeenCalledTimes(1));
     expect(submitMany.mock.calls[0]![0]).toEqual([
-      expect.objectContaining({ feature: 'product_comparison_image', count: 1, variantIndex: 1, variantTotal: 2 }),
-      expect.objectContaining({ feature: 'product_comparison_image', count: 1, variantIndex: 2, variantTotal: 2 }),
+      expect.objectContaining({ feature: 'product_comparison_image', count: 2 }),
     ]);
   });
 

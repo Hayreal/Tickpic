@@ -16,6 +16,8 @@ import { createFileSettingsStore } from '../services/settings/settingsStore.js';
 import { resolveWorkspacePaths } from '../services/storage/workspacePaths.js';
 import { registerAppLogIpc } from '../services/logger/appLogIpc.js';
 import { getAppLogger } from '../services/logger/appLogger.js';
+import { registerProductResourcesIpc } from '../services/resources/productResourcesIpc.js';
+import { resolveAppResourcesDir } from '../services/resources/productResources.js';
 
 export interface BootstrapPaths {
   settingsFile: string;
@@ -42,6 +44,7 @@ export interface DesktopHandlersRegistration {
 export function registerDesktopHandlers(bootstrap: BootstrapPaths): DesktopHandlersRegistration {
   const logger = getAppLogger();
   registerAppLogIpc(logger);
+  registerProductResourcesIpc();
 
   const settingsStore = createFileSettingsStore(bootstrap.settingsFile, bootstrap.defaultWorkspaceDir);
   let workspaceDir = readInitialWorkspaceDir(bootstrap.settingsFile, bootstrap.defaultWorkspaceDir);
@@ -57,7 +60,7 @@ export function registerDesktopHandlers(bootstrap: BootstrapPaths): DesktopHandl
 
   function resolveAuthorizedRoots() {
     const paths = getWorkspacePathsSync();
-    return [paths.root, paths.importsDir, paths.outputsDir];
+    return [paths.root, paths.importsDir, paths.outputsDir, resolveAppResourcesDir()];
   }
 
   async function refreshWorkspaceDir() {

@@ -29,13 +29,15 @@ export type ProductSetJsonSpec = Record<string, unknown> & {
   quality_targets: string[];
   negative_prompt: string[];
   user_overrides: Record<string, unknown>;
-  variant?: {
-    index: number;
-    total: number;
-    cycle?: number;
-    directive: string;
+  batch_output?: {
+    count: number;
+    require_distinct: true;
+    delivery: string;
+    meaning: string;
+    forbidden: string[];
   };
   handheld?: Record<string, unknown>;
+  handheld_reference?: Record<string, unknown>;
   effect?: Record<string, unknown>;
   spray_physics?: Record<string, unknown>;
   copy?: Record<string, unknown>;
@@ -47,7 +49,7 @@ export type ProductSetJsonSpec = Record<string, unknown> & {
 };
 
 const PRODUCT_SET_PRIORITY =
-  'sku_lock > structured controls (handheld/effect/layout) > composition hard rules > variant directive and variant lighting/camera > user scene > supplement > avoid > free visual direction within allowed approaches';
+  'sku_lock > handheld_reference (when provided) > structured controls (handheld/effect/layout) > composition hard rules > batch_output > user scene > supplement > avoid > free visual direction within allowed approaches';
 
 const SKU_LOCK = {
   source: 'single primary SKU product photo as the only product identity reference',
@@ -106,127 +108,40 @@ const HANDHELD_NEGATIVE = [
   'no exaggerated product taller than the wrist in handheld shots',
 ] as const;
 
-const VARIANT_LOOKS = [
-  {
-    lighting: {
-      key: {
-        source: 'Commercial continuous LED',
-        modifier: 'Large softbox',
-        position: 'Front-side key, 30 degrees above eye level',
-        effect: 'Clean product-readable highlights with controlled shadows',
-      },
-      fill: { type: 'Silver reflector', ratio: '1:3' },
-      ambient: 'Controlled',
-      white_balance_k: '5200',
+const DEFAULT_LOOK = {
+  lighting: {
+    key: {
+      source: 'Commercial continuous LED',
+      modifier: 'Large softbox',
+      position: 'Front-side key, 30 degrees above eye level',
+      effect: 'Clean product-readable highlights with controlled shadows',
     },
-    camera: {
-      system: 'Digital camera',
-      sensor: 'Full-frame',
-      lens: { type: 'Prime', focal_length_mm: '50' },
-      exposure: { iso: '100', aperture_f: '5.6', metering: 'Product-weighted' },
-      focus: {
-        target: 'Product label and grip interaction',
-        depth_of_field: 'Medium commercial clarity',
-      },
-      framing: {
-        orientation: 'Square',
-        crop: 'Hero product with supporting scene',
-        angle: 'Eye-level',
-        composition: 'Clear hero hierarchy for US Temu ecommerce',
-      },
+    fill: { type: 'Silver reflector', ratio: '1:3' },
+    ambient: 'Controlled',
+    white_balance_k: '5200',
+  },
+  camera: {
+    system: 'Digital camera',
+    sensor: 'Full-frame',
+    lens: { type: 'Prime', focal_length_mm: '50' },
+    exposure: { iso: '100', aperture_f: '5.6', metering: 'Product-weighted' },
+    focus: {
+      target: 'Product label and grip interaction',
+      depth_of_field: 'Medium commercial clarity',
     },
-    color_grading: {
-      look: 'Clean commercial ecommerce, coordinated with SKU label palette',
-      contrast: 'Medium',
-      saturation: 'Natural',
-    },
-    directive: {
-      product_main_image: 'Choose a clearly different ecommerce approach via sub-scene location and foreground layering. Do not only swap background or nudge the product.',
-      product_comparison_image: 'Change the core problem sub-area, foreground prop layout, and color temperature. Do not rely on minor recolor, title-only, or product-shift differences.',
-      product_multi_scene: 'Change space type, viewing distance/angle, and lighting mood. Output only target scenes/objects/surfaces/environments; no product or people.',
+    framing: {
+      orientation: 'Square',
+      crop: 'Hero product with supporting scene',
+      angle: 'Eye-level',
+      composition: 'Clear hero hierarchy for US Temu ecommerce',
     },
   },
-  {
-    lighting: {
-      key: {
-        source: 'Window daylight',
-        modifier: 'Sheer diffusion',
-        position: 'Strong side key from camera left',
-        effect: 'Directional shadows and deeper spatial separation',
-      },
-      fill: { type: 'Low ambient bounce', ratio: '1:5' },
-      ambient: 'Natural',
-      white_balance_k: '5600',
-    },
-    camera: {
-      system: 'Digital camera',
-      sensor: 'Full-frame',
-      lens: { type: 'Prime', focal_length_mm: '35' },
-      exposure: { iso: '200', aperture_f: '4.0', metering: 'Center-weighted' },
-      focus: {
-        target: 'Primary interaction surface and product face',
-        depth_of_field: 'Shallow to medium with readable background context',
-      },
-      framing: {
-        orientation: 'Square',
-        crop: 'Three-quarter scene with product emphasis',
-        angle: 'Slight high angle',
-        composition: 'Leading lines into the hero product',
-      },
-    },
-    color_grading: {
-      look: 'Cool daylight commercial look coordinated with SKU palette',
-      contrast: 'Medium-high',
-      saturation: 'Slightly vibrant',
-    },
-    directive: {
-      product_main_image: 'Choose a clearly different ecommerce approach via spatial depth, lighting direction/intensity, and background density. Do not only swap background or nudge the product.',
-      product_comparison_image: 'Change spatial depth, lighting direction/intensity, and the visual form of the Before problem while After improves the same object and region.',
-      product_multi_scene: 'Change primary surface/object type, background complexity, and space type. Output only target scenes/objects/surfaces/environments; no product or people.',
-    },
+  color_grading: {
+    look: 'Clean commercial ecommerce, coordinated with SKU label palette',
+    contrast: 'Medium',
+    saturation: 'Natural',
   },
-  {
-    lighting: {
-      key: {
-        source: 'Warm practical lamp plus soft LED',
-        modifier: 'Beauty dish or small softbox',
-        position: 'Top-front key with mild rim separation',
-        effect: 'Warm highlights and compact commercial contrast',
-      },
-      fill: { type: 'Warm reflector', ratio: '1:4' },
-      ambient: 'Suppressed',
-      white_balance_k: '4800',
-    },
-    camera: {
-      system: 'Digital camera',
-      sensor: 'Full-frame',
-      lens: { type: 'Prime', focal_length_mm: '85' },
-      exposure: { iso: '100', aperture_f: '8.0', metering: 'Spot on product label' },
-      focus: {
-        target: 'Brand label sharpness',
-        depth_of_field: 'Deep enough to keep product fully sharp',
-      },
-      framing: {
-        orientation: 'Square',
-        crop: 'Tight hero product with selective environment',
-        angle: 'Low angle',
-        composition: 'Centered hero with compressed background',
-      },
-    },
-    color_grading: {
-      look: 'Warm commercial ecommerce look coordinated with SKU palette',
-      contrast: 'Medium',
-      saturation: 'Natural to warm',
-    },
-    directive: {
-      product_main_image: 'Choose a clearly different ecommerce approach via color temperature, lighting direction/intensity, and background density. Do not only swap background or nudge the product.',
-      product_comparison_image: 'Change foreground prop layout, lighting direction/intensity, and the visual form of the Before problem while After improves the same object and region.',
-      product_multi_scene: 'Change viewing distance/angle, primary surface/object type, and background complexity. Output only target scenes/objects/surfaces/environments; no product or people.',
-    },
-  },
-] as const;
-
-const PRODUCT_SET_FEATURE_DIRECTION_COUNT = VARIANT_LOOKS.length;
+} as const;
 
 export function isProductSetFeature(feature: ImageFeature) {
   return feature === 'product_main_image'
@@ -250,8 +165,6 @@ function buildProductSetSpec(request: ImageTaskRequest): ProductSetJsonSpec {
   const scene = request.feature === 'product_multi_scene' ? null : trimOrNull(request.scenePrompt);
   const supplement = trimOrNull(request.prompt);
   const avoid = trimOrNull(request.negativePrompt);
-  const look = resolveVariantLook(request);
-  const variant = buildVariant(request, look.directiveIndex);
 
   const draft: Record<string, unknown> = {
     task: request.feature,
@@ -286,13 +199,25 @@ function buildProductSetSpec(request: ImageTaskRequest): ProductSetJsonSpec {
   }
 
   draft.environment = environmentForFeature(request.feature, scene, supplement);
-  draft.lighting = cloneLook(look.lighting);
-  draft.camera = cloneLook(look.camera);
-  draft.color_grading = cloneLook(look.color_grading);
+  draft.lighting = cloneLook(DEFAULT_LOOK.lighting);
+  draft.camera = cloneLook(DEFAULT_LOOK.camera);
+  draft.color_grading = cloneLook(DEFAULT_LOOK.color_grading);
   draft.user_overrides = buildUserOverrides(scene, supplement, avoid);
 
-  if (variant) {
-    draft.variant = variant;
+  const batchCount = resolveBatchCount(request);
+  if (batchCount > 1) {
+    draft.batch_output = {
+      count: batchCount,
+      require_distinct: true,
+      meaning: 'API-level batch size: produce this many completely separate image files. Each file is one standalone final image.',
+      delivery: 'The response may contain multiple separate image outputs. Never pack multiple batch variants into one canvas.',
+      forbidden: [
+        'stacking multiple variants as horizontal/vertical strips in one image',
+        'collage or multi-panel grids of different batch variants',
+        'three-layer / multi-layer composites where each layer is a different variant',
+        'repeating the same composition N times inside one frame to satisfy count',
+      ],
+    };
   }
 
   return orderedSpec(draft);
@@ -302,15 +227,23 @@ function buildMainImageFields(request: ImageTaskRequest) {
   const handheldMode: ProductHandheldMode = request.productHandheldMode ?? 'not_handheld';
   const effectMode: ProductEffectMode = request.productEffectMode ?? 'auto';
   const isHandheld = handheldMode === 'handheld';
+  const hasReference = hasReferenceImage(request);
 
   const fields: Record<string, unknown> = {
     handheld: isHandheld
-      ? {
-          mode: 'handheld',
-          required: true,
-          must: 'A real human hand must visibly hold or operate the SKU in the final image',
-          rules: [...HANDHELD_RULES],
-        }
+      ? hasReference
+        ? {
+            mode: 'handheld',
+            required: true,
+            must: 'Match the grip, hand pose, and held product form from the reference image while applying the SKU product identity',
+            reference_driven: true,
+          }
+        : {
+            mode: 'handheld',
+            required: true,
+            must: 'A real human hand must visibly hold or operate the SKU in the final image',
+            rules: [...HANDHELD_RULES],
+          }
       : {
           mode: 'not_handheld',
           required: true,
@@ -344,20 +277,26 @@ function buildMainImageFields(request: ImageTaskRequest) {
             'lifestyle placement',
             'before-after feeling within a single main image when useful',
           ],
+      one_composition_only: 'Each output image is exactly one complete commercial scene. Never stack multiple main-image variants as strips, layers, or collage panels inside one frame.',
       forbidden_approaches: isHandheld
         ? [
             'no hand in frame',
             'free-standing bottle on table',
             'table-top product only without grip',
             'product standing alone',
+            'multi-panel collage of different batch variants',
           ]
         : [
+            'multi-panel collage of different batch variants',
+            'stacked strips of different scenes in one image',
             'handheld use',
             'visible holding hand',
           ],
       note: isHandheld
-        ? 'Handheld is a hard structured control. Free composition only chooses HOW the hand holds/uses the SKU, never WHETHER a hand appears.'
-        : 'Do not force one non-handheld template. Choose the strongest commercial approach for this SKU and scene; batch diversity is controlled only by variant index/total.',
+        ? hasReference
+          ? 'Handheld is a hard structured control. Match the reference image grip/pose/form; sku_lock still controls product identity.'
+          : 'Handheld is a hard structured control. Free composition only chooses HOW the hand holds/uses the SKU, never WHETHER a hand appears.'
+        : 'Do not force one non-handheld template. Choose the strongest commercial approach for this SKU and scene; batch diversity is controlled by batch_output.',
     },
     copy: {
       headline: {
@@ -375,11 +314,16 @@ function buildMainImageFields(request: ImageTaskRequest) {
     quality_targets: [
       'SKU identity locked to the reference photo',
       ...(isHandheld
-        ? [
-            'A real hand must appear and hold the SKU',
-            'Correct hand anatomy with visible thumb',
-            'Product bottom does not extend past the wrist',
-          ]
+        ? hasReference
+          ? [
+              'Grip, hand pose, and held product form match the reference image',
+              'SKU packaging identity still comes only from product images',
+            ]
+          : [
+              'A real hand must appear and hold the SKU',
+              'Correct hand anatomy with visible thumb',
+              'Product bottom does not extend past the wrist',
+            ]
         : [
             'No holding hand in frame',
           ]),
@@ -407,6 +351,15 @@ function buildMainImageFields(request: ImageTaskRequest) {
     (fields.negative_prompt as string[]).push(`also avoid: ${request.negativePrompt!.trim()}`);
   }
 
+  if (isHandheld && hasReference) {
+    fields.handheld_reference = {
+      source: 'attached reference image',
+      apply: ['hand grip', 'hand pose', 'held product orientation and form'],
+      preserve: ['SKU packaging identity from product images only'],
+      priority: 'reference image overrides generic handheld posing rules; sku_lock still overrides product identity',
+    };
+  }
+
   return fields;
 }
 
@@ -425,6 +378,7 @@ function buildComparisonFields(request: ImageTaskRequest) {
         vertical: 'BEFORE top, AFTER bottom',
       }[layout],
       invariant: 'Before and After keep the same scene, object, camera, scale, material, and structure',
+      one_pair_only: 'Each output image contains exactly one BEFORE/AFTER pair. Never stack multiple comparison pairs as layers or strips in the same image.',
     },
     panels: {
       sku_inside_panels: false,
@@ -478,6 +432,8 @@ function buildComparisonFields(request: ImageTaskRequest) {
     negative_prompt: [
       'no SKU inside Before or After panels',
       'no multi-stage process grids',
+      'no stacked multiple BEFORE/AFTER pairs in one image',
+      'no three-layer or strip collage of different comparison variants',
       'no benefit slogans or icon rows',
       'no Chinese marketing text',
       'no fake contrast by only darkening Before or oversaturating After',
@@ -551,6 +507,7 @@ function orderedSpec(draft: Record<string, unknown>): ProductSetJsonSpec {
     'output',
     'sku_lock',
     'handheld',
+    'handheld_reference',
     'effect',
     'spray_physics',
     'composition',
@@ -566,7 +523,7 @@ function orderedSpec(draft: Record<string, unknown>): ProductSetJsonSpec {
     'quality_targets',
     'negative_prompt',
     'user_overrides',
-    'variant',
+    'batch_output',
   ] as const;
 
   const ordered: Record<string, unknown> = {};
@@ -584,40 +541,18 @@ function orderedSpec(draft: Record<string, unknown>): ProductSetJsonSpec {
   return ordered as ProductSetJsonSpec;
 }
 
-function resolveVariantLook(request: ImageTaskRequest) {
-  const hasBatch = request.variantIndex !== undefined
-    && request.variantTotal !== undefined
-    && request.variantTotal > 1;
-  const directiveIndex = hasBatch
-    ? (request.variantIndex! - 1) % PRODUCT_SET_FEATURE_DIRECTION_COUNT
-    : 0;
-  return {
-    directiveIndex,
-    ...VARIANT_LOOKS[directiveIndex],
-  };
+function resolveBatchCount(request: ImageTaskRequest) {
+  if (request.count !== undefined && request.count > 1) {
+    return request.count;
+  }
+  if (request.variantTotal !== undefined && request.variantTotal > 1) {
+    return request.variantTotal;
+  }
+  return request.count ?? 1;
 }
 
-function buildVariant(request: ImageTaskRequest, directiveIndex: number) {
-  if (request.variantIndex === undefined || request.variantTotal === undefined) {
-    return undefined;
-  }
-  if (request.variantTotal <= 1) {
-    return undefined;
-  }
-
-  const cycle = Math.floor((request.variantIndex - 1) / PRODUCT_SET_FEATURE_DIRECTION_COUNT) + 1;
-  const featureKey = request.feature as 'product_main_image' | 'product_comparison_image' | 'product_multi_scene';
-  let directive: string = VARIANT_LOOKS[directiveIndex].directive[featureKey];
-  if (cycle > 1) {
-    directive = `${directive} This is cycle/round ${cycle} of that direction; choose previously unused concrete sub-scenes, subjects, and compositions.`;
-  }
-
-  return {
-    index: request.variantIndex,
-    total: request.variantTotal,
-    cycle,
-    directive,
-  };
+function hasReferenceImage(request: ImageTaskRequest) {
+  return (request.images ?? []).some((image) => image.role === 'reference');
 }
 
 function buildUserOverrides(

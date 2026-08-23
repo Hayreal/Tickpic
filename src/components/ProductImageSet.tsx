@@ -32,6 +32,7 @@ import GenerationResult from './GenerationResult';
 import GenerationTaskStatus from './GenerationTaskStatus';
 import ImageCountSelector, { DEFAULT_IMAGE_COUNT } from './ImageCountSelector';
 import ImageUploader from './ImageUploader';
+import HandheldReferencePicker from './HandheldReferencePicker';
 
 interface ProductImageSetProps {
   restoredTask?: TaskRecord | null;
@@ -47,6 +48,7 @@ interface TabState {
   scenePrompt: string;
   productHandheldMode: ProductHandheldMode;
   productEffectMode: ProductEffectMode;
+  handheldReferenceId: string | null;
   comparisonLayout: ComparisonLayout;
   comparisonIntensity: ComparisonIntensity;
   showProduct: boolean;
@@ -87,6 +89,7 @@ function defaultTabState(subTab: ProductSetSubTab): TabState {
     scenePrompt: '',
     productHandheldMode: 'not_handheld',
     productEffectMode: 'auto',
+    handheldReferenceId: null,
     comparisonLayout: 'auto',
     comparisonIntensity: 'medium',
     showProduct: true,
@@ -102,6 +105,7 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
     multiScene: defaultTabState('multiScene'),
   });
   const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
+  const [handheldReferencePaths, setHandheldReferencePaths] = useState<Record<string, string>>({});
   const isSubmitPending = useRef(false);
   const restoringFeatureRef = useRef<ImageFeature | null>(null);
   const desktopClient = useDesktopClient();
@@ -113,6 +117,28 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
   const activeTasks = getTasks(currentFeature);
   const activeTask = getTask(currentFeature);
   const error = getError(currentFeature);
+
+  useEffect(() => {
+    if (!desktopClient) {
+      return;
+    }
+    let cancelled = false;
+    void desktopClient.resources.listHandheldReferences()
+      .then((references) => {
+        if (cancelled) {
+          return;
+        }
+        setHandheldReferencePaths(Object.fromEntries(
+          references.map((reference) => [reference.id, reference.path]),
+        ));
+      })
+      .catch((loadError) => {
+        console.error('加载手持参考图失败', loadError);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [desktopClient]);
 
   const updateActiveState = (update: Partial<TabState>) => {
     setTabStates((current) => ({
@@ -143,6 +169,7 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
           scenePrompt: restored.scenePrompt,
           productHandheldMode: restored.productHandheldMode,
           productEffectMode: restored.productEffectMode,
+          handheldReferenceId: restored.handheldReferenceId,
           comparisonLayout: restored.comparisonLayout,
           comparisonIntensity: restored.comparisonIntensity,
           showProduct: restored.showProduct,
@@ -247,6 +274,9 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
         scenePrompt: activeState.scenePrompt,
         productHandheldMode: activeState.productHandheldMode,
         productEffectMode: activeState.productEffectMode,
+        handheldReferencePath: activeState.handheldReferenceId
+          ? handheldReferencePaths[activeState.handheldReferenceId] ?? null
+          : null,
         comparisonLayout: activeState.comparisonLayout,
         comparisonIntensity: activeState.comparisonIntensity,
         showProduct: activeState.showProduct,
@@ -318,13 +348,21 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
         parameters={(
           <FeatureParameterPanels
             reference={(
-              <ImageUploader
-                batch={activeState.skuBatch}
-                onBatchChange={(skuBatch) => updateActiveState({ skuBatch })}
-                page="productSet"
-                feature={currentFeature}
-                label="SKU 产品图"
-              />
+              <>
+                <ImageUploader
+                  batch={activeState.skuBatch}
+                  onBatchChange={(skuBatch) => updateActiveState({ skuBatch })}
+                  page="productSet"
+                  feature={currentFeature}
+                  label="SKU 产品图"
+                />
+                {subTab === 'main' && activeState.productHandheldMode === 'handheld' ? (
+                  <HandheldReferencePicker
+                    value={activeState.handheldReferenceId}
+                    onChange={(handheldReferenceId) => updateActiveState({ handheldReferenceId })}
+                  />
+                ) : null}
+              </>
             )}
             basic={(
               <>
@@ -373,7 +411,10 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
                       label="手持方式"
                       value={activeState.productHandheldMode}
                       options={[['handheld', '手持展示'], ['not_handheld', '不手持']]}
-                      onChange={(productHandheldMode) => updateActiveState({ productHandheldMode: productHandheldMode as ProductHandheldMode })}
+                      onChange={(productHandheldMode) => updateActiveState({
+                        productHandheldMode: productHandheldMode as ProductHandheldMode,
+                        ...(productHandheldMode === 'not_handheld' ? { handheldReferenceId: null } : {}),
+                      })}
                     />
                     <SegmentedControl
                       id="product-set-main-effect"

@@ -23,6 +23,7 @@ export interface ProductImageSetRequestInput {
   comparisonIntensity: ComparisonIntensity;
   showProduct: boolean;
   multiSceneLayout: MultiSceneLayout;
+  handheldReferencePath?: string | null;
 }
 
 const FEATURE_BY_SUB_TAB = {
@@ -43,6 +44,11 @@ export function buildProductImageSetRequests(
   }
 
   const images = input.skuPaths.map((path) => ({ role: 'product' as const, path }));
+  const referencePath = input.handheldReferencePath?.trim();
+  if (input.subTab === 'main' && input.productHandheldMode === 'handheld' && referencePath) {
+    images.push({ role: 'reference', path: referencePath });
+  }
+
   const feature = FEATURE_BY_SUB_TAB[input.subTab];
   const sharedFields = {
     ...optionalString('prompt', input.prompt),
@@ -63,16 +69,14 @@ export function buildProductImageSetRequests(
       }
       : { multiSceneLayout: input.multiSceneLayout };
 
-  return Array.from({ length: input.count }, (_, index) => ({
+  return [{
     feature,
     images,
-    count: 1,
+    count: input.count,
     aspectRatio: input.aspectRatio,
-    variantIndex: index + 1,
-    variantTotal: input.count,
     ...sharedFields,
     ...featureFields,
-  }));
+  }];
 }
 
 function optionalString<Key extends 'prompt' | 'negativePrompt' | 'scenePrompt'>(key: Key, value: string) {

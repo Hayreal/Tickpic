@@ -31,6 +31,9 @@ const desktopShell: DesktopBridgeApi = {
       };
     },
   },
+  resources: {
+    listHandheldReferences: () => ipcRenderer.invoke(IPC_CHANNELS.resources.listHandheldReferences),
+  },
   logs: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.appLog.list),
     onEntry: (listener) => {

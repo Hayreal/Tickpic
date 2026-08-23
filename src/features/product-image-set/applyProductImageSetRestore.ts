@@ -11,6 +11,7 @@ import type { ImageAspectRatioValue } from '../../shared/view/imageAspectRatioOp
 import { resolveImageCount } from '../../shared/view/imageCountOptions';
 import { getFeatureRoute } from '../../shared/view/featureRoutes';
 import type { ProductSetSubTab } from '../../shared/view/ui';
+import { findProductHandheldReferenceByPath } from '../../shared/domain/productHandheldReferences';
 import { createImportBatch } from '../tasks/taskRestoreHelpers';
 
 export interface ProductImageSetRestoreState {
@@ -21,6 +22,7 @@ export interface ProductImageSetRestoreState {
   scenePrompt: string;
   productHandheldMode: ProductHandheldMode;
   productEffectMode: ProductEffectMode;
+  handheldReferenceId: string | null;
   comparisonLayout: ComparisonLayout;
   comparisonIntensity: ComparisonIntensity;
   showProduct: boolean;
@@ -59,6 +61,8 @@ export function applyProductImageSetRestore(task: TaskRecord): ProductImageSetRe
     .filter((image) => image.role === 'product')
     .map((image, index) => imageFromRequest(image, index, task.createdAt));
 
+  const referenceImage = request.images.find((image) => image.role === 'reference');
+
   return {
     subTab,
     skuBatch: createImportBatch(images, 'productSet', request.feature),
@@ -67,6 +71,7 @@ export function applyProductImageSetRestore(task: TaskRecord): ProductImageSetRe
     scenePrompt: subTab === 'multiScene' ? '' : request.scenePrompt ?? '',
     productHandheldMode: resolveEnum(request.productHandheldMode, ['handheld', 'not_handheld'], 'not_handheld'),
     productEffectMode: resolveEnum(request.productEffectMode, ['auto', 'show', 'hide'], 'auto'),
+    handheldReferenceId: findProductHandheldReferenceByPath(referenceImage?.path)?.id ?? null,
     comparisonLayout: resolveEnum(request.comparisonLayout, ['auto', 'horizontal', 'vertical'], 'auto'),
     comparisonIntensity: resolveEnum(request.comparisonIntensity, ['light', 'medium', 'heavy'], 'medium'),
     showProduct: request.showProduct ?? true,

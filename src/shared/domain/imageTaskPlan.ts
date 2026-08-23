@@ -65,7 +65,11 @@ export function buildImageTaskPlan(
   if (count > config.maxCount) {
     throw new Error(`count must be less than or equal to ${config.maxCount}`);
   }
-  if (validated.variantTotal !== undefined && validated.variantTotal > config.maxCount) {
+  if (
+    validated.variantTotal !== undefined
+    && validated.variantTotal > config.maxCount
+    && count > 1
+  ) {
     throw new Error('variantTotal must be less than or equal to maxCount');
   }
 

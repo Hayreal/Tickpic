@@ -198,4 +198,17 @@ describe('imageTaskPlan', () => {
     );
     expect(buildImageTaskPlan({ ...request, variantTotal: 4 }, config).request.variantTotal).toBe(4);
   });
+
+  it('allows batch variant metadata when each task only generates one image', () => {
+    const plan = buildImageTaskPlan({
+      feature: 'sku_variation',
+      images: [{ role: 'source', path: '/authorized/input/sku.png' }],
+      count: 1,
+      variantIndex: 3,
+      variantTotal: 6,
+    }, config);
+
+    expect(plan.count).toBe(1);
+    expect(plan.request.variantTotal).toBe(6);
+  });
 });
