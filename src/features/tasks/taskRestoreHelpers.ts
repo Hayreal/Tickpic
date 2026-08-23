@@ -77,17 +77,19 @@ export function imageTaskRecordFromTaskRecord(task: TaskRecord): ImageTaskRecord
 }
 
 export function getImageByRole(request: ImageTaskRequest, role: string): StoredImageRecord | undefined {
-  const image = request.images?.find((item) => item.role === role);
-  if (!image) {
-    return undefined;
-  }
+  return getImagesByRole(request, role)[0];
+}
 
-  return {
-    id: `${role}-0`,
-    fileName: image.path.split('/').pop() ?? image.path,
+export function getImagesByRole(request: ImageTaskRequest, role: string): StoredImageRecord[] {
+  const images = (request.images ?? []).filter((item) => item.role === role);
+  const createdAt = new Date().toISOString();
+
+  return images.map((image, index) => ({
+    id: `${role}-${index}`,
+    fileName: image.path.split(/[\\/]/).pop() ?? image.path,
     filePath: image.path,
     fileSize: 0,
     mimeType: image.mimeType ?? 'image/png',
-    createdAt: new Date().toISOString(),
-  };
+    createdAt,
+  }));
 }
