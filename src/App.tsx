@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import WindowFrame from './components/WindowFrame';
 import Sidebar from './components/Sidebar';
 import StickerGen from './components/StickerGen';
+import SkuGen from './components/SkuGen';
 import ProductProcessing from './components/ProductProcessing';
 import ProductImageSet from './components/ProductImageSet';
 import Settings from './components/Settings';
@@ -56,6 +57,17 @@ export default function App() {
               restoredTask={
                 restoredTask?.request?.feature
                 && getFeatureRoute(restoredTask.request.feature).tab === 'product'
+                  ? restoredTask
+                  : null
+              }
+              onRestoreConsumed={handleRestoreConsumed}
+            />
+          </div>
+          <div className={activeTab === 'sku' ? 'flex flex-1 overflow-hidden' : 'hidden'}>
+            <SkuGen
+              restoredTask={
+                restoredTask?.request?.feature
+                && getFeatureRoute(restoredTask.request.feature).tab === 'sku'
                   ? restoredTask
                   : null
               }

@@ -49,4 +49,17 @@ describe('Sidebar', () => {
 
     expect(onTabChange).toHaveBeenCalledWith('productSet');
   });
+
+  it('navigates to sku image gen', () => {
+    const onTabChange = vi.fn();
+    render(
+      <AppearanceProvider>
+        <Sidebar activeTab="sticker" onTabChange={onTabChange} />
+      </AppearanceProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'SKU 作图' }));
+
+    expect(onTabChange).toHaveBeenCalledWith('sku');
+  });
 });

@@ -1,5 +1,5 @@
 import type React from 'react';
-import { Images, Layers, Package, Settings, Sparkles, User } from 'lucide-react';
+import { Images, Layers, Package, Settings, Sparkles, User, Box } from 'lucide-react';
 
 import type { ActiveTab } from '../shared/view/ui';
 import { cn } from '@/src/lib/utils';
@@ -15,6 +15,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const menuItems: { id: ActiveTab; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: 'sticker', label: '贴纸出图', icon: <Sparkles className="h-4 w-4" /> },
     { id: 'product', label: '产品处理', icon: <Package className="h-4 w-4" /> },
+    { id: 'sku', label: 'SKU 作图', icon: <Box className="h-4 w-4" /> },
     { id: 'productSet', label: '套图处理', icon: <Images className="h-4 w-4" /> },
     { id: 'settings', label: '设置', icon: <Settings className="h-4 w-4" /> },
     { id: 'profile', label: '个人中心', icon: <User className="h-4 w-4" /> },

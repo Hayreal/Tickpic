@@ -34,6 +34,9 @@ vi.mock('../components/StickerGen', () => ({
 vi.mock('../components/ProductProcessing', () => ({
   default: () => <div data-testid="product-processing">ProductProcessing</div>,
 }));
+vi.mock('../components/SkuGen', () => ({
+  default: () => <div data-testid="sku-gen">SkuGen</div>,
+}));
 vi.mock('../components/Settings', () => ({
   default: () => <div data-testid="settings">Settings</div>,
 }));
@@ -122,6 +125,14 @@ describe('App shell', () => {
     fireEvent.click(document.getElementById('sidebar-tab-productSet')!);
 
     expect(screen.getByTestId('product-image-set')).toBeVisible();
+  });
+
+  it('shows the sku image gen page from sidebar navigation', () => {
+    render(<App />);
+
+    fireEvent.click(document.getElementById('sidebar-tab-sku')!);
+
+    expect(screen.getByTestId('sku-gen')).toBeVisible();
   });
 
   it('restores a product multi-scene task from profile into the product image set page', () => {
