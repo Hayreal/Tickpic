@@ -32,6 +32,9 @@ describe('desktop contract', () => {
         list: 'app-log:list',
         entry: 'app-log:entry',
       },
+      resources: {
+        listHandheldReferences: 'resources:list-handheld-references',
+      },
     });
   });
 });
