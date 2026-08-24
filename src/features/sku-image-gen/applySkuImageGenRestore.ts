@@ -5,6 +5,7 @@ import {
   DEFAULT_SKU_REPLICA_COUNT,
   DEFAULT_SKU_VARIATION_COUNT,
   resolveSkuImageCount,
+  type SkuImageCountValue,
 } from '../../shared/view/skuCountOptions';
 import type { ImportBatch } from '../../shared/domain/images';
 import type { TaskRecord } from '../../shared/domain/tasks';
@@ -66,7 +67,7 @@ function structuredFields(request: NonNullable<TaskRecord['request']>) {
 
 function tabStateFromRequest(
   request: NonNullable<TaskRecord['request']>,
-  defaultCount: number,
+  defaultCount: SkuImageCountValue,
   pageFeature: string,
 ): SkuTabState {
   const sourceImage = getImageByRole(request, 'source');

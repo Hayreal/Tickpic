@@ -5,15 +5,15 @@ import {
   DEFAULT_IMAGE_COUNT,
   IMAGE_COUNT_OPTIONS,
   resolveImageCount,
-  type ImageCountValue,
 } from '../shared/view/imageCountOptions';
 
 interface ImageCountSelectorProps {
   value: number;
-  onChange: (value: ImageCountValue) => void;
+  onChange: (value: number) => void;
   id?: string;
   label?: string;
-  options?: readonly ImageCountValue[];
+  /** Allowed counts; defaults to product-set options (1/2/3). SKU may pass [1,2,3,6]. */
+  options?: readonly number[];
 }
 
 export default function ImageCountSelector({
@@ -26,9 +26,9 @@ export default function ImageCountSelector({
   const listboxId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  const selected = (options as readonly number[]).includes(value)
-    ? (value as ImageCountValue)
-    : resolveImageCount(value);
+  const selected = options.includes(value)
+    ? value
+    : (options.includes(DEFAULT_IMAGE_COUNT) ? DEFAULT_IMAGE_COUNT : options[0] ?? resolveImageCount(value));
 
   useEffect(() => {
     if (!open) {

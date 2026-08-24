@@ -43,7 +43,10 @@ export function buildProductImageSetRequests(
     throw new Error('请上传 SKU 产品图');
   }
 
-  const images = input.skuPaths.map((path) => ({ role: 'product' as const, path }));
+  const images: ImageTaskRequest['images'] = input.skuPaths.map((path) => ({
+    role: 'product' as const,
+    path,
+  }));
   const referencePath = input.handheldReferencePath?.trim();
   if (input.subTab === 'main' && input.productHandheldMode === 'handheld' && referencePath) {
     images.push({ role: 'reference', path: referencePath });

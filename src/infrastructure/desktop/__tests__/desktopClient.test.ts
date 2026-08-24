@@ -62,6 +62,9 @@ describe('desktopClient', () => {
         list: async () => [],
         onEntry: () => () => undefined,
       },
+      resources: {
+        listHandheldReferences: async () => [],
+      },
     };
 
     const client = createDesktopClient(bridge);
@@ -118,6 +121,9 @@ describe('desktopClient', () => {
       logs: {
         list: async () => [],
         onEntry: () => () => undefined,
+      },
+      resources: {
+        listHandheldReferences: async () => [],
       },
     };
 
@@ -181,6 +187,9 @@ describe('desktopClient', () => {
       logs: {
         list: async () => [],
         onEntry: () => () => undefined,
+      },
+      resources: {
+        listHandheldReferences: async () => [],
       },
     };
 

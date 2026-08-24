@@ -75,6 +75,9 @@ function createMockBridge(): DesktopBridgeApi {
       list: async () => [],
       onEntry: () => () => undefined,
     },
+    resources: {
+      listHandheldReferences: async () => [],
+    },
   };
 }
 
