@@ -11,8 +11,8 @@ import type { ImageTaskPlan } from '../../../../../src/shared/domain/imageTaskPl
 import type { ImageTaskRecord } from '../../../../../src/shared/domain/imageFeatureApi';
 
 const TEST_BASE_URL = 'https://api.n1n.ai';
-const MULTI_IMAGE_OPENAI_PROMPT_SUFFIX = '\n\nAPI parameter n=2 already requests 2 separate image files. Each file must be one complete standalone composition. Do not collage, stack, or layer multiple variants inside a single image canvas.';
-const MULTI_IMAGE_GEMINI_PROMPT_SUFFIX = '\n\nAPI batch size is 2: return 2 separate image parts in this response. Each part must be one complete standalone image. Do not collage, stack, or layer multiple variants inside a single image canvas.';
+const MULTI_IMAGE_OPENAI_PROMPT_SUFFIX = '\n\nAPI parameter n=2 already requests 2 separate image files. Each file must be exactly ONE single-scene photograph — never a triptych, split-screen, or multi-panel collage inside one file. Diversity is across files, not panels within a file. Do not collage, stack, or layer multiple scenes inside a single image canvas. Headline-only variations of the same physical scene are invalid.';
+const MULTI_IMAGE_GEMINI_PROMPT_SUFFIX = '\n\nAPI batch size is 2: return 2 separate image parts in this response. Each part must be exactly ONE single-scene photograph — never a triptych, split-screen, or multi-panel collage inside one part. Diversity is across parts, not panels within a part. Do not collage, stack, or layer multiple scenes inside a single image canvas. Headline-only variations of the same physical scene are invalid.';
 
 describe('protocolClients', () => {
   let tempDir: string;

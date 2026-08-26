@@ -4,20 +4,29 @@ import { buildProductSetJsonPrompt, parseProductSetJsonPrompt } from '../product
 const MULTI_IMAGE_BATCH_OUTPUT = {
   meaning: 'API-level batch size: produce this many completely separate image files. Each file is one standalone final image.',
   delivery: 'The response may contain multiple separate image outputs. Never pack multiple batch variants into one canvas.',
-  forbidden: [
+  forbidden: expect.arrayContaining([
     'stacking multiple variants as horizontal/vertical strips in one image',
     'collage or multi-panel grids of different batch variants',
     'three-layer / multi-layer composites where each layer is a different variant',
     'repeating the same composition N times inside one frame to satisfy count',
-  ],
+    'recolor-only changes',
+    'headline-only changes',
+  ]),
 } as const;
 
 function expectBatchOutput(count: number) {
-  return {
+  return expect.objectContaining({
     count,
     require_distinct: true,
     ...MULTI_IMAGE_BATCH_OUTPUT,
-  };
+    diversity: expect.objectContaining({
+      min_changed_dimensions: 3,
+      dimensions: expect.any(Array),
+      slots: expect.arrayContaining([
+        expect.objectContaining({ index: 1, directive: expect.any(String) }),
+      ]),
+    }),
+  });
 }
 
 describe('productSetJsonPrompt', () => {
@@ -259,14 +268,123 @@ describe('productSetJsonPrompt', () => {
     expect(spec.user_overrides.priority).toEqual(expect.any(String));
   });
 
-  it('supports legacy variantTotal for batch_output when count is absent', () => {
+  it('uses variant directives when variantIndex and variantTotal are provided without count', () => {
     const spec = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
       feature: 'product_main_image',
       variantIndex: 4,
       variantTotal: 6,
     }));
 
-    expect(spec.batch_output).toEqual(expectBatchOutput(6));
-    expect(spec.variant).toBeUndefined();
+    expect(spec.variant).toEqual(expect.objectContaining({
+      index: 4,
+      total: 6,
+      single_image_only: true,
+    }));
+    expect(spec.batch_output).toBeUndefined();
+  });
+
+  it('assigns distinct batch diversity slots for main, comparison, and multi-scene features', () => {
+    const main = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
+      feature: 'product_main_image',
+      count: 3,
+    }));
+    const comparison = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
+      feature: 'product_comparison_image',
+      count: 3,
+    }));
+    const multiScene = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
+      feature: 'product_multi_scene',
+      count: 2,
+    }));
+
+    for (const spec of [main, comparison, multiScene]) {
+      expect(spec.batch_output?.diversity.min_changed_dimensions).toBe(3);
+      expect(spec.batch_output?.diversity.dimensions.length).toBeGreaterThanOrEqual(5);
+    }
+
+    expect(main.batch_output?.diversity.slots).toHaveLength(3);
+    expect(new Set(main.batch_output?.diversity.slots.map((slot) => slot.directive)).size).toBe(3);
+
+    expect(comparison.batch_output?.diversity.slots).toHaveLength(3);
+    expect(new Set(comparison.batch_output?.diversity.slots.map((slot) => slot.directive)).size).toBe(3);
+
+    expect(multiScene.batch_output?.diversity.slots).toHaveLength(2);
+    expect(multiScene.batch_output?.diversity.slots[0].directive).not.toBe(
+      multiScene.batch_output?.diversity.slots[1].directive,
+    );
+  });
+
+  it('adds a cycle note when batch count exceeds three diversity directions', () => {
+    const spec = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
+      feature: 'product_main_image',
+      count: 4,
+    }));
+
+    expect(spec.batch_output?.diversity.slots[3].directive).toMatch(/Round 2/i);
+  });
+
+  it('appends mandatory plain-text batch diversity instructions after JSON', () => {
+    const prompt = buildProductSetJsonPrompt({
+      feature: 'product_main_image',
+      count: 3,
+      scenePrompt: 'wall crack repair',
+    });
+
+    expect(prompt).toContain('--- BATCH DIVERSITY (mandatory) ---');
+    expect(prompt).toContain('Generate exactly 3 separate image files');
+    expect(prompt).toContain('CRITICAL: Each output file must be ONE single continuous photograph');
+    expect(prompt).toContain('Batch diversity is ACROSS files');
+    expect(prompt).toContain('Output file 1 (one single-scene photograph only):');
+    expect(prompt).toMatch(/triptych|multi-panel collage inside one file/i);
+    expect(prompt).toContain('NOT the same room, wall, surface, or background with different headline text');
+    expect(prompt).toContain('User scene scope: "wall crack repair"');
+    expect(prompt).toMatch(/same wall crack location/i);
+    expect(parseProductSetJsonPrompt(prompt).batch_output?.count).toBe(3);
+  });
+
+  it('uses variant directives instead of batch_output when variantIndex is provided', () => {
+    const prompt = buildProductSetJsonPrompt({
+      feature: 'product_main_image',
+      count: 1,
+      variantIndex: 2,
+      variantTotal: 3,
+      scenePrompt: 'wall crack repair',
+    });
+
+    const spec = parseProductSetJsonPrompt(prompt);
+    expect(spec.variant).toEqual(expect.objectContaining({
+      index: 2,
+      total: 3,
+      single_image_only: true,
+    }));
+    expect(spec.batch_output).toBeUndefined();
+    expect(prompt).toContain('--- VARIANT DIRECTIVE (mandatory) ---');
+    expect(prompt).toContain('variant 2 of 3');
+    expect(prompt).toContain('ONE single continuous photograph');
+    expect(prompt).not.toContain('--- BATCH DIVERSITY (mandatory) ---');
+  });
+
+  it('requires handheld label orientation relative to the nozzle end', () => {
+    const spec = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
+      feature: 'product_main_image',
+      productHandheldMode: 'handheld',
+      images: [
+        { role: 'product', path: '/authorized/input/product.png' },
+        { role: 'reference', path: '/authorized/resources/product/handheld-dropper-tilt.png' },
+      ],
+    }));
+
+    expect(spec.sku_lock.must_preserve).toEqual(expect.arrayContaining([
+      expect.stringMatching(/logo.*nozzle|nozzle.*logo/i),
+    ]));
+    expect(spec.handheld_reference?.preserve).toEqual(expect.arrayContaining([
+      expect.stringMatching(/logo.*nozzle|nozzle.*logo/i),
+    ]));
+    expect(spec.quality_targets).toEqual(expect.arrayContaining([
+      expect.stringMatching(/logo.*nozzle|nozzle.*logo/i),
+    ]));
+    expect(spec.negative_prompt).toEqual(expect.arrayContaining([
+      expect.stringMatching(/mirrored label|upside-down label/i),
+    ]));
   });
 });

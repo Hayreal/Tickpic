@@ -181,24 +181,28 @@ describe('imageTaskExecutor', () => {
     expect(executionImageCount).toBe(0);
   });
 
-  it('uses one batch request for product-set multi-count tasks', async () => {
-    let batchCalls = 0;
+  it('uses sequential single-image requests for product-set multi-count tasks', async () => {
+    const variantPrompts: string[] = [];
+    let singleCalls = 0;
     const executor = createImageTaskExecutor({
       runtimeConfig,
       modelGateway: {
-        executeImage: async ({ plan }) => {
-          batchCalls += 1;
-          expect(plan.count).toBe(3);
-          return {
-            images: Array.from({ length: 3 }, (_, index) => ({
-              fileName: `result-${index + 1}.png`,
-              buffer: new Uint8Array([index + 1]),
-              mimeType: 'image/png',
-            })),
-          };
+        executeImage: async () => {
+          throw new Error('executeImage should not be called for product-set multi-count tasks');
         },
-        executeSingleImage: async () => {
-          throw new Error('executeSingleImage should not be called for product-set batch tasks');
+        executeSingleImage: async ({ plan, finalPrompt }) => {
+          singleCalls += 1;
+          expect(plan.count).toBe(1);
+          expect(plan.request.variantIndex).toBe(singleCalls);
+          expect(plan.request.variantTotal).toBe(3);
+          variantPrompts.push(finalPrompt);
+          return {
+            images: [{
+              fileName: `result-${singleCalls}.png`,
+              buffer: new Uint8Array([singleCalls]),
+              mimeType: 'image/png',
+            }],
+          };
         },
       },
       artifactStore: {
@@ -236,59 +240,13 @@ describe('imageTaskExecutor', () => {
       images: [{ role: 'product', path: '/authorized/input/product.png' }],
     }), new AbortController().signal);
 
-    expect(batchCalls).toBe(1);
+    expect(singleCalls).toBe(3);
+    expect(variantPrompts).toHaveLength(3);
+    expect(variantPrompts[0]).toContain('variant 1 of 3');
+    expect(variantPrompts[1]).toContain('variant 2 of 3');
+    expect(variantPrompts[2]).toContain('variant 3 of 3');
+    expect(variantPrompts.every((prompt) => prompt.includes('ONE single continuous photograph'))).toBe(true);
     expect(result.images).toHaveLength(3);
-  });
-
-  it('fails product-set batch tasks when the upstream returns fewer images than n', async () => {
-    const executor = createImageTaskExecutor({
-      runtimeConfig,
-      modelGateway: {
-        executeImage: async () => ({
-          images: [{
-            fileName: 'result-1.png',
-            buffer: new Uint8Array([1]),
-            mimeType: 'image/png',
-          }],
-        }),
-        executeSingleImage: async () => {
-          throw new Error('executeSingleImage should not be called for product-set batch tasks');
-        },
-      },
-      artifactStore: {
-        begin: async ({ task }) => {
-          const imagePaths: string[] = [];
-          return {
-            outputDir: `/outputs/${task.taskId}`,
-            requestJsonPath: `/outputs/${task.taskId}/request.json`,
-            imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
-            outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
-            imagePaths,
-            appendImage: async () => {
-              const imagePath = `/outputs/${task.taskId}/result-1.png`;
-              imagePaths.push(imagePath);
-              return imagePath;
-            },
-            finalize: async () => ({
-              outputDir: `/outputs/${task.taskId}`,
-              requestJsonPath: `/outputs/${task.taskId}/request.json`,
-              imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
-              outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
-              images: imagePaths,
-            }),
-          };
-        },
-        save: async () => {
-          throw new Error('save should not be called directly');
-        },
-      },
-    });
-
-    await expect(executor(createTask({
-      feature: 'product_main_image',
-      count: 3,
-      images: [{ role: 'product', path: '/authorized/input/product.png' }],
-    }), new AbortController().signal)).rejects.toThrow('仅返回了 1/3 张图片');
   });
 });
 

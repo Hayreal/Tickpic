@@ -29,12 +29,25 @@ export type ProductSetJsonSpec = Record<string, unknown> & {
   quality_targets: string[];
   negative_prompt: string[];
   user_overrides: Record<string, unknown>;
+  variant?: {
+    index: number;
+    total: number;
+    cycle?: number;
+    directive: string;
+    single_image_only: true;
+    forbidden: string[];
+  };
   batch_output?: {
     count: number;
     require_distinct: true;
     delivery: string;
     meaning: string;
     forbidden: string[];
+    diversity: {
+      min_changed_dimensions: number;
+      dimensions: string[];
+      slots: Array<{ index: number; directive: string }>;
+    };
   };
   handheld?: Record<string, unknown>;
   handheld_reference?: Record<string, unknown>;
@@ -49,7 +62,7 @@ export type ProductSetJsonSpec = Record<string, unknown> & {
 };
 
 const PRODUCT_SET_PRIORITY =
-  'sku_lock > handheld_reference (when provided) > structured controls (handheld/effect/layout) > composition hard rules > batch_output > user scene > supplement > avoid > free visual direction within allowed approaches';
+  'sku_lock > handheld_reference (when provided) > structured controls (handheld/effect/layout) > composition hard rules > variant directive > batch_output > user scene > supplement > avoid > free visual direction within allowed approaches';
 
 const SKU_LOCK = {
   source: 'single primary SKU product photo as the only product identity reference',
@@ -60,12 +73,14 @@ const SKU_LOCK = {
     'cap/nozzle/trigger geometry',
     'material, color, transparency, gloss',
     'primary label layout, brand, product name, capacity',
+    'logo, brand text, and primary label position relative to nozzle/cap/orifice end (actuator end)',
   ],
   forbidden: [
     'redesign packaging',
     'stretch, squash, thin, or widen the product',
     'change nozzle/cap/trigger structure',
     'alter brand, product name, or capacity',
+    'flip or mirror the label independently of the bottle body',
   ],
 } as const;
 
@@ -78,6 +93,9 @@ const HANDHELD_RULES = [
   'product bottom should not extend past the wrist',
   'no giant hand with tiny product, and no tiny hand with giant product',
   'do not cover primary front label, brand text, nozzle, or actuator',
+  'logo, brand text, and primary label must stay on the same physical end as the nozzle/orifice/cap (actuator end), matching the SKU photo',
+  'when held inverted or tilted for use, the whole bottle body rotates together; never flip or mirror the label separately from the body',
+  'actuator end (nozzle, pump, trigger, tip, cap) must point toward the use/dispensing direction, not toward the gripping hand tail',
 ] as const;
 
 const SPRAY_PHYSICS = {
@@ -99,6 +117,8 @@ const MAIN_NEGATIVE = [
   'no parameter stacks, price, discount, or watermark',
   'no Chinese marketing text',
   'no redesigned SKU packaging',
+  'no triptych or multi-panel collage in one image',
+  'no split-screen grid showing multiple use-case scenes in one frame',
 ] as const;
 
 const HANDHELD_NEGATIVE = [
@@ -106,7 +126,71 @@ const HANDHELD_NEGATIVE = [
   'no product standing alone on a table or floor',
   'no missing thumb, fused fingers, extra fingers, or distorted hands',
   'no exaggerated product taller than the wrist in handheld shots',
+  'no logo or primary label on the tail/base end when the nozzle/orifice is the dispensing end',
+  'no upside-down or mirrored label relative to the nozzle/cap/orifice end',
+  'no label flipped independently while the bottle body rotates',
 ] as const;
+
+const BATCH_DIVERSITY_FORBIDDEN = [
+  'recolor-only changes',
+  'headline-only changes',
+  'minor product nudges without composition change',
+  'decoration-only swaps',
+  'same composition with a different SKU',
+  'horizontal flip or mirror of the whole scene',
+] as const;
+
+const BATCH_DIVERSITY_DIRECTION_COUNT = 3;
+
+type ProductSetBatchFeature = 'product_main_image' | 'product_comparison_image' | 'product_multi_scene';
+
+const BATCH_DIVERSITY_DIMENSIONS: Record<ProductSetBatchFeature, readonly string[]> = {
+  product_main_image: [
+    'target sub-scene or spatial location',
+    'product position, scale, and angle in frame',
+    'composition hierarchy and headline layout',
+    'camera distance, angle, and framing',
+    'lighting direction, intensity, and color temperature',
+    'background density and spatial depth',
+    'before/after presentation style when used',
+  ],
+  product_comparison_image: [
+    'core problem sub-area within the scene',
+    'foreground prop layout and density',
+    'color temperature and tonal mood',
+    'spatial depth and background layering',
+    'lighting direction and shadow coverage',
+    'visual form of the Before problem state',
+  ],
+  product_multi_scene: [
+    'space type and environment category',
+    'primary surface or object type',
+    'viewing distance and camera angle',
+    'lighting mood and time-of-day feel',
+    'background complexity and density',
+  ],
+};
+
+const BATCH_DIVERSITY_SLOT_DIRECTIVES: Record<ProductSetBatchFeature, readonly string[]> = {
+  product_main_image: [
+    'Use a distinct real-use sub-scene/environment (different room, surface, or indoor/outdoor location). Change sub-scene location, color temperature, and foreground layering. Same repair wall with different headline text is invalid.',
+    'Use a different sub-scene/environment from output file 1 (not the same wall, room, surface, or background objects). Change spatial depth, lighting direction/intensity, and background density. Reusing the same crack-repair location is invalid.',
+    'Use a third distinct sub-scene/environment from output files 1-2. Change product scale/position, headline layout, and camera distance/angle. Any output that repeats the same physical scene as another file is invalid.',
+  ],
+  product_comparison_image: [
+    'Change the core problem sub-area, foreground prop layout, and color temperature. Do not rely on minor recolor, title-only, or product-shift differences.',
+    'Change spatial depth, lighting direction/intensity, and the visual form of the Before problem while After improves the same object and region.',
+    'Change foreground prop layout, lighting direction/intensity, and problem presentation while keeping single-scene Before/After consistency.',
+  ],
+  product_multi_scene: [
+    'Change space type, viewing distance/angle, and lighting mood. Output only target scenes/objects/surfaces/environments; no product or people.',
+    'Change primary surface/object type, background complexity, and space type. Output only target scenes/objects/surfaces/environments; no product or people.',
+    'Change viewing distance/angle, primary surface/object type, and background complexity. Output only target scenes/objects/surfaces/environments; no product or people.',
+  ],
+};
+
+const BATCH_PLAIN_TEXT_MARKER = '\n\n--- BATCH DIVERSITY (mandatory) ---\n';
+const VARIANT_PLAIN_TEXT_MARKER = '\n\n--- VARIANT DIRECTIVE (mandatory) ---\n';
 
 const DEFAULT_LOOK = {
   lighting: {
@@ -150,7 +234,14 @@ export function isProductSetFeature(feature: ImageFeature) {
 }
 
 export function parseProductSetJsonPrompt(text: string): ProductSetJsonSpec {
-  return JSON.parse(text) as ProductSetJsonSpec;
+  let jsonText = text;
+  for (const marker of [BATCH_PLAIN_TEXT_MARKER, VARIANT_PLAIN_TEXT_MARKER]) {
+    const markerIndex = jsonText.indexOf(marker);
+    if (markerIndex >= 0) {
+      jsonText = jsonText.slice(0, markerIndex);
+    }
+  }
+  return JSON.parse(jsonText.trim()) as ProductSetJsonSpec;
 }
 
 export function buildProductSetJsonPrompt(request: ImageTaskRequest): string {
@@ -158,7 +249,15 @@ export function buildProductSetJsonPrompt(request: ImageTaskRequest): string {
     throw new Error(`buildProductSetJsonPrompt does not support feature ${request.feature}`);
   }
 
-  return `${JSON.stringify(buildProductSetSpec(request), null, 2)}\n`;
+  const spec = buildProductSetSpec(request);
+  const json = JSON.stringify(spec, null, 2);
+  const scenePrompt = request.feature === 'product_multi_scene' ? null : trimOrNull(request.scenePrompt);
+  const suffix = spec.variant
+    ? buildVariantPlainTextSuffix(request.feature, spec.variant, scenePrompt)
+    : spec.batch_output
+      ? buildBatchPlainTextSuffix(request.feature, spec.batch_output, scenePrompt)
+      : '';
+  return suffix ? `${json}${suffix}` : `${json}\n`;
 }
 
 function buildProductSetSpec(request: ImageTaskRequest): ProductSetJsonSpec {
@@ -205,19 +304,11 @@ function buildProductSetSpec(request: ImageTaskRequest): ProductSetJsonSpec {
   draft.user_overrides = buildUserOverrides(scene, supplement, avoid);
 
   const batchCount = resolveBatchCount(request);
-  if (batchCount > 1) {
-    draft.batch_output = {
-      count: batchCount,
-      require_distinct: true,
-      meaning: 'API-level batch size: produce this many completely separate image files. Each file is one standalone final image.',
-      delivery: 'The response may contain multiple separate image outputs. Never pack multiple batch variants into one canvas.',
-      forbidden: [
-        'stacking multiple variants as horizontal/vertical strips in one image',
-        'collage or multi-panel grids of different batch variants',
-        'three-layer / multi-layer composites where each layer is a different variant',
-        'repeating the same composition N times inside one frame to satisfy count',
-      ],
-    };
+  const variant = buildVariantField(request);
+  if (variant) {
+    draft.variant = variant;
+  } else if (batchCount > 1) {
+    draft.batch_output = buildBatchOutput(request.feature, batchCount);
   }
 
   return orderedSpec(draft);
@@ -277,16 +368,20 @@ function buildMainImageFields(request: ImageTaskRequest) {
             'lifestyle placement',
             'before-after feeling within a single main image when useful',
           ],
-      one_composition_only: 'Each output image is exactly one complete commercial scene. Never stack multiple main-image variants as strips, layers, or collage panels inside one frame.',
+      one_composition_only: 'Each output image is exactly ONE continuous photograph of ONE commercial scene with ONE product placement. Never stack strips, layers, triptychs, split-screen grids, or collage panels inside one frame — even to show multiple use cases.',
       forbidden_approaches: isHandheld
         ? [
             'no hand in frame',
             'free-standing bottle on table',
             'table-top product only without grip',
             'product standing alone',
+            'multi-panel collage or triptych in one image',
+            'split-screen showing 2/3/4 different locations in one frame',
             'multi-panel collage of different batch variants',
           ]
         : [
+            'multi-panel collage or triptych in one image',
+            'split-screen showing 2/3/4 different locations in one frame',
             'multi-panel collage of different batch variants',
             'stacked strips of different scenes in one image',
             'handheld use',
@@ -318,11 +413,13 @@ function buildMainImageFields(request: ImageTaskRequest) {
           ? [
               'Grip, hand pose, and held product form match the reference image',
               'SKU packaging identity still comes only from product images',
+              'Logo and primary label stay on the nozzle/cap/orifice end, matching the SKU photo',
             ]
           : [
               'A real hand must appear and hold the SKU',
               'Correct hand anatomy with visible thumb',
               'Product bottom does not extend past the wrist',
+              'Logo and primary label stay on the nozzle/cap/orifice end, matching the SKU photo',
             ]
         : [
             'No holding hand in frame',
@@ -355,8 +452,11 @@ function buildMainImageFields(request: ImageTaskRequest) {
     fields.handheld_reference = {
       source: 'attached reference image',
       apply: ['hand grip', 'hand pose', 'held product orientation and form'],
-      preserve: ['SKU packaging identity from product images only'],
-      priority: 'reference image overrides generic handheld posing rules; sku_lock still overrides product identity',
+      preserve: [
+        'SKU packaging identity from product images only',
+        'logo, brand text, and primary label position relative to nozzle/cap/orifice end from SKU photos',
+      ],
+      priority: 'reference image overrides generic handheld posing rules; sku_lock still overrides product identity and label orientation relative to actuator end',
     };
   }
 
@@ -523,6 +623,7 @@ function orderedSpec(draft: Record<string, unknown>): ProductSetJsonSpec {
     'quality_targets',
     'negative_prompt',
     'user_overrides',
+    'variant',
     'batch_output',
   ] as const;
 
@@ -549,6 +650,134 @@ function resolveBatchCount(request: ImageTaskRequest) {
     return request.variantTotal;
   }
   return request.count ?? 1;
+}
+
+function buildVariantField(request: ImageTaskRequest) {
+  if (
+    request.variantIndex === undefined
+    || request.variantTotal === undefined
+    || request.variantTotal <= 1
+  ) {
+    return undefined;
+  }
+
+  const feature = request.feature as ProductSetBatchFeature;
+  const slot = buildDiversitySlots(feature, request.variantTotal)[request.variantIndex - 1];
+  const cycle = Math.floor((request.variantIndex - 1) / BATCH_DIVERSITY_DIRECTION_COUNT) + 1;
+
+  return {
+    index: request.variantIndex,
+    total: request.variantTotal,
+    ...(cycle > 1 ? { cycle } : {}),
+    directive: slot.directive,
+    single_image_only: true as const,
+    forbidden: [
+      'triptych or multi-panel collage',
+      'split-screen with 2/3/4 panels',
+      'packing multiple use-case scenes into one image',
+    ],
+  };
+}
+
+function buildVariantPlainTextSuffix(
+  feature: ImageFeature,
+  variant: NonNullable<ProductSetJsonSpec['variant']>,
+  scenePrompt: string | null,
+) {
+  const lines = [
+    VARIANT_PLAIN_TEXT_MARKER.trim(),
+    `This request produces exactly ONE output image: variant ${variant.index} of ${variant.total} in the user batch.`,
+    'CRITICAL: Output exactly ONE single continuous photograph of ONE scene. Never use triptych, split-screen, or multi-panel collage.',
+    `Scene direction for this variant: ${variant.directive}`,
+    'This image must use a different physical sub-scene/environment from the other variants in the batch.',
+  ];
+
+  if (scenePrompt) {
+    lines.push(
+      `User scene scope: "${scenePrompt}". Stay within this category but pick a sub-location/surface/angle not used by the other variants.`,
+    );
+  } else if (feature === 'product_main_image') {
+    lines.push('Choose a real applicable sub-scene that is clearly different from the other variants.');
+  }
+
+  lines.push(
+    'Invalid outputs: multi-panel collage; same wall/room/surface as another variant; headline-only change.',
+  );
+
+  return `\n\n${lines.join('\n')}\n`;
+}
+
+function buildBatchOutput(feature: ImageFeature, count: number) {
+  const batchFeature = feature as ProductSetBatchFeature;
+  return {
+    count,
+    require_distinct: true as const,
+    meaning: 'API-level batch size: produce this many completely separate image files. Each file is one standalone final image.',
+    delivery: 'The response may contain multiple separate image outputs. Never pack multiple batch variants into one canvas.',
+    forbidden: [
+      'stacking multiple variants as horizontal/vertical strips in one image',
+      'collage or multi-panel grids of different batch variants',
+      'triptych or 2/3/4-panel split-screen layout inside one output file',
+      'showing multiple use-case locations in one file to demonstrate variety',
+      'three-layer / multi-layer composites where each layer is a different variant',
+      'repeating the same composition N times inside one frame to satisfy count',
+      ...BATCH_DIVERSITY_FORBIDDEN,
+    ],
+    diversity: {
+      min_changed_dimensions: 3,
+      dimensions: [...BATCH_DIVERSITY_DIMENSIONS[batchFeature]],
+      slots: buildDiversitySlots(batchFeature, count),
+    },
+  };
+}
+
+function buildDiversitySlots(feature: ProductSetBatchFeature, count: number) {
+  const directives = BATCH_DIVERSITY_SLOT_DIRECTIVES[feature];
+  return Array.from({ length: count }, (_, index) => {
+    const slotIndex = index + 1;
+    const directionIndex = index % BATCH_DIVERSITY_DIRECTION_COUNT;
+    const cycle = Math.floor(index / BATCH_DIVERSITY_DIRECTION_COUNT) + 1;
+    let directive = directives[directionIndex];
+    if (cycle > 1) {
+      directive = `${directive} Round ${cycle} of this direction: choose previously unused concrete sub-scenes, subjects, props, and compositions.`;
+    }
+    return { index: slotIndex, directive };
+  });
+}
+
+function buildBatchPlainTextSuffix(
+  feature: ImageFeature,
+  batchOutput: NonNullable<ProductSetJsonSpec['batch_output']>,
+  scenePrompt: string | null,
+) {
+  const lines = [
+    BATCH_PLAIN_TEXT_MARKER.trim(),
+    `Generate exactly ${batchOutput.count} separate image files in this single request.`,
+    'CRITICAL: Each output file must be ONE single continuous photograph of ONE scene only. Never put 2, 3, or 4 panels, triptychs, split-screens, or collage grids inside one file.',
+    'Batch diversity is ACROSS files (file 1 vs file 2 vs file 3), NOT by packing multiple scenes into one file.',
+    'Each output file MUST use a visibly different sub-scene/environment from the other files — NOT the same room, wall, surface, or background with different headline text.',
+    `Compared to the other files in this batch, each file must differ in at least ${batchOutput.diversity.min_changed_dimensions} visual dimensions listed in batch_output.diversity.dimensions. This does NOT mean showing ${batchOutput.diversity.min_changed_dimensions} scenes inside one file.`,
+  ];
+
+  if (scenePrompt) {
+    lines.push(
+      `User scene scope: "${scenePrompt}". Every output file must stay within this scene category, but use a different sub-location, surface, object, angle, or lighting — never repeat the same physical setting.`,
+    );
+  } else if (feature === 'product_main_image') {
+    lines.push(
+      'Without a fixed user scene, choose different real applicable sub-scenes per file (e.g. different rooms, surfaces, indoor/outdoor contexts).',
+    );
+  }
+
+  for (const slot of batchOutput.diversity.slots) {
+    lines.push(`Output file ${slot.index} (one single-scene photograph only): ${slot.directive}`);
+  }
+
+  lines.push(
+    'Invalid batch outputs: triptych or multi-panel collage inside one file; split-screen with multiple locations in one file; same physical scene repeated with only headline/text changes; same wall crack location; same background props and camera with recolor only.',
+  );
+
+  return `\n\n${lines.join('\n')}\n`;
 }
 
 function hasReferenceImage(request: ImageTaskRequest) {

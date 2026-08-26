@@ -141,7 +141,8 @@ describe('instructionPrompt', () => {
       aspectRatio: '1:1',
     }, 'ignored main prompt');
 
-    expect(() => JSON.parse(text)).not.toThrow();
+    expect(() => parseProductSetJsonPrompt(text)).not.toThrow();
+    expect(text).toContain('--- BATCH DIVERSITY (mandatory) ---');
     expect(text).not.toContain('具体场景：');
     expect(text).not.toContain(ENGLISH_ONLY_VISIBLE_TEXT_RULE);
 
@@ -155,6 +156,10 @@ describe('instructionPrompt', () => {
     expect(spec.batch_output).toEqual(expect.objectContaining({
       count: 3,
       require_distinct: true,
+      diversity: expect.objectContaining({
+        min_changed_dimensions: 3,
+        slots: expect.any(Array),
+      }),
     }));
     expect(spec.variant).toBeUndefined();
   });
@@ -231,8 +236,15 @@ describe('instructionPrompt', () => {
     expect(first.batch_output).toEqual(expect.objectContaining({
       count: 3,
       require_distinct: true,
+      diversity: expect.objectContaining({
+        slots: expect.arrayContaining([
+          expect.objectContaining({ index: 1 }),
+          expect.objectContaining({ index: 2 }),
+          expect.objectContaining({ index: 3 }),
+        ]),
+      }),
     }));
-    expect(first.batch_output.forbidden.join(' ')).toMatch(/stack|collage|layer/i);
+    expect(first.batch_output.forbidden.join(' ')).toMatch(/stack|collage|layer|recolor-only/i);
     expect(second.batch_output.count).toBe(6);
     expect(one.batch_output).toBeUndefined();
     expect(first.variant).toBeUndefined();

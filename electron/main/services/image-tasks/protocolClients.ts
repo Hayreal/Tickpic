@@ -298,20 +298,20 @@ function extensionForMimeType(mimeType: string) {
   return '.png';
 }
 
-function buildGeminiExecutionPrompt(finalPrompt: string, count: number) {
-  if (count <= 1) {
-    return finalPrompt;
-  }
-
-  return `${finalPrompt}\n\nAPI batch size is ${count}: return ${count} separate image parts in this response. Each part must be one complete standalone image. Do not collage, stack, or layer multiple variants inside a single image canvas.`;
-}
-
 function buildOpenAIExecutionPrompt(finalPrompt: string, count: number) {
   if (count <= 1) {
     return finalPrompt;
   }
 
-  return `${finalPrompt}\n\nAPI parameter n=${count} already requests ${count} separate image files. Each file must be one complete standalone composition. Do not collage, stack, or layer multiple variants inside a single image canvas.`;
+  return `${finalPrompt}\n\nAPI parameter n=${count} already requests ${count} separate image files. Each file must be exactly ONE single-scene photograph — never a triptych, split-screen, or multi-panel collage inside one file. Diversity is across files, not panels within a file. Do not collage, stack, or layer multiple scenes inside a single image canvas. Headline-only variations of the same physical scene are invalid.`;
+}
+
+function buildGeminiExecutionPrompt(finalPrompt: string, count: number) {
+  if (count <= 1) {
+    return finalPrompt;
+  }
+
+  return `${finalPrompt}\n\nAPI batch size is ${count}: return ${count} separate image parts in this response. Each part must be exactly ONE single-scene photograph — never a triptych, split-screen, or multi-panel collage inside one part. Diversity is across parts, not panels within a part. Do not collage, stack, or layer multiple scenes inside a single image canvas. Headline-only variations of the same physical scene are invalid.`;
 }
 
 function isRecord(value: unknown): value is Record<string, any> {

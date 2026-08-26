@@ -137,23 +137,26 @@ export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions)
       }
     };
 
-    const usesProductSetBatchRequest = isProductSetFeature(task.feature) && plan.count > 1;
+    const usesProductSetSequentialVariants = isProductSetFeature(task.feature) && plan.count > 1;
 
-    if (usesProductSetBatchRequest) {
-      logger.info('image-task', `开始单次生成 ${plan.count} 张图片`, { taskId: task.taskId });
-      const result = await options.modelGateway.executeImage({
-        task,
-        plan,
-        finalPrompt,
-        abortSignal,
-      });
-      await ingestResult(result);
-
-      if (session.imagePaths.length < plan.count) {
-        throw new Error(
-          `图片服务在一次请求中仅返回了 ${session.imagePaths.length}/${plan.count} 张图片（n=${plan.count}）。`
-          + '请检查 API 网关是否支持批量出图，或稍后重试。',
-        );
+    if (usesProductSetSequentialVariants) {
+      for (let index = 0; index < plan.count; index += 1) {
+        const variantIndex = index + 1;
+        logger.info('image-task', `开始生成套图变体 ${variantIndex}/${plan.count}`, { taskId: task.taskId });
+        const variantRequest = {
+          ...task.request,
+          count: 1,
+          variantIndex,
+          variantTotal: plan.count,
+        };
+        const variantPrompt = buildExecutionPrompt(variantRequest, plan.mainPrompt);
+        const result = await options.modelGateway.executeSingleImage({
+          task: { ...task, request: variantRequest },
+          plan: { ...plan, request: variantRequest, count: 1 },
+          finalPrompt: variantPrompt,
+          abortSignal,
+        });
+        await ingestResult(result);
       }
     } else {
       for (let index = 0; index < plan.count; index += 1) {
