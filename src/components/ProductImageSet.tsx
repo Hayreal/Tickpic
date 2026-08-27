@@ -93,7 +93,7 @@ function defaultTabState(subTab: ProductSetSubTab): TabState {
     comparisonLayout: 'auto',
     comparisonIntensity: 'medium',
     showProduct: true,
-    multiSceneLayout: 'grid',
+    multiSceneLayout: 'auto',
   };
 }
 
@@ -461,7 +461,12 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
                     id="product-set-multiScene-layout"
                     label="画面模式"
                     value={activeState.multiSceneLayout}
-                    options={[['single', '单场景'], ['collage', '拼图'], ['grid', '宫格']]}
+                    options={[
+                      ['auto', '自动多样'],
+                      ['single', '单场景'],
+                      ['collage', '拼图'],
+                      ['grid', '宫格（自动变体）'],
+                    ]}
                     onChange={(multiSceneLayout) => updateActiveState({ multiSceneLayout: multiSceneLayout as MultiSceneLayout })}
                   />
                 ) : null}

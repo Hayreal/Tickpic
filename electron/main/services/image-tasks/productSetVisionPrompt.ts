@@ -2,8 +2,11 @@ import type { ImageFeature, ImageTaskRequest } from '../../../../src/shared/doma
 import type { ProductSetVisionBatch } from '../../../../src/shared/domain/productSetVisionInstructions.js';
 import {
   isProductSetFeature,
+  multiSceneLayoutPlan,
+  resolveComparisonEvidenceFraming,
   resolveComparisonLayout,
   resolveMainImageVariantPresentation,
+  resolveMultiScenePresentationLayout,
 } from './productSetJsonPrompt.js';
 import { sanitizeRequestForInstruction } from './instructionPrompt.js';
 
@@ -38,9 +41,10 @@ export function buildProductSetVisionSystemPrompt(feature: ImageFeature): string
     '7. variant_directive 应写清该张图独有的子场景/构图/光线方向，并与 batch 内其他 index 互斥。',
     '8. 若用户提供 scenePrompt / prompt / negativePrompt，将其要点体现在 environment、composition_directive 或 scene_notes 中。',
     '9. 多场景图不得输出产品本体、包装、人物或手部；主图/对比图必须锁定 SKU 身份。',
-    '9a. 多场景图若 structured_parameters.multiSceneLayout 为 grid 或 collage：每张输出必须是「带英文标签的多格适用范围信息图」，每格一种真实痛点表面+问题状态；禁止单张连续实拍、清洁工具摆拍、或带毛巾/刷子的细节特写。',
-    '9b. grid 布局默认 2 行 x 3 列共 6 格；vision 必须为每条 instruction 填写 panel_list（6 项，含 label / problem_surface / problem_state）与 scope_headline。',
+    '9a. 多场景图若 structured_parameters.multiSceneLayout 为 auto、grid 或 collage：每张输出必须是「带英文标签的多格适用范围信息图」，每格一种真实痛点表面+问题状态；禁止单张连续实拍、清洁工具摆拍、或带毛巾/刷子的细节特写。',
+    '9b. 若请求中提供 multi_scene_layout_plan，必须严格遵守对应 index 的 layout、panel_count、headline_treatment；panel_list 的项数必须精确等于 panel_count。批次内不得重复同一种宫格/拼图几何、标题位置与标签条样式组合。',
     '9c. 多场景 single 布局才允许单张连续场景图；grid/collage 时 problem_surface/problem_state 描述整图主题，具体分格内容写在 panel_list。',
+    '9d. 若请求中提供 comparison_layout_plan，必须严格遵守对应 index 的 layout 与 evidence_framing。即使布局重复，也必须按 evidence_framing 改变证据镜头、裁切与主体区域，不能只换标题、滤镜或产品位置。',
     '10. 不要输出图片路径、base64 或任何非 JSON 文本。',
   ].join('\n');
 }
@@ -65,6 +69,9 @@ export function buildProductSetVisionUserText(
       : {}),
     ...(request.feature === 'product_comparison_image' && count > 1
       ? { comparison_layout_plan: buildComparisonLayoutPlan(request, count) }
+      : {}),
+    ...(request.feature === 'product_multi_scene'
+      ? { multi_scene_layout_plan: buildMultiSceneLayoutPlan(request, count) }
       : {}),
   };
 
@@ -135,18 +142,8 @@ function createVisionBatchTemplate(feature: ImageFeature): ProductSetVisionBatch
           problem_surface: 'car windshield and hood',
           problem_state: 'messy white bird droppings',
         },
-        {
-          label: 'Water Stains',
-          problem_surface: 'car door panel',
-          problem_state: 'vertical mineral water streaks',
-        },
-        {
-          label: 'Grease',
-          problem_surface: 'car lower side panel',
-          problem_state: 'dark greasy vertical drips',
-        },
       ],
-      composition_directive: '2x3 labeled grid scope infographic with optional top headline banner; no product or cleaning tools',
+      composition_directive: 'Follow the supplied multi_scene_layout_plan geometry and panel_count; labeled scope infographic with no product or cleaning tools',
     }],
   };
 }
@@ -191,6 +188,31 @@ function buildComparisonLayoutPlan(request: ImageTaskRequest, count: number) {
         variantIndex,
         variantTotal: count,
       }),
+      evidence_framing: resolveComparisonEvidenceFraming({
+        ...request,
+        count: 1,
+        variantIndex,
+        variantTotal: count,
+      }),
+    };
+  });
+}
+
+function buildMultiSceneLayoutPlan(request: ImageTaskRequest, count: number) {
+  return Array.from({ length: count }, (_, index) => {
+    const variantIndex = index + 1;
+    const layout = resolveMultiScenePresentationLayout({
+      ...request,
+      count: 1,
+      variantIndex,
+      variantTotal: count,
+    });
+    const plan = multiSceneLayoutPlan(layout);
+    return {
+      index: variantIndex,
+      layout,
+      panel_count: plan.panelCount,
+      headline_treatment: plan.headlineTreatment,
     };
   });
 }

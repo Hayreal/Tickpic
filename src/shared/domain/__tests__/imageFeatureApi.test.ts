@@ -272,7 +272,7 @@ describe('image feature API contract', () => {
       }
     }
 
-    for (const multiSceneLayout of ['single', 'collage', 'grid'] as const) {
+    for (const multiSceneLayout of ['auto', 'single', 'collage', 'grid'] as const) {
       expect(validateImageTaskRequest({
         feature: 'product_multi_scene',
         images: productImage,
@@ -302,7 +302,7 @@ describe('image feature API contract', () => {
       'comparisonIntensity must be one of light, medium, heavy',
     );
     expect(() => validateImageTaskRequest({ ...request, multiSceneLayout: 'split' as never })).toThrow(
-      'multiSceneLayout must be one of single, collage, grid',
+      'multiSceneLayout must be one of auto, single, collage, grid',
     );
     expect(() => validateImageTaskRequest({ ...request, comparisonLayout: 'horizontal' })).toThrow(
       'comparisonLayout is not supported by product_main_image',

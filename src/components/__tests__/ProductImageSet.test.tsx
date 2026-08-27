@@ -267,14 +267,14 @@ describe('ProductImageSet', () => {
     expect(document.getElementById('product-set-comparison-intensity-heavy')).toHaveClass('ui-segment-active');
 
     fireEvent.click(document.getElementById('product-set-subtab-multi-scene')!);
-    expect(document.getElementById('product-set-multiScene-layout-grid')).toHaveClass('ui-segment-active');
+    expect(document.getElementById('product-set-multiScene-layout-auto')).toHaveClass('ui-segment-active');
     fireEvent.click(screen.getByRole('button', { name: 'mock upload sku' }));
     fireEvent.click(document.getElementById('submit-product-set-multiScene')!);
 
     await waitFor(() => expect(submitMany).toHaveBeenCalledTimes(1));
     expect(submitMany.mock.calls[0]![0][0]).toMatchObject({
       feature: 'product_multi_scene',
-      multiSceneLayout: 'grid',
+      multiSceneLayout: 'auto',
     });
     expect(submitMany.mock.calls[0]![0][0]).not.toHaveProperty('prompt');
   });

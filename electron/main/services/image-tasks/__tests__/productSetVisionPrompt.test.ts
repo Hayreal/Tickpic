@@ -20,7 +20,7 @@ describe('productSetVisionPrompt', () => {
       images: [{ role: 'product', path: '/authorized/input/product.png' }],
     }, 4);
     const payload = JSON.parse(text.split('\n\n')[1]!) as {
-      comparison_layout_plan?: Array<{ layout: string }>;
+      comparison_layout_plan?: Array<{ layout: string; evidence_framing: string }>;
     };
 
     expect(payload.comparison_layout_plan?.map((item) => item.layout)).toEqual([
@@ -28,6 +28,29 @@ describe('productSetVisionPrompt', () => {
       'vertical',
       'grid_2x2',
       'grid_3x2',
+    ]);
+    expect(payload.comparison_layout_plan?.map((item) => item.evidence_framing)).toEqual([
+      'tight macro crop of one clear problem area',
+      'contextual medium-distance crop showing the object and target region',
+      'edge-to-edge material-detail crop that emphasizes texture or boundary damage',
+      'wider crop that establishes the whole object while keeping the evidence readable',
+    ]);
+  });
+
+  it('plans varied multi-scene geometry instead of repeating a six-cell grid', () => {
+    const text = buildProductSetVisionUserText({
+      feature: 'product_multi_scene',
+      multiSceneLayout: 'grid',
+      images: [{ role: 'product', path: '/authorized/input/product.png' }],
+    }, 3);
+    const payload = JSON.parse(text.split('\n\n')[1]!) as {
+      multi_scene_layout_plan?: Array<{ layout: string; panel_count: number }>;
+    };
+
+    expect(payload.multi_scene_layout_plan).toEqual([
+      expect.objectContaining({ layout: 'grid_2x2', panel_count: 4 }),
+      expect.objectContaining({ layout: 'grid_2x3', panel_count: 6 }),
+      expect.objectContaining({ layout: 'grid_3x2', panel_count: 6 }),
     ]);
   });
 });

@@ -46,7 +46,7 @@ export type ProductHandheldMode = 'auto' | 'handheld' | 'not_handheld';
 export type ProductEffectMode = 'auto' | 'show' | 'hide';
 export type ComparisonLayout = 'auto' | 'horizontal' | 'vertical' | 'grid_2x2' | 'grid_3x2';
 export type ComparisonIntensity = 'light' | 'medium' | 'heavy';
-export type MultiSceneLayout = 'single' | 'collage' | 'grid';
+export type MultiSceneLayout = 'auto' | 'single' | 'collage' | 'grid';
 
 export const MAX_NEGATIVE_PROMPT_LENGTH = 500;
 
@@ -402,7 +402,7 @@ function validateProductSetControls(input: ImageTaskRequest) {
   validateEnum(input.productEffectMode, ['auto', 'show', 'hide'], 'productEffectMode');
   validateEnum(input.comparisonLayout, ['auto', 'horizontal', 'vertical', 'grid_2x2', 'grid_3x2'], 'comparisonLayout');
   validateEnum(input.comparisonIntensity, ['light', 'medium', 'heavy'], 'comparisonIntensity');
-  validateEnum(input.multiSceneLayout, ['single', 'collage', 'grid'], 'multiSceneLayout');
+  validateEnum(input.multiSceneLayout, ['auto', 'single', 'collage', 'grid'], 'multiSceneLayout');
 
   validateControlOwnership(input, 'productHandheldMode', ['product_main_image']);
   validateControlOwnership(input, 'productEffectMode', ['product_main_image']);

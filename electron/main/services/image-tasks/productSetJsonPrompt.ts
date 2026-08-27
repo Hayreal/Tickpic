@@ -175,6 +175,33 @@ const AUTO_COMPARISON_LAYOUTS = [
   'grid_3x2',
 ] as const;
 
+const COMPARISON_EVIDENCE_FRAMINGS = [
+  'tight macro crop of one clear problem area',
+  'contextual medium-distance crop showing the object and target region',
+  'edge-to-edge material-detail crop that emphasizes texture or boundary damage',
+  'wider crop that establishes the whole object while keeping the evidence readable',
+] as const;
+
+export type ResolvedMultiSceneLayout =
+  | 'single'
+  | 'grid_2x2'
+  | 'grid_2x3'
+  | 'grid_3x2'
+  | 'collage_4'
+  | 'collage_5'
+  | 'collage_6';
+
+const MULTI_SCENE_GRID_LAYOUTS = ['grid_2x2', 'grid_2x3', 'grid_3x2'] as const;
+const MULTI_SCENE_COLLAGE_LAYOUTS = ['collage_4', 'collage_5', 'collage_6'] as const;
+const AUTO_MULTI_SCENE_LAYOUTS = [
+  'grid_2x2',
+  'collage_5',
+  'grid_3x2',
+  'collage_4',
+  'grid_2x3',
+  'collage_6',
+] as const;
+
 type ProductSetBatchFeature = 'product_main_image' | 'product_comparison_image' | 'product_multi_scene';
 
 const BATCH_DIVERSITY_DIMENSIONS: Record<ProductSetBatchFeature, readonly string[]> = {
@@ -189,7 +216,7 @@ const BATCH_DIVERSITY_DIMENSIONS: Record<ProductSetBatchFeature, readonly string
   ],
   product_comparison_image: [
     'core problem sub-area within the scene',
-    'foreground prop layout and density',
+    'evidence crop, camera distance, and target-region framing',
     'color temperature and tonal mood',
     'spatial depth and background layering',
     'lighting direction and shadow coverage',
@@ -211,23 +238,42 @@ const BATCH_DIVERSITY_SLOT_DIRECTIVES: Record<ProductSetBatchFeature, readonly s
     'Active effect demo (file 3): the ONLY file that may show spray/application/result directly on the problem surface. Must differ in camera/action from files 1-2.',
   ],
   product_comparison_image: [
-    'Change the core problem sub-area, foreground prop layout, and color temperature. Do not rely on minor recolor, title-only, or product-shift differences.',
+    'Change the core problem sub-area, evidence crop, and color temperature. Do not rely on minor recolor, title-only, or product-shift differences.',
     'Change spatial depth, lighting direction/intensity, and the visual form of the Before problem while After improves the same object and region.',
-    'Change foreground prop layout, lighting direction/intensity, and problem presentation while keeping single-scene Before/After consistency.',
+    'Change camera distance, lighting direction/intensity, and problem presentation while keeping single-scene Before/After consistency.',
   ],
   product_multi_scene: [
-    'Labeled multi-panel scope infographic (file 1): grid or collage showing 6 distinct applicable problem surfaces/states for this SKU (e.g. different stain types on car exterior). Each panel gets a short English label. No product, people, or cleaning-kit hero shots.',
-    'Labeled multi-panel scope infographic (file 2): different panel problem mix, headline, or layout treatment from file 1 — still a multi-panel scope chart, never a single lifestyle photograph.',
-    'Labeled multi-panel scope infographic (file 3): alternate problem-type set, banner color, or panel arrangement while keeping the labeled multi-panel application-scope format.',
+    'Labeled multi-panel scope infographic (file 1): follow the planned grid or collage geometry and show a distinct applicable problem surface/state in every panel. Each panel gets a short English label. No product, people, or cleaning-kit hero shots.',
+    'Labeled multi-panel scope infographic (file 2): use a different panel problem mix, geometry, headline placement, and label treatment from file 1 — still a multi-panel scope chart, never a single lifestyle photograph.',
+    'Labeled multi-panel scope infographic (file 3): use an alternate problem-type set, panel arrangement, and banner treatment while keeping the labeled multi-panel application-scope format.',
   ],
 };
 
 function resolveMultiSceneLayout(request: ImageTaskRequest): MultiSceneLayout {
-  return request.multiSceneLayout ?? 'grid';
+  return request.multiSceneLayout ?? 'auto';
 }
 
-function isMultiPanelMultiSceneLayout(layout: MultiSceneLayout): boolean {
-  return layout === 'grid' || layout === 'collage';
+export function resolveMultiScenePresentationLayout(request: ImageTaskRequest): ResolvedMultiSceneLayout {
+  const requestedLayout = resolveMultiSceneLayout(request);
+  const index = Math.max(0, (request.variantIndex ?? 1) - 1);
+
+  if (requestedLayout === 'single') {
+    return 'single';
+  }
+
+  if (requestedLayout === 'grid') {
+    return MULTI_SCENE_GRID_LAYOUTS[index % MULTI_SCENE_GRID_LAYOUTS.length];
+  }
+
+  if (requestedLayout === 'collage') {
+    return MULTI_SCENE_COLLAGE_LAYOUTS[index % MULTI_SCENE_COLLAGE_LAYOUTS.length];
+  }
+
+  return AUTO_MULTI_SCENE_LAYOUTS[index % AUTO_MULTI_SCENE_LAYOUTS.length];
+}
+
+function isMultiPanelMultiSceneLayout(layout: MultiSceneLayout | ResolvedMultiSceneLayout): boolean {
+  return layout !== 'single';
 }
 
 const BATCH_PLAIN_TEXT_MARKER = '\n\n--- BATCH DIVERSITY (mandatory) ---\n';
@@ -589,16 +635,19 @@ function renderComparisonFeatureContract(spec: ProductSetJsonSpec) {
   const composition = asRecord(spec.composition);
   const overlay = asRecord(spec.product_overlay);
   const layout = comparisonLayoutDescription(String(composition?.layout ?? 'auto'));
+  const evidenceFraming = comparisonEvidenceFramingInstruction(String(composition?.evidence_framing ?? '').trim());
   const statements = [
     `Create a credible Before/After comparison: ${layout}`,
     'The Before and After evidence must show the same relevant object or region with a real, observable improvement.',
+    ...(evidenceFraming ? [evidenceFraming] : []),
   ];
 
   if (overlay?.enabled === true) {
-    statements.push('Use one readable foreground product layer integrated with the comparison frame. It must not cover the evidence or cause unrelated display surfaces or filler props to be introduced.');
+    statements.push('Use one readable foreground product layer integrated with the comparison frame, positioned in unused comparison space. It must not cover the evidence or cause unrelated display surfaces or filler props to be introduced; do not add a tabletop, pedestal, or display surface just to hold the product.');
   } else {
     statements.push('Do not render the SKU in the comparison; communicate the improvement through the matched evidence only.');
   }
+  statements.push('Keep the frame focused on the matched Before/After target and optional SKU layer. Do not add towels, brushes, cleaning tools, or accessory props unless they are part of the actual target problem.');
 
   return statements.join(' ');
 }
@@ -618,15 +667,26 @@ function comparisonLayoutDescription(layout: string) {
   }
 }
 
+function comparisonEvidenceFramingInstruction(framing: string) {
+  switch (framing) {
+    case 'tight macro crop of one clear problem area':
+      return 'Use a tight macro evidence crop that makes the specific problem texture or residue immediately readable.';
+    case 'contextual medium-distance crop showing the object and target region':
+      return 'Use a contextual medium-distance evidence crop that shows the object and the affected target region together.';
+    case 'edge-to-edge material-detail crop that emphasizes texture or boundary damage':
+      return 'Use an edge-to-edge material-detail evidence crop that emphasizes texture, seams, grain, or damage boundaries.';
+    case 'wider crop that establishes the whole object while keeping the evidence readable':
+      return 'Use a wider object-context evidence crop that establishes the whole item while keeping the improvement readable.';
+    default:
+      return framing;
+  }
+}
+
 function renderMultiSceneFeatureContract(spec: ProductSetJsonSpec) {
   const composition = asRecord(spec.composition);
   const panels = asRecord(spec.panels);
   const layout = String(composition?.layout ?? 'single');
-  const layoutDescription = layout === 'grid'
-    ? 'Use a readable six-cell grid; every cell shows a distinct applicable problem surface or state with a short English label.'
-    : layout === 'collage'
-      ? 'Use a readable four-to-six-panel collage; every panel shows a distinct applicable problem surface or state with a short English label.'
-      : 'Show one complete target scene with a visible pre-use problem state.';
+  const layoutDescription = multiSceneLayoutDescription(layout);
   const statements = [
     'Do not render the SKU body, packaging, people, faces, hands, or handheld use.',
     layoutDescription,
@@ -644,6 +704,25 @@ function renderMultiSceneFeatureContract(spec: ProductSetJsonSpec) {
   }
 
   return statements.join(' ');
+}
+
+function multiSceneLayoutDescription(layout: string) {
+  switch (layout) {
+    case 'grid_2x2':
+      return 'Use a readable four-cell 2x2 grid; every cell shows a distinct applicable problem surface or state with a short English label.';
+    case 'grid_2x3':
+      return 'Use a readable six-cell 2x3 grid; every cell shows a distinct applicable problem surface or state with a short English label.';
+    case 'grid_3x2':
+      return 'Use a readable six-cell 3x2 grid; every cell shows a distinct applicable problem surface or state with a short English label.';
+    case 'collage_4':
+      return 'Use a readable four-panel asymmetric collage with visible dividers; every panel shows a distinct applicable problem surface or state with a short English label.';
+    case 'collage_5':
+      return 'Use a readable five-panel asymmetric collage with visible dividers; every panel shows a distinct applicable problem surface or state with a short English label.';
+    case 'collage_6':
+      return 'Use a readable six-panel asymmetric collage with visible dividers; every panel shows a distinct applicable problem surface or state with a short English label.';
+    default:
+      return 'Show one complete target scene with a visible pre-use problem state.';
+  }
 }
 
 function renderProductSetScene(spec: ProductSetJsonSpec, request: ImageTaskRequest) {
@@ -897,7 +976,7 @@ export function buildProductSetSpec(request: ImageTaskRequest): ProductSetJsonSp
 
   const draft: Record<string, unknown> = {
     task: request.feature,
-    style: styleForFeature(request.feature, resolveMultiSceneLayout(request)),
+    style: styleForFeature(request.feature, resolveMultiScenePresentationLayout(request)),
     output: {
       aspect_ratio: request.aspectRatio?.trim() && request.aspectRatio !== 'auto'
         ? request.aspectRatio.trim()
@@ -1196,6 +1275,7 @@ function buildExecutionImageInputs(request: ImageTaskRequest, handheldRequired: 
 
 function buildComparisonFields(request: ImageTaskRequest) {
   const layout = resolveComparisonLayout(request);
+  const evidenceFraming = resolveComparisonEvidenceFraming(request);
   const intensity: ComparisonIntensity = request.comparisonIntensity ?? 'medium';
   const showProduct = request.showProduct !== false;
 
@@ -1209,6 +1289,7 @@ function buildComparisonFields(request: ImageTaskRequest) {
         grid_2x2: 'Two rows; each row is BEFORE left and AFTER right for one relevant target region',
         grid_3x2: 'Three rows; each row is BEFORE left and AFTER right for one relevant target region',
       }[layout],
+      evidence_framing: evidenceFraming,
       invariant: 'Before and After keep the same scene, object, camera, scale, material, and structure',
       one_pair_only: layout === 'grid_2x2'
         ? 'Each output image contains two matched BEFORE/AFTER pairs arranged as rows, never unrelated process stages or stacked variants.'
@@ -1289,19 +1370,16 @@ function buildComparisonFields(request: ImageTaskRequest) {
 }
 
 function buildMultiSceneFields(request: ImageTaskRequest) {
-  const layout = resolveMultiSceneLayout(request);
+  const layout = resolveMultiScenePresentationLayout(request);
   const multiPanel = isMultiPanelMultiSceneLayout(layout);
+  const layoutPlan = multiSceneLayoutPlan(layout);
 
   const fields: Record<string, unknown> = {
     composition: {
       focus: 'application scope: distinct problem surfaces, materials, stains, or environments the SKU can address',
       layout,
       format: multiPanel ? 'labeled_multi_panel_scope_infographic' : 'single_target_scene',
-      layout_rules: {
-        single: 'One complete target scene per image with readable foreground/midground/background detail; show a visible before-use problem state on the surface',
-        collage: 'Divide canvas into 4-6 irregular panels with clear borders; each panel a different applicable problem surface/state; optional top English benefit headline banner',
-        grid: '2 rows x 3 columns (6 equal cells) with clear dividers and label bars; each cell shows a different applicable problem/stain/type on the target surface; optional top English benefit headline banner (e.g. "ALL THESE CAN BE REMOVED"); infographic ecommerce scope chart, NOT one continuous photograph',
-      }[layout],
+      layout_rules: layoutPlan.layoutRule,
       sku_in_frame: false,
       people_allowed: false,
       note: multiPanel
@@ -1311,10 +1389,10 @@ function buildMultiSceneFields(request: ImageTaskRequest) {
     ...(multiPanel ? {
       panels: {
         required: true,
-        min_distinct_scenes: layout === 'grid' ? 6 : 4,
+        min_distinct_scenes: layoutPlan.panelCount,
         structure: 'Each panel = one distinct applicable problem surface + visible before-use problem state',
         labels: 'Short English label under each panel naming the problem/stain/surface type',
-        headline: 'Optional top banner with 3-8 word English benefit headline summarizing application scope',
+        headline: layoutPlan.headlineTreatment,
         forbidden: [
           'product bottle or SKU in any panel',
           'cleaning tools, microfiber, or brushes as the hero subject',
@@ -1447,7 +1525,7 @@ function buildVariantField(request: ImageTaskRequest) {
     ? `${slot.directive} Presentation assignment: ${mainImagePresentationExecutionSummary(presentation.mode)}.`
     : slot.directive;
   const multiSceneLayout = request.feature === 'product_multi_scene'
-    ? resolveMultiSceneLayout(request)
+    ? resolveMultiScenePresentationLayout(request)
     : undefined;
   const multiPanelMultiScene = multiSceneLayout
     ? isMultiPanelMultiSceneLayout(multiSceneLayout)
@@ -1482,7 +1560,7 @@ function buildVariantPlainTextSuffix(
   request: ImageTaskRequest,
 ) {
   const multiPanelMultiScene = feature === 'product_multi_scene'
-    && isMultiPanelMultiSceneLayout(resolveMultiSceneLayout(request));
+    && isMultiPanelMultiSceneLayout(resolveMultiScenePresentationLayout(request));
 
   const lines = [
     VARIANT_PLAIN_TEXT_MARKER.trim(),
@@ -1569,7 +1647,7 @@ function buildBatchPlainTextSuffix(
   request: ImageTaskRequest,
 ) {
   const multiPanelMultiScene = feature === 'product_multi_scene'
-    && isMultiPanelMultiSceneLayout(resolveMultiSceneLayout(request));
+    && isMultiPanelMultiSceneLayout(resolveMultiScenePresentationLayout(request));
 
   const lines = [
     BATCH_PLAIN_TEXT_MARKER.trim(),
@@ -1676,7 +1754,59 @@ export function resolveComparisonLayout(request: ImageTaskRequest): Exclude<Comp
   return AUTO_COMPARISON_LAYOUTS[index % AUTO_COMPARISON_LAYOUTS.length];
 }
 
-function styleForFeature(feature: ImageFeature, multiSceneLayout: MultiSceneLayout = 'grid') {
+export function resolveComparisonEvidenceFraming(request: ImageTaskRequest): string {
+  const index = Math.max(0, (request.variantIndex ?? 1) - 1);
+  return COMPARISON_EVIDENCE_FRAMINGS[index % COMPARISON_EVIDENCE_FRAMINGS.length];
+}
+
+export function multiSceneLayoutPlan(layout: ResolvedMultiSceneLayout) {
+  switch (layout) {
+    case 'grid_2x2':
+      return {
+        panelCount: 4,
+        layoutRule: '2 rows x 2 columns (4 equal cells) with clear dividers and concise caption strips; each cell shows a different applicable problem/stain/type on the target surface; infographic ecommerce scope chart, NOT one continuous photograph',
+        headlineTreatment: 'Optional compact top headline with 3-8 English words; captions sit beneath each grid cell',
+      };
+    case 'grid_2x3':
+      return {
+        panelCount: 6,
+        layoutRule: '2 rows x 3 columns (6 equal cells) with clear dividers and concise label bars; each cell shows a different applicable problem/stain/type on the target surface; infographic ecommerce scope chart, NOT one continuous photograph',
+        headlineTreatment: 'Optional narrow side title band with short English labels beneath each grid cell',
+      };
+    case 'grid_3x2':
+      return {
+        panelCount: 6,
+        layoutRule: '3 rows x 2 columns (6 equal cells) with clear dividers and label ribbons; each cell shows a different applicable problem/stain/type on the target surface; infographic ecommerce scope chart, NOT one continuous photograph',
+        headlineTreatment: 'Optional compact corner headline with short English labels on each row',
+      };
+    case 'collage_4':
+      return {
+        panelCount: 4,
+        layoutRule: '4 irregular but balanced panels with visible dividers; each panel shows a different applicable problem surface/state; ecommerce scope collage, NOT one continuous photograph',
+        headlineTreatment: 'Optional short English headline in an open corner; use concise labels near each panel edge',
+      };
+    case 'collage_5':
+      return {
+        panelCount: 5,
+        layoutRule: '5 irregular but balanced panels with visible dividers; each panel shows a different applicable problem surface/state; ecommerce scope collage, NOT one continuous photograph',
+        headlineTreatment: 'Optional short English headline in a slim header; vary concise panel label placement',
+      };
+    case 'collage_6':
+      return {
+        panelCount: 6,
+        layoutRule: '6 irregular but balanced panels with visible dividers; each panel shows a different applicable problem surface/state; ecommerce scope collage, NOT one continuous photograph',
+        headlineTreatment: 'Optional short English headline in an open corner; use concise labels aligned to panel edges',
+      };
+    default:
+      return {
+        panelCount: 1,
+        layoutRule: 'One complete target scene per image with readable foreground/midground/background detail; show a visible before-use problem state on the surface',
+        headlineTreatment: 'Optional short English main title when helpful',
+      };
+  }
+}
+
+function styleForFeature(feature: ImageFeature, multiSceneLayout: MultiSceneLayout | ResolvedMultiSceneLayout = 'auto') {
   switch (feature) {
     case 'product_main_image':
       return 'US Temu functional ecommerce main image, commercial photography, clear benefit hierarchy';

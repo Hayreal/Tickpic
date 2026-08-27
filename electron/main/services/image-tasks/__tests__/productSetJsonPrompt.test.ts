@@ -88,11 +88,11 @@ describe('productSetJsonPrompt', () => {
   });
 
   it.each([
-    [1, 'show BEFORE on the left and AFTER on the right'],
-    [2, 'show BEFORE above and AFTER below'],
-    [3, 'use two rows, each with a matched BEFORE-left and AFTER-right pair'],
-    [4, 'use three rows, each with a matched BEFORE-left and AFTER-right pair'],
-  ])('rotates auto comparison layout for variant %i', (variantIndex, expectedLayout) => {
+    [1, 'show BEFORE on the left and AFTER on the right', 'Use a tight macro evidence crop'],
+    [2, 'show BEFORE above and AFTER below', 'Use a contextual medium-distance evidence crop'],
+    [3, 'use two rows, each with a matched BEFORE-left and AFTER-right pair', 'Use an edge-to-edge material-detail evidence crop'],
+    [4, 'use three rows, each with a matched BEFORE-left and AFTER-right pair', 'Use a wider object-context evidence crop'],
+  ])('rotates auto comparison layout and evidence framing for variant %i', (variantIndex, expectedLayout, expectedFraming) => {
     const renderer = (productSetPrompt as {
       buildProductSetExecutionPrompt?: (request: Record<string, unknown>) => string;
     }).buildProductSetExecutionPrompt;
@@ -106,8 +106,29 @@ describe('productSetJsonPrompt', () => {
     });
 
     expect(prompt).toContain(expectedLayout);
+    expect(prompt).toContain(expectedFraming);
     expect(prompt).toContain('one readable foreground product layer integrated with the comparison frame');
     expect(prompt).toContain('unrelated display surfaces or filler props');
+    expect(prompt).toContain('Do not add towels, brushes, cleaning tools, or accessory props');
+  });
+
+  it.each([
+    [1, 'four-cell 2x2 grid'],
+    [2, 'six-cell 2x3 grid'],
+    [3, 'six-cell 3x2 grid'],
+  ])('varies multi-scene grid geometry for variant %i', (variantIndex, expectedLayout) => {
+    const renderer = (productSetPrompt as {
+      buildProductSetExecutionPrompt?: (request: Record<string, unknown>) => string;
+    }).buildProductSetExecutionPrompt;
+
+    const prompt = renderer!({
+      feature: 'product_multi_scene',
+      multiSceneLayout: 'grid',
+      variantIndex,
+      variantTotal: 3,
+    });
+
+    expect(prompt).toContain(expectedLayout);
   });
 
   it('returns parseable JSON for a main-image handheld spray request', () => {
@@ -322,11 +343,11 @@ describe('productSetJsonPrompt', () => {
     }));
 
     expect(spec.task).toBe('product_multi_scene');
-    expect(spec.composition.layout).toBe('grid');
+    expect(spec.composition.layout).toBe('grid_2x2');
     expect(spec.composition.format).toBe('labeled_multi_panel_scope_infographic');
     expect(spec.panels).toEqual(expect.objectContaining({
       required: true,
-      min_distinct_scenes: 6,
+      min_distinct_scenes: 4,
     }));
     expect(spec.composition.sku_in_frame).toBe(false);
     expect(spec.composition.people_allowed).toBe(false);
@@ -581,8 +602,6 @@ describe('productSetJsonPrompt', () => {
             { label: 'Bug Splatter', problem_surface: 'car bumper', problem_state: 'dried insect residue' },
             { label: 'Tree Sap', problem_surface: 'car hood', problem_state: 'sticky sap film' },
             { label: 'Bird Droppings', problem_surface: 'car windshield', problem_state: 'white droppings' },
-            { label: 'Water Stains', problem_surface: 'car door', problem_state: 'mineral streaks' },
-            { label: 'Grease', problem_surface: 'car side panel', problem_state: 'dark grease drips' },
           ],
           composition_directive: '2x3 labeled grid with top headline banner',
         },
@@ -603,7 +622,7 @@ describe('productSetJsonPrompt', () => {
     });
 
     expect(prompts[0]).not.toMatch(/^\s*\{/);
-    expect(prompts[0]).toContain('Use a readable six-cell grid');
+    expect(prompts[0]).toContain('Use a readable four-cell 2x2 grid');
     expect(prompts[0]).toContain('Black Spots (car hood: speckled tar spots)');
     expect(prompts[0]).toContain('ALL THESE CAN BE REMOVED');
   });
