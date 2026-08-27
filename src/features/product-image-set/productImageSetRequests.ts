@@ -48,7 +48,7 @@ export function buildProductImageSetRequests(
     path,
   }));
   const referencePath = input.handheldReferencePath?.trim();
-  if (input.subTab === 'main' && input.productHandheldMode === 'handheld' && referencePath) {
+  if (input.subTab === 'main' && input.productHandheldMode !== 'not_handheld' && referencePath) {
     images.push({ role: 'reference', path: referencePath });
   }
 

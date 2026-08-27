@@ -6,11 +6,12 @@ import {
 } from '../productHandheldReferences';
 
 describe('productHandheldReferences', () => {
-  it('defines nine labeled handheld references with renamed files', () => {
-    expect(PRODUCT_HANDHELD_REFERENCES).toHaveLength(9);
+  it('defines ten labeled handheld references with renamed files', () => {
+    expect(PRODUCT_HANDHELD_REFERENCES).toHaveLength(10);
     expect(PRODUCT_HANDHELD_REFERENCES.map((reference) => reference.filename)).toEqual([
       'handheld-pump-foam.png',
       'handheld-spray-trigger.png',
+      'handheld-spray-side-press.png',
       'handheld-cylinder-slanted.png',
       'handheld-tube-squeeze-dispense.png',
       'handheld-tube-angled-hold.png',

@@ -10,7 +10,7 @@ import {
   stickerProductRatioLabel,
 } from '../../../../src/shared/view/stickerProductRatioOptions.js';
 import { buildStickerExecutionPrompt, isStickerFeature } from './stickerExecutionPrompt.js';
-import { buildProductSetJsonPrompt, isProductSetFeature } from './productSetJsonPrompt.js';
+import { buildProductSetExecutionPrompt, isProductSetFeature } from './productSetJsonPrompt.js';
 import { buildSkuExecutionPrompt, isSkuFeature } from './skuExecutionPrompt.js';
 import { buildSkuHitMainImagePrompt, isSkuHitMainImageFeature } from './skuHitMainImagePrompt.js';
 
@@ -105,7 +105,7 @@ export function buildExecutionPrompt(request: ImageTaskRequest, mainPrompt: stri
   }
 
   if (isProductSetFeature(request.feature)) {
-    return buildProductSetJsonPrompt(request);
+    return buildProductSetExecutionPrompt(request);
   }
 
   const lines = [mainPrompt.trim()];

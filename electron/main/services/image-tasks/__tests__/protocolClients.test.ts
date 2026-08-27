@@ -309,7 +309,13 @@ describe('protocolClients', () => {
               text: `final prompt${MULTI_IMAGE_GEMINI_PROMPT_SUFFIX}`,
             }),
             expect.objectContaining({
+              text: 'Image 1: source scene',
+            }),
+            expect.objectContaining({
               inlineData: expect.objectContaining({ mimeType: 'image/png' }),
+            }),
+            expect.objectContaining({
+              text: 'Image 2: SKU product reference — lock packaging identity from this image only',
             }),
             expect.objectContaining({
               inlineData: expect.objectContaining({ mimeType: 'image/png' }),

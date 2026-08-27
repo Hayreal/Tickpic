@@ -4,14 +4,34 @@ import OpenAI from 'openai';
 import type { ImageInput, ImageTaskRecord } from '../../../../src/shared/domain/imageFeatureApi.js';
 import type { ImageTaskPlan, ImageTaskRuntimeConfig } from '../../../../src/shared/domain/imageTaskPlan.js';
 import { parseAndFormatReplaceProductExecutionPrompt } from '../../../../src/shared/domain/replaceProductExecutionPrompt.js';
+import {
+  parseProductSetVisionBatch,
+  type ProductSetVisionBatch,
+} from '../../../../src/shared/domain/productSetVisionInstructions.js';
 import { isImageGenerationModel } from './instructionPrompt.js';
 import { logModelRequest, logModelResponse } from './modelRequestLogger.js';
 import { buildOpenAIChatCompletionsUrl } from './modelRequestUrls.js';
 import { normalizeOpenAIBaseUrl } from './modelGatewayFactory.js';
 import {
+  buildProductSetExecutionVariantsFromVision,
+  isProductSetFeature,
+} from './productSetJsonPrompt.js';
+import {
+  buildProductSetVisionSystemPrompt,
+  buildProductSetVisionUserText,
+} from './productSetVisionPrompt.js';
+import {
   buildReplaceProductVisionSystemPrompt,
   buildReplaceProductVisionUserText,
 } from './replaceProductVisionPrompt.js';
+
+export interface ProductSetVisionInstructionResult {
+  visionModel: string;
+  rawContent: string;
+  batch: ProductSetVisionBatch;
+  executionPrompts: string[];
+  executionHandheldReferenceRequired?: boolean[];
+}
 
 export interface VisionInstructionClient {
   generateReplaceProductInstruction(input: {
@@ -19,6 +39,11 @@ export interface VisionInstructionClient {
     plan: ImageTaskPlan;
     abortSignal: AbortSignal;
   }): Promise<string>;
+  generateProductSetInstructions(input: {
+    task: ImageTaskRecord;
+    plan: ImageTaskPlan;
+    abortSignal: AbortSignal;
+  }): Promise<ProductSetVisionInstructionResult>;
 }
 
 export interface CreateVisionInstructionClientOptions {
@@ -100,6 +125,94 @@ export function createVisionInstructionClient(
       });
 
       return parseAndFormatReplaceProductExecutionPrompt(content, task.request);
+    },
+
+    async generateProductSetInstructions({ task, plan, abortSignal }) {
+      if (!isProductSetFeature(task.feature)) {
+        throw new Error(`generateProductSetInstructions does not support feature ${task.feature}`);
+      }
+
+      const visionModel = resolveVisionModel(task.request, options.runtimeConfig);
+      if (!visionModel) {
+        throw new Error('vision model is not configured in settings');
+      }
+      if (isImageGenerationModel(visionModel)) {
+        throw new Error('vision model must not be an image-only model');
+      }
+
+      if (plan.executionImages.length === 0) {
+        throw new Error('product-set features require at least one execution image for vision instruction');
+      }
+
+      const imageParts = [];
+      for (const [index, image] of plan.executionImages.entries()) {
+        const caption = image.role === 'reference'
+          ? `Image ${index + 1}: handheld reference`
+          : `Image ${index + 1}: SKU product reference`;
+        imageParts.push(...await buildOpenAIImageContentParts(image, caption));
+      }
+
+      const messages = [
+        { role: 'system' as const, content: buildProductSetVisionSystemPrompt(task.feature) },
+        {
+          role: 'user' as const,
+          content: [
+            { type: 'text' as const, text: buildProductSetVisionUserText(task.request, plan.count) },
+            ...imageParts,
+          ],
+        },
+      ];
+
+      logModelRequest('instruction', {
+        protocol: 'openai',
+        url: buildOpenAIChatCompletionsUrl(options.baseUrl),
+        model: visionModel,
+        feature: task.feature,
+        requestedCount: plan.count,
+        messages: messages.map((message) => ({
+          role: message.role,
+          content: typeof message.content === 'string'
+            ? message.content
+            : message.content.map((part) => (
+              part.type === 'text'
+                ? part
+                : { type: part.type, image_url: { url: '[base64 redacted]', detail: 'high' } }
+            )),
+        })),
+      });
+
+      const response = await openai.chat.completions.create({
+        model: visionModel,
+        messages,
+        response_format: { type: 'json_object' },
+      }, {
+        signal: abortSignal,
+      });
+
+      const content = response.choices[0]?.message?.content?.trim();
+      if (!content) {
+        throw new Error('vision model returned empty product-set instruction batch');
+      }
+
+      logModelResponse('instruction', {
+        protocol: 'openai',
+        url: buildOpenAIChatCompletionsUrl(options.baseUrl),
+        model: visionModel,
+        feature: task.feature,
+        response,
+      });
+
+      const batch = parseProductSetVisionBatch(content, plan.count);
+      const executionVariants = buildProductSetExecutionVariantsFromVision(task.request, batch);
+      return {
+        visionModel,
+        rawContent: content,
+        batch,
+        executionPrompts: executionVariants.map((variant) => variant.prompt),
+        executionHandheldReferenceRequired: executionVariants.map(
+          (variant) => variant.requiresHandheldReference,
+        ),
+      };
     },
   };
 }

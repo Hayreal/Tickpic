@@ -9,7 +9,7 @@ import {
   isImageGenerationModel,
   sanitizeRequestForInstruction,
 } from '../instructionPrompt';
-import { parseProductSetJsonPrompt } from '../productSetJsonPrompt';
+import { buildProductSetSpec } from '../productSetJsonPrompt';
 
 const STICKER_REPLICA_MAIN_PROMPT =
   '从当前产品图中提取产品表面的贴纸/标签，展开为正视角 2D 平面贴纸图。比例按原贴纸真实形状自主判断，不强制固定画幅。若输入是侧拍、斜拍、弧面或可见包装侧面，必须将可见贴纸/包装版面去透视并拉平成连续平面展开稿，不保留盒体侧面、厚度、折角、阴影、反光或 3D 透视。只输出贴纸本身，不输出产品容器或背景。保留原贴纸的排版、色系、风格、装饰元素和图案位置；画面文字须为英文，若原图文字为中文则翻译为对应英文后呈现。若提供单独 Logo 图，仅作为品牌标识嵌入到对应位置，不作为版式、配色或风格参考。';
@@ -19,7 +19,7 @@ function withEnglishOnlyRule(...lines: string[]) {
 }
 
 function productSetSpec(request: Parameters<typeof buildExecutionPrompt>[0]) {
-  return parseProductSetJsonPrompt(buildExecutionPrompt(request, getImageFeatureDefinition(request.feature).mainPrompt));
+  return buildProductSetSpec(request);
 }
 
 
@@ -129,7 +129,7 @@ describe('instructionPrompt', () => {
     expect(text).not.toContain('mainPrompt');
   });
 
-  it('routes product-set execution prompts through JSON specs', () => {
+  it('routes product-set execution prompts through compact natural language', () => {
     const text = buildExecutionPrompt({
       feature: 'product_main_image',
       productHandheldMode: 'handheld',
@@ -141,32 +141,25 @@ describe('instructionPrompt', () => {
       aspectRatio: '1:1',
     }, 'ignored main prompt');
 
-    expect(() => parseProductSetJsonPrompt(text)).not.toThrow();
-    expect(text).toContain('--- BATCH DIVERSITY (mandatory) ---');
-    expect(text).not.toContain('具体场景：');
+    expect(text).not.toMatch(/^\s*\{/);
+    expect(text).not.toContain('"sku_lock"');
+    expect(text).not.toContain('--- BATCH DIVERSITY');
     expect(text).not.toContain(ENGLISH_ONLY_VISIBLE_TEXT_RULE);
-
-    const spec = parseProductSetJsonPrompt(text);
-    expect(spec.task).toBe('product_main_image');
-    expect(spec.composition.strategy).toBe('free_within_controls');
-    expect(spec.handheld.mode).toBe('handheld');
-    expect(spec.spray_physics.spray_origin).toMatch(/nozzle/i);
-    expect(spec.negative_prompt.join(' ')).toMatch(/icon/i);
-    expect(spec.user_overrides.scene).toBe('fixative spray');
-    expect(spec.batch_output).toEqual(expect.objectContaining({
-      count: 3,
-      require_distinct: true,
-      diversity: expect.objectContaining({
-        min_changed_dimensions: 3,
-        slots: expect.any(Array),
-      }),
-    }));
-    expect(spec.variant).toBeUndefined();
+    expect(text).toContain('Use the supplied SKU as the only product identity reference.');
+    expect(text).toContain('Show a natural hand directly using or holding the SKU beside the actual use target.');
+    expect(text).toContain('When showing product action, it must originate from the SKU’s real actuator');
+    expect(text).toContain('User scene direction: fixative spray.');
+    expect(text).toContain('Additional direction: premium look.');
+    expect(text).toContain('Avoid: extra bottles.');
   });
 
-  it.each(['handheld', 'not_handheld'] as const)('maps main-image handheld mode %s into JSON', (productHandheldMode) => {
+  it.each(['auto', 'handheld', 'not_handheld'] as const)('maps main-image handheld mode %s into JSON', (productHandheldMode) => {
     const spec = productSetSpec({ feature: 'product_main_image', productHandheldMode });
-    expect(spec.handheld.mode).toBe(productHandheldMode);
+    if (productHandheldMode === 'handheld') {
+      expect(spec.handheld.mode).toBe('handheld');
+    } else {
+      expect(spec.handheld.mode).toBe('not_handheld');
+    }
     if (productHandheldMode === 'handheld') {
       expect(spec.handheld.rules.join(' ')).toMatch(/thumb must be visible/i);
       expect(spec.handheld.rules.join(' ')).toMatch(/wrist/i);
@@ -185,9 +178,15 @@ describe('instructionPrompt', () => {
     }
   });
 
-  it.each(['auto', 'horizontal', 'vertical'] as const)('maps comparison layout %s into JSON', (comparisonLayout) => {
+  it.each([
+    ['auto', 'horizontal'],
+    ['horizontal', 'horizontal'],
+    ['vertical', 'vertical'],
+    ['grid_2x2', 'grid_2x2'],
+    ['grid_3x2', 'grid_3x2'],
+  ] as const)('maps comparison layout %s into its effective layout', (comparisonLayout, expectedLayout) => {
     const spec = productSetSpec({ feature: 'product_comparison_image', comparisonLayout, showProduct: true });
-    expect(spec.composition.layout).toBe(comparisonLayout);
+    expect(spec.composition.layout).toBe(expectedLayout);
     expect(spec.product_overlay.enabled).toBe(true);
     expect(String(spec.product_overlay.scale)).toMatch(/larger|hero/i);
   });
@@ -275,7 +274,7 @@ describe('instructionPrompt', () => {
       avoid: 'added products',
     }));
     expect(spec.batch_output).toEqual(expect.objectContaining({ count: 3 }));
-    expect(spec.composition.one_pair_only).toMatch(/exactly one BEFORE\/AFTER pair/i);
+    expect(spec.composition.one_pair_only).toMatch(/exactly one matched BEFORE\/AFTER pair/i);
     expect(spec.variant).toBeUndefined();
   });
 

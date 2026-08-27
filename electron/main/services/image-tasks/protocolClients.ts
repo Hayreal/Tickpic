@@ -174,7 +174,8 @@ async function buildOpenAIImageFile(image: ImageInput): Promise<File> {
 
 async function buildGeminiParts(text: string, images: ImageInput[]) {
   const parts: unknown[] = [{ text }];
-  for (const image of images) {
+  for (const [index, image] of images.entries()) {
+    parts.push({ text: captionForExecutionImage(image, index + 1) });
     const buffer = await readFile(image.path);
     parts.push({
       inlineData: {
@@ -184,6 +185,19 @@ async function buildGeminiParts(text: string, images: ImageInput[]) {
     });
   }
   return parts;
+}
+
+function captionForExecutionImage(image: ImageInput, index: number): string {
+  switch (image.role) {
+    case 'product':
+      return `Image ${index}: SKU product reference — lock packaging identity from this image only`;
+    case 'reference':
+      return `Image ${index}: handheld grip/pose reference — match hand pose and grip exactly when handheld.required is true`;
+    case 'source':
+      return `Image ${index}: source scene`;
+    default:
+      return `Image ${index}: ${image.role}`;
+  }
 }
 
 function resolveImageMimeType(image: ImageInput) {

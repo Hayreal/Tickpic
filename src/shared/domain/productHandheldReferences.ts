@@ -7,6 +7,7 @@ export interface ProductHandheldReferenceDefinition {
 export const PRODUCT_HANDHELD_REFERENCES: readonly ProductHandheldReferenceDefinition[] = [
   { id: 'handheld-pump-foam', label: '按压泵瓶出泡', filename: 'handheld-pump-foam.png' },
   { id: 'handheld-spray-trigger', label: '食指按喷喷雾', filename: 'handheld-spray-trigger.png' },
+  { id: 'handheld-spray-side-press', label: '侧握斜按喷雾', filename: 'handheld-spray-side-press.png' },
   { id: 'handheld-cylinder-slanted', label: '斜握柱状瓶', filename: 'handheld-cylinder-slanted.png' },
   { id: 'handheld-tube-squeeze-dispense', label: '挤压软管出料', filename: 'handheld-tube-squeeze-dispense.png' },
   { id: 'handheld-tube-angled-hold', label: '斜握软管展示', filename: 'handheld-tube-angled-hold.png' },

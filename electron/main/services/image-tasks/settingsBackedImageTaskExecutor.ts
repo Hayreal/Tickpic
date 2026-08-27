@@ -4,6 +4,7 @@ import { createFileImageTaskArtifactStore } from './imageTaskArtifactStore.js';
 import { createImageTaskExecutor, type ImageTaskModelGateway } from './imageTaskExecutor.js';
 import type { ImageTaskExecutor } from './imageTaskController.js';
 import { createModelGatewayFromSettings } from './modelGatewayFactory.js';
+import { createVisionInstructionClient } from './visionInstructionClient.js';
 import { getAppLogger } from '../logger/appLogger.js';
 
 export function createSettingsBackedImageTaskExecutor(
@@ -17,10 +18,19 @@ export function createSettingsBackedImageTaskExecutor(
       workspaceDir: settings.workspaceDir,
       baseUrl: settings.baseUrl,
     });
+    const runtimeConfig = createRuntimeConfigFromSettings(settings);
+    const apiKey = settings.n1nApiKey.trim();
     const executor = createImageTaskExecutor({
-      runtimeConfig: createRuntimeConfigFromSettings(settings),
+      runtimeConfig,
       modelGateway: modelGatewayFactory(settings),
       artifactStore: createFileImageTaskArtifactStore(settings.workspaceDir),
+      visionInstructionClient: apiKey
+        ? createVisionInstructionClient({
+          apiKey,
+          baseUrl: settings.baseUrl,
+          runtimeConfig,
+        })
+        : undefined,
     });
 
     return executor(task, abortSignal, onProgress);

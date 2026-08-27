@@ -33,7 +33,7 @@ const IMAGE_ROLE_LABELS: Record<ImageRole, string> = {
 };
 
 const PRODUCT_SET_CONTROL_LABELS = {
-  productHandheldMode: { handheld: '手持展示', not_handheld: '不手持' },
+  productHandheldMode: { auto: 'AI 自动判断', handheld: '手持展示', not_handheld: '不手持' },
   productEffectMode: { auto: 'AI 自动判断', show: '展示具体效果', hide: '不展示具体效果' },
   comparisonLayout: { auto: 'AI 自动', horizontal: '左右对比', vertical: '上下对比' },
   comparisonIntensity: { light: '轻度', medium: '中度', heavy: '重度' },

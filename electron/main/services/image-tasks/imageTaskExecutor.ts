@@ -3,6 +3,12 @@ import type { ImageTaskPlan, ImageTaskRuntimeConfig } from '../../../../src/shar
 import { buildImageTaskPlan } from '../../../../src/shared/domain/imageTaskPlan.js';
 import { buildExecutionPrompt } from './instructionPrompt.js';
 import { isProductSetFeature } from './productSetJsonPrompt.js';
+import type { VisionInstructionClient, ProductSetVisionInstructionResult } from './visionInstructionClient.js';
+import {
+  finalizeProductSetDebugManifest,
+  resolveArtifactFilePrefix,
+  writeProductSetDebugArtifacts,
+} from './productSetDebugArtifacts.js';
 import type { ImageTaskExecutionResult, ImageTaskExecutor } from './imageTaskController.js';
 import { getAppLogger } from '../logger/appLogger.js';
 
@@ -70,6 +76,7 @@ export interface CreateImageTaskExecutorOptions {
   runtimeConfig: ImageTaskRuntimeConfig;
   modelGateway: ImageTaskModelGateway;
   artifactStore: ImageTaskArtifactStore;
+  visionInstructionClient?: VisionInstructionClient;
 }
 
 export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions): ImageTaskExecutor {
@@ -83,13 +90,54 @@ export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions)
       executionModel: plan.executionStage.model,
     });
 
-    const finalPrompt = buildExecutionPrompt(task.request, plan.mainPrompt);
+    const isProductSet = isProductSetFeature(task.feature);
+    const productSetVisionResult = isProductSet
+      ? await resolveProductSetVisionResult({
+        task,
+        plan,
+        abortSignal,
+        visionInstructionClient: options.visionInstructionClient,
+        logger,
+      })
+      : undefined;
+    const productSetPrompts = productSetVisionResult?.executionPrompts;
+    const finalPrompt = isProductSet
+      ? productSetPrompts!.join('\n\n--- NEXT OUTPUT ---\n\n')
+      : buildExecutionPrompt(task.request, plan.mainPrompt);
+
     logger.info('image-task', '图片执行提示词已组装', {
       taskId: task.taskId,
       promptLength: finalPrompt.length,
+      visionGenerated: isProductSet,
+      promptCount: isProductSet ? productSetPrompts!.length : 1,
     });
 
     const session = await options.artifactStore.begin({ task, plan, finalPrompt });
+    let productSetDebugManifestPath: string | undefined;
+    if (productSetVisionResult) {
+      const debugArtifacts = await writeProductSetDebugArtifacts({
+        outputDir: session.outputDir,
+        filePrefix: resolveArtifactFilePrefix(task),
+        task,
+        plan,
+        visionResult: productSetVisionResult,
+        requestJsonPath: session.requestJsonPath,
+        imageInstructionPath: session.imageInstructionPath,
+        outputJsonPath: session.outputJsonPath,
+      });
+      productSetDebugManifestPath = debugArtifacts.manifestPath;
+      logger.info('image-task', '套图测试诊断包已写入', {
+        taskId: task.taskId,
+        feature: task.feature,
+        outputDir: session.outputDir,
+        debugManifestPath: debugArtifacts.manifestPath,
+        visionModel: productSetVisionResult.visionModel,
+        executionModel: plan.executionStage.model,
+        promptCount: productSetVisionResult.executionPrompts.length,
+        files: debugArtifacts.manifest.files,
+      });
+    }
+
     logger.info('image-task', '产物目录已初始化', {
       taskId: task.taskId,
       outputDir: session.outputDir,
@@ -137,23 +185,34 @@ export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions)
       }
     };
 
-    const usesProductSetSequentialVariants = isProductSetFeature(task.feature) && plan.count > 1;
-
-    if (usesProductSetSequentialVariants) {
+    if (isProductSet) {
       for (let index = 0; index < plan.count; index += 1) {
-        const variantIndex = index + 1;
-        logger.info('image-task', `开始生成套图变体 ${variantIndex}/${plan.count}`, { taskId: task.taskId });
-        const variantRequest = {
-          ...task.request,
-          count: 1,
-          variantIndex,
-          variantTotal: plan.count,
-        };
-        const variantPrompt = buildExecutionPrompt(variantRequest, plan.mainPrompt);
+        const outputIndex = index + 1;
+        const variantRequest = plan.count > 1
+          ? { ...task.request, count: 1, variantIndex: outputIndex, variantTotal: plan.count }
+          : task.request;
+        const prompt = productSetPrompts![index];
+        const executionImages = filterProductSetExecutionImages(
+          plan.executionImages,
+          productSetVisionResult?.executionHandheldReferenceRequired?.[index] === true,
+        );
+        const variantPlan = plan.count > 1
+          ? { ...plan, request: variantRequest, count: 1, executionImages }
+          : { ...plan, executionImages };
+        logger.info('image-task', `开始生成套图 ${outputIndex}/${plan.count}`, { taskId: task.taskId });
+        logger.info('image-task', '套图出图提示词', {
+          taskId: task.taskId,
+          feature: task.feature,
+          index: outputIndex,
+          total: plan.count,
+          promptPreview: prompt.slice(0, 400),
+          executionPromptFile: `${resolveArtifactFilePrefix(task)}execution-prompt-${outputIndex}.txt`,
+          executionImageCount: executionImages.length,
+        });
         const result = await options.modelGateway.executeSingleImage({
           task: { ...task, request: variantRequest },
-          plan: { ...plan, request: variantRequest, count: 1 },
-          finalPrompt: variantPrompt,
+          plan: variantPlan,
+          finalPrompt: prompt,
           abortSignal,
         });
         await ingestResult(result);
@@ -186,6 +245,18 @@ export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions)
       warnings,
     };
     const artifacts = await session.finalize(generated);
+    if (productSetDebugManifestPath) {
+      const debugManifest = await finalizeProductSetDebugManifest(
+        productSetDebugManifestPath,
+        artifacts.images,
+      );
+      logger.info('image-task', '套图测试诊断包已完成', {
+        taskId: task.taskId,
+        debugManifestPath: productSetDebugManifestPath,
+        outputCount: debugManifest.outputs.length,
+        unsatisfiedReportHint: '出图不满意时，请把 product-set-debug.json、vision-batch.json、execution-prompt-N.txt 与 result-N 图片一并发给开发者。',
+      });
+    }
     logger.info('image-task', '任务产物已落盘', {
       taskId: task.taskId,
       outputDir: artifacts.outputDir,
@@ -205,4 +276,52 @@ export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions)
       warnings: generated.warnings ?? [],
     } satisfies ImageTaskExecutionResult;
   };
+}
+
+async function resolveProductSetVisionResult(input: {
+  task: ImageTaskRecord;
+  plan: ImageTaskPlan;
+  abortSignal: AbortSignal;
+  visionInstructionClient?: VisionInstructionClient;
+  logger: ReturnType<typeof getAppLogger>;
+}): Promise<ProductSetVisionInstructionResult> {
+  if (!input.visionInstructionClient) {
+    throw new Error('product-set tasks require a configured vision instruction client');
+  }
+
+  input.logger.info('image-task', '开始生成套图视觉指令', {
+    taskId: input.task.taskId,
+    feature: input.task.feature,
+    count: input.plan.count,
+  });
+
+  const result = await input.visionInstructionClient.generateProductSetInstructions({
+    task: input.task,
+    plan: input.plan,
+    abortSignal: input.abortSignal,
+  });
+
+  if (result.executionPrompts.length !== input.plan.count) {
+    throw new Error(
+      `vision model returned ${result.executionPrompts.length} prompts, expected ${input.plan.count}`,
+    );
+  }
+
+  input.logger.info('image-task', '套图视觉指令已生成', {
+    taskId: input.task.taskId,
+    promptCount: result.executionPrompts.length,
+    visionModel: result.visionModel,
+    visionBatch: result.batch,
+  });
+
+  return result;
+}
+
+function filterProductSetExecutionImages(
+  executionImages: ImageTaskPlan['executionImages'],
+  requiresHandheldReference: boolean,
+) {
+  return requiresHandheldReference
+    ? executionImages
+    : executionImages.filter((image) => image.role !== 'reference');
 }

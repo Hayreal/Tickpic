@@ -71,7 +71,7 @@ describe('requestSecurity', () => {
         images: [{ role: 'product' as const, path: () => allowedImagePath, mimeType: 'image/png' }],
         productHandheldMode: 'hands_free' as never,
       },
-      message: 'productHandheldMode must be one of handheld, not_handheld',
+      message: 'productHandheldMode must be one of auto, handheld, not_handheld',
     },
     {
       name: 'an image role that does not belong to the feature',

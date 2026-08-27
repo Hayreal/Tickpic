@@ -229,7 +229,7 @@ describe('ProductImageSet', () => {
     expect(screen.getByLabelText('提示词')).toHaveValue('');
     expect(screen.getByLabelText('反向提示词')).toHaveValue('');
     expect(screen.getByLabelText('具体场景词')).toHaveValue('');
-    expect(document.getElementById('product-set-main-handheld-not_handheld')).toHaveClass('ui-segment-active');
+    expect(document.getElementById('product-set-main-handheld-auto')).toHaveClass('ui-segment-active');
     expect(document.getElementById('product-set-main-effect-auto')).toHaveClass('ui-segment-active');
 
     fireEvent.click(screen.getByRole('button', { name: 'mock upload sku' }));
@@ -267,8 +267,7 @@ describe('ProductImageSet', () => {
     expect(document.getElementById('product-set-comparison-intensity-heavy')).toHaveClass('ui-segment-active');
 
     fireEvent.click(document.getElementById('product-set-subtab-multi-scene')!);
-    expect(document.getElementById('product-set-multiScene-layout-single')).toHaveClass('ui-segment-active');
-    fireEvent.click(document.getElementById('product-set-multiScene-layout-grid')!);
+    expect(document.getElementById('product-set-multiScene-layout-grid')).toHaveClass('ui-segment-active');
     fireEvent.click(screen.getByRole('button', { name: 'mock upload sku' }));
     fireEvent.click(document.getElementById('submit-product-set-multiScene')!);
 
@@ -278,6 +277,19 @@ describe('ProductImageSet', () => {
       multiSceneLayout: 'grid',
     });
     expect(submitMany.mock.calls[0]![0][0]).not.toHaveProperty('prompt');
+  });
+
+  it('offers four-grid and six-grid comparison layouts', () => {
+    render(<ProductImageSet />);
+
+    fireEvent.click(document.getElementById('product-set-subtab-comparison')!);
+    openAdvancedParameters();
+
+    expect(document.getElementById('product-set-comparison-layout-grid_2x2')).toBeInTheDocument();
+    expect(document.getElementById('product-set-comparison-layout-grid_3x2')).toBeInTheDocument();
+
+    fireEvent.click(document.getElementById('product-set-comparison-layout-grid_2x2')!);
+    expect(document.getElementById('product-set-comparison-layout-grid_2x2')).toHaveClass('ui-segment-active');
   });
 
   it('keeps each tab form state when switching tabs', () => {

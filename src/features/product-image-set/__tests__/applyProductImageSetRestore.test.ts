@@ -95,13 +95,13 @@ describe('applyProductImageSetRestore', () => {
   it('uses exact defaults for old tasks without enhanced fields', () => {
     expect(applyProductImageSetRestore(createTask(createRequest('product_main_image')))).toMatchObject({
       subTab: 'main', prompt: '', negativePrompt: '', scenePrompt: '',
-      productHandheldMode: 'not_handheld', productEffectMode: 'auto',
-      comparisonLayout: 'auto', comparisonIntensity: 'medium', showProduct: true, multiSceneLayout: 'single',
+      productHandheldMode: 'auto', productEffectMode: 'auto',
+      comparisonLayout: 'auto', comparisonIntensity: 'medium', showProduct: true, multiSceneLayout: 'grid',
     });
     expect(applyProductImageSetRestore(createTask(createRequest('product_comparison_image')))).toMatchObject({
       subTab: 'comparison', prompt: '', negativePrompt: '', scenePrompt: '',
-      productHandheldMode: 'not_handheld', productEffectMode: 'auto',
-      comparisonLayout: 'auto', comparisonIntensity: 'medium', showProduct: true, multiSceneLayout: 'single',
+      productHandheldMode: 'auto', productEffectMode: 'auto',
+      comparisonLayout: 'auto', comparisonIntensity: 'medium', showProduct: true, multiSceneLayout: 'grid',
     });
   });
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildProductSetJsonPrompt, parseProductSetJsonPrompt } from '../productSetJsonPrompt';
+import * as productSetPrompt from '../productSetJsonPrompt';
+import { buildProductSetExecutionPromptsFromVision, buildProductSetJsonPrompt, parseProductSetJsonPrompt, resolveMainImageVariantPresentation } from '../productSetJsonPrompt';
 
 const MULTI_IMAGE_BATCH_OUTPUT = {
   meaning: 'API-level batch size: produce this many completely separate image files. Each file is one standalone final image.',
@@ -30,6 +31,85 @@ function expectBatchOutput(count: number) {
 }
 
 describe('productSetJsonPrompt', () => {
+  it('renders a compact natural-language main-image execution prompt', () => {
+    const renderer = (productSetPrompt as {
+      buildProductSetExecutionPrompt?: (request: Record<string, unknown>) => string;
+    }).buildProductSetExecutionPrompt;
+
+    expect(renderer).toBeTypeOf('function');
+
+    const prompt = renderer!({
+      feature: 'product_main_image',
+      aspectRatio: '1:1',
+      productHandheldMode: 'not_handheld',
+      productEffectMode: 'hide',
+      scenePrompt: 'a real category-specific use setting',
+      prompt: 'premium but credible',
+      negativePrompt: 'unrelated filler props',
+      variantIndex: 1,
+      variantTotal: 3,
+    });
+
+    expect(prompt).not.toMatch(/^\s*\{/);
+    expect(prompt).toContain('Create one 1:1 US Temu functional ecommerce main image, commercial photography, clear benefit hierarchy for US Temu ecommerce.');
+    expect(prompt).toContain('This is a carousel-opening hero image');
+    expect(prompt).not.toMatch(/[\u4e00-\u9fff]/);
+    expect(prompt).not.toContain('"sku_lock"');
+    expect(prompt).not.toContain('--- VARIANT DIRECTIVE');
+    expect(prompt).toContain('Use the supplied SKU as the only product identity reference.');
+    expect(prompt).toContain('actual use target');
+    expect(prompt).toContain('a real category-specific use setting');
+    expect(prompt).toContain('premium but credible');
+    expect(prompt).toContain('unrelated filler props');
+  });
+
+  it('renders vision-merged execution variants as natural language', () => {
+    const [prompt] = buildProductSetExecutionPromptsFromVision({
+      feature: 'product_main_image',
+      count: 1,
+      scenePrompt: 'a real category-specific use setting',
+    }, {
+      instructions: [{
+        index: 1,
+        problem_surface: 'the actual target surface',
+        problem_state: 'a visible pre-use problem state',
+        environment: { location: 'a real use location' },
+        composition_directive: 'place the product beside the target',
+        variant_directive: 'use a distinct camera angle',
+        headline_suggestion: 'Clear Result',
+      }],
+    });
+
+    expect(prompt).not.toMatch(/^\s*\{/);
+    expect(prompt).toContain('a real use location');
+    expect(prompt).toContain('the actual target surface');
+    expect(prompt).toContain('place the product beside the target');
+    expect(prompt).toContain('Clear Result');
+  });
+
+  it.each([
+    [1, 'show BEFORE on the left and AFTER on the right'],
+    [2, 'show BEFORE above and AFTER below'],
+    [3, 'use two rows, each with a matched BEFORE-left and AFTER-right pair'],
+    [4, 'use three rows, each with a matched BEFORE-left and AFTER-right pair'],
+  ])('rotates auto comparison layout for variant %i', (variantIndex, expectedLayout) => {
+    const renderer = (productSetPrompt as {
+      buildProductSetExecutionPrompt?: (request: Record<string, unknown>) => string;
+    }).buildProductSetExecutionPrompt;
+
+    const prompt = renderer!({
+      feature: 'product_comparison_image',
+      comparisonLayout: 'auto',
+      showProduct: true,
+      variantIndex,
+      variantTotal: 4,
+    });
+
+    expect(prompt).toContain(expectedLayout);
+    expect(prompt).toContain('one readable foreground product layer integrated with the comparison frame');
+    expect(prompt).toContain('unrelated display surfaces or filler props');
+  });
+
   it('returns parseable JSON for a main-image handheld spray request', () => {
     const text = buildProductSetJsonPrompt({
       feature: 'product_main_image',
@@ -243,15 +323,35 @@ describe('productSetJsonPrompt', () => {
 
     expect(spec.task).toBe('product_multi_scene');
     expect(spec.composition.layout).toBe('grid');
+    expect(spec.composition.format).toBe('labeled_multi_panel_scope_infographic');
+    expect(spec.panels).toEqual(expect.objectContaining({
+      required: true,
+      min_distinct_scenes: 6,
+    }));
     expect(spec.composition.sku_in_frame).toBe(false);
     expect(spec.composition.people_allowed).toBe(false);
     expect(spec.negative_prompt).toEqual(expect.arrayContaining([
       expect.stringMatching(/SKU|product packaging|branded bottle/i),
       expect.stringMatching(/people|hands|handheld/i),
+      expect.stringMatching(/single continuous photograph/i),
     ]));
     expect(spec.user_overrides.supplement).toBe('kitchen and bathroom surfaces');
     expect(spec.user_overrides.avoid).toBe('marketing text');
     expect(spec.batch_output).toEqual(expectBatchOutput(2));
+  });
+
+  it('requires labeled multi-panel scope infographics for grid multi-scene batch prompts', () => {
+    const prompt = buildProductSetJsonPrompt({
+      feature: 'product_multi_scene',
+      multiSceneLayout: 'grid',
+      count: 2,
+    });
+
+    expect(prompt).toContain('--- BATCH DIVERSITY (mandatory) ---');
+    expect(prompt).toContain('labeled multi-panel application-scope infographic');
+    expect(prompt).toContain('one labeled multi-panel scope infographic');
+    expect(prompt).not.toContain('Never put 2, 3, or 4 panels');
+    expect(prompt).toMatch(/black spots|stain types on car exterior/i);
   });
 
   it('omits empty user override fields', () => {
@@ -386,5 +486,148 @@ describe('productSetJsonPrompt', () => {
     expect(spec.negative_prompt).toEqual(expect.arrayContaining([
       expect.stringMatching(/mirrored label|upside-down label/i),
     ]));
+  });
+
+  it('distributes handheld and effect across multi-count main-image variants instead of every file', () => {
+    const carousel = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
+      feature: 'product_main_image',
+      productHandheldMode: 'handheld',
+      productEffectMode: 'show',
+      count: 1,
+      variantIndex: 1,
+      variantTotal: 3,
+    }));
+    const handheld = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
+      feature: 'product_main_image',
+      productHandheldMode: 'handheld',
+      productEffectMode: 'show',
+      count: 1,
+      variantIndex: 2,
+      variantTotal: 3,
+    }));
+    const effect = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
+      feature: 'product_main_image',
+      productHandheldMode: 'handheld',
+      productEffectMode: 'show',
+      count: 1,
+      variantIndex: 3,
+      variantTotal: 3,
+    }));
+
+    expect(carousel.presentation?.mode).toBe('carousel_hero');
+    expect(carousel.handheld.mode).toBe('not_handheld');
+    expect(carousel.effect.mode).toBe('hide');
+    expect(carousel.spray_physics).toBeUndefined();
+    expect(carousel.variant?.presentation_mode).toBe('carousel_hero');
+    expect(carousel.scene_storytelling?.must_show).toEqual(expect.arrayContaining([
+      expect.stringMatching(/problem state|problem surface|dirty/i),
+    ]));
+
+    expect(handheld.presentation?.mode).toBe('handheld_use');
+    expect(handheld.handheld.mode).toBe('handheld');
+    expect(handheld.effect.mode).toBe('hide');
+    expect(handheld.spray_physics).toBeUndefined();
+
+    expect(effect.presentation?.mode).toBe('effect_demo');
+    expect(effect.handheld.mode).toBe('handheld');
+    expect(effect.effect.mode).toBe('show');
+    expect(effect.spray_physics?.nozzle_must_match_sku).toBe(true);
+  });
+
+  it('merges vision instructions into per-variant execution prompts', () => {
+    const prompts = buildProductSetExecutionPromptsFromVision({
+      feature: 'product_main_image',
+      count: 2,
+      scenePrompt: 'wall crack repair',
+    }, {
+      instructions: [
+        {
+          index: 1,
+          environment: { location: 'indoor laundry room wall' },
+          variant_directive: 'close-up handheld spray on vertical drywall crack',
+          headline_suggestion: 'Fix Cracks Fast',
+        },
+        {
+          index: 2,
+          environment: { location: 'garage concrete floor corner' },
+          variant_directive: 'wide scene with product hero on floor crack',
+          headline_suggestion: 'Seal Concrete Gaps',
+        },
+      ],
+    });
+
+    expect(prompts).toHaveLength(2);
+    expect(prompts[0]).not.toMatch(/^\s*\{/);
+    expect(prompts[0]).not.toContain('--- VARIANT DIRECTIVE');
+    expect(prompts[0]).toContain('indoor laundry room wall');
+    expect(prompts[0]).toContain('Fix Cracks Fast');
+    expect(prompts[1]).toContain('garage concrete floor corner');
+    expect(prompts[1]).toContain('Seal Concrete Gaps');
+    expect(prompts[0]).not.toContain('--- BATCH DIVERSITY');
+  });
+
+  it('merges multi-scene panel_list from vision into execution prompts', () => {
+    const prompts = buildProductSetExecutionPromptsFromVision({
+      feature: 'product_multi_scene',
+      multiSceneLayout: 'grid',
+      count: 2,
+    }, {
+      instructions: [
+        {
+          index: 1,
+          scope_headline: 'ALL THESE CAN BE REMOVED',
+          panel_list: [
+            { label: 'Black Spots', problem_surface: 'car hood', problem_state: 'speckled tar spots' },
+            { label: 'Bug Splatter', problem_surface: 'car bumper', problem_state: 'dried insect residue' },
+            { label: 'Tree Sap', problem_surface: 'car hood', problem_state: 'sticky sap film' },
+            { label: 'Bird Droppings', problem_surface: 'car windshield', problem_state: 'white droppings' },
+            { label: 'Water Stains', problem_surface: 'car door', problem_state: 'mineral streaks' },
+            { label: 'Grease', problem_surface: 'car side panel', problem_state: 'dark grease drips' },
+          ],
+          composition_directive: '2x3 labeled grid with top headline banner',
+        },
+        {
+          index: 2,
+          scope_headline: 'MULTI SURFACE CLEAN',
+          panel_list: [
+            { label: 'Mold', problem_surface: 'shower tile grout', problem_state: 'dark mold spots' },
+            { label: 'Soap Scum', problem_surface: 'glass door', problem_state: 'cloudy film' },
+            { label: 'Hard Water', problem_surface: 'faucet', problem_state: 'white mineral buildup' },
+            { label: 'Rust', problem_surface: 'metal fixture', problem_state: 'orange rust stains' },
+            { label: 'Limescale', problem_surface: 'sink basin', problem_state: 'chalky deposits' },
+            { label: 'Grime', problem_surface: 'countertop', problem_state: 'greasy residue' },
+          ],
+          composition_directive: '2x3 labeled grid with alternate headline color',
+        },
+      ],
+    });
+
+    expect(prompts[0]).not.toMatch(/^\s*\{/);
+    expect(prompts[0]).toContain('Use a readable six-cell grid');
+    expect(prompts[0]).toContain('Black Spots (car hood: speckled tar spots)');
+    expect(prompts[0]).toContain('ALL THESE CAN BE REMOVED');
+  });
+
+  it('applies vision handheld_required when productHandheldMode is auto', () => {
+    const prompts = buildProductSetExecutionPromptsFromVision({
+      feature: 'product_main_image',
+      productHandheldMode: 'auto',
+      productEffectMode: 'auto',
+      count: 1,
+      images: [
+        { role: 'product', path: '/authorized/input/product.png' },
+        { role: 'reference', path: '/authorized/resources/product/handheld-spray-side-press.png' },
+      ],
+    }, {
+      instructions: [{
+        index: 1,
+        handheld_required: true,
+        show_effect: false,
+        composition_directive: 'handheld beside motorcycle helmet interior',
+      }],
+    });
+
+    expect(prompts[0]).toContain('Show a natural hand directly using or holding the SKU beside the actual use target.');
+    expect(prompts[0]).toContain('Match the supplied hand-reference grip and pose');
   });
 });

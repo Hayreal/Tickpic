@@ -87,13 +87,13 @@ function defaultTabState(subTab: ProductSetSubTab): TabState {
     prompt: '',
     negativePrompt: '',
     scenePrompt: '',
-    productHandheldMode: 'not_handheld',
+    productHandheldMode: 'auto',
     productEffectMode: 'auto',
     handheldReferenceId: null,
     comparisonLayout: 'auto',
     comparisonIntensity: 'medium',
     showProduct: true,
-    multiSceneLayout: 'single',
+    multiSceneLayout: 'grid',
   };
 }
 
@@ -356,7 +356,7 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
                   feature={currentFeature}
                   label="SKU 产品图"
                 />
-                {subTab === 'main' && activeState.productHandheldMode === 'handheld' ? (
+                {subTab === 'main' && activeState.productHandheldMode !== 'not_handheld' ? (
                   <HandheldReferencePicker
                     value={activeState.handheldReferenceId}
                     onChange={(handheldReferenceId) => updateActiveState({ handheldReferenceId })}
@@ -410,7 +410,7 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
                       id="product-set-main-handheld"
                       label="手持方式"
                       value={activeState.productHandheldMode}
-                      options={[['handheld', '手持展示'], ['not_handheld', '不手持']]}
+                      options={[['auto', 'AI 自动判断'], ['handheld', '手持展示'], ['not_handheld', '不手持']]}
                       onChange={(productHandheldMode) => updateActiveState({
                         productHandheldMode: productHandheldMode as ProductHandheldMode,
                         ...(productHandheldMode === 'not_handheld' ? { handheldReferenceId: null } : {}),
@@ -431,7 +431,13 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
                       id="product-set-comparison-layout"
                       label="对比布局"
                       value={activeState.comparisonLayout}
-                      options={[['auto', 'AI 自动'], ['horizontal', '左右对比'], ['vertical', '上下对比']]}
+                      options={[
+                        ['auto', 'AI 自动'],
+                        ['horizontal', '左右对比'],
+                        ['vertical', '上下对比'],
+                        ['grid_2x2', '四宫格对比'],
+                        ['grid_3x2', '六宫格对比'],
+                      ]}
                       onChange={(comparisonLayout) => updateActiveState({ comparisonLayout: comparisonLayout as ComparisonLayout })}
                     />
                     <SegmentedControl

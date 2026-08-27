@@ -39,7 +39,7 @@ describe('buildProductImageSetRequests', () => {
     ]);
   });
 
-  it('omits handheld reference when not in handheld mode', () => {
+  it('omits handheld reference when handheld mode is not_handheld', () => {
     const [request] = buildProductImageSetRequests({
       subTab: 'main',
       skuPaths: ['/tmp/front.png'],
@@ -58,6 +58,30 @@ describe('buildProductImageSetRequests', () => {
     });
 
     expect(request.images).toEqual([{ role: 'product', path: '/tmp/front.png' }]);
+  });
+
+  it('includes handheld reference in auto mode when a pose is selected', () => {
+    const [request] = buildProductImageSetRequests({
+      subTab: 'main',
+      skuPaths: ['/tmp/front.png'],
+      aspectRatio: '1:1',
+      count: 1,
+      prompt: '',
+      negativePrompt: '',
+      scenePrompt: '',
+      productHandheldMode: 'auto',
+      productEffectMode: 'auto',
+      handheldReferencePath: '/resources/product/handheld-spray-side-press.png',
+      comparisonLayout: 'auto',
+      comparisonIntensity: 'medium',
+      showProduct: true,
+      multiSceneLayout: 'single',
+    });
+
+    expect(request.images).toEqual([
+      { role: 'product', path: '/tmp/front.png' },
+      { role: 'reference', path: '/resources/product/handheld-spray-side-press.png' },
+    ]);
   });
 
   it('builds comparison requests with only its applicable fields', () => {

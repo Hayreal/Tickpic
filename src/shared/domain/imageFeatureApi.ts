@@ -42,9 +42,9 @@ export type ImageRole = typeof IMAGE_ROLES[number];
 export type ImageExecutionModel = 'generation' | 'edit';
 export type ImageModelProtocol = 'gemini' | 'openai';
 export type ImageTaskStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled';
-export type ProductHandheldMode = 'handheld' | 'not_handheld';
+export type ProductHandheldMode = 'auto' | 'handheld' | 'not_handheld';
 export type ProductEffectMode = 'auto' | 'show' | 'hide';
-export type ComparisonLayout = 'auto' | 'horizontal' | 'vertical';
+export type ComparisonLayout = 'auto' | 'horizontal' | 'vertical' | 'grid_2x2' | 'grid_3x2';
 export type ComparisonIntensity = 'light' | 'medium' | 'heavy';
 export type MultiSceneLayout = 'single' | 'collage' | 'grid';
 
@@ -242,7 +242,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   product_main_image: {
     feature: 'product_main_image',
-    mainPrompt: 'Generate one US Temu ecommerce main product image from a single primary SKU photo. Keep SKU identity locked, include a short English headline, and freely choose the strongest commercial visual approach. Structured handheld/effect controls and optional handheld reference images are encoded in the JSON execution prompt.',
+    mainPrompt: 'Generate one US Temu ecommerce main product image from a single primary SKU photo. Keep SKU identity locked, include a short English headline, and freely choose the strongest commercial visual approach. Handheld/effect controls and optional handheld reference images are rendered into a natural-language execution prompt.',
     acceptedImageRoles: ['product', 'reference'],
     requiredImageRoles: ['product'],
     executionModel: 'edit',
@@ -251,7 +251,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   product_comparison_image: {
     feature: 'product_comparison_image',
-    mainPrompt: 'Generate one US Temu before/after comparison image from a single primary SKU photo. One scene, one BEFORE/AFTER pair, panels without SKU; optional enlarged foreground product overlay. Structured layout/intensity/showProduct and batch variant index/total are encoded in the JSON execution prompt.',
+    mainPrompt: 'Generate one US Temu before/after comparison image from a single primary SKU photo. Use matched Before/After evidence and an optional foreground product layer. Layout, intensity, product visibility, and batch variation are rendered into a natural-language execution prompt.',
     acceptedImageRoles: ['product'],
     requiredImageRoles: ['product'],
     executionModel: 'edit',
@@ -260,7 +260,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   product_multi_scene: {
     feature: 'product_multi_scene',
-    mainPrompt: 'Generate one US Temu multi-application-scope image from a single primary SKU photo used only for category/use recognition. Never render the SKU body or people. Structured single/collage/grid layout and batch variant index/total are encoded in the JSON execution prompt.',
+    mainPrompt: 'Generate one US Temu multi-application-scope image from a single primary SKU photo used only for category/use recognition. Never render the SKU body or people. Single/collage/grid layout and batch variation are rendered into a natural-language execution prompt.',
     acceptedImageRoles: ['product'],
     requiredImageRoles: ['product'],
     executionModel: 'edit',
@@ -357,8 +357,8 @@ export function validateImageTaskRequest(input: ImageTaskRequest): ImageTaskRequ
     if (referenceCount > 1) {
       throw new Error('product_main_image accepts at most one reference image');
     }
-    if (referenceCount > 0 && input.productHandheldMode !== 'handheld') {
-      throw new Error('product_main_image accepts reference images only in handheld mode');
+    if (referenceCount > 0 && input.productHandheldMode === 'not_handheld') {
+      throw new Error('product_main_image accepts reference images only in handheld or auto mode');
     }
   }
 
@@ -398,9 +398,9 @@ export function validateImageTaskRequest(input: ImageTaskRequest): ImageTaskRequ
 }
 
 function validateProductSetControls(input: ImageTaskRequest) {
-  validateEnum(input.productHandheldMode, ['handheld', 'not_handheld'], 'productHandheldMode');
+  validateEnum(input.productHandheldMode, ['auto', 'handheld', 'not_handheld'], 'productHandheldMode');
   validateEnum(input.productEffectMode, ['auto', 'show', 'hide'], 'productEffectMode');
-  validateEnum(input.comparisonLayout, ['auto', 'horizontal', 'vertical'], 'comparisonLayout');
+  validateEnum(input.comparisonLayout, ['auto', 'horizontal', 'vertical', 'grid_2x2', 'grid_3x2'], 'comparisonLayout');
   validateEnum(input.comparisonIntensity, ['light', 'medium', 'heavy'], 'comparisonIntensity');
   validateEnum(input.multiSceneLayout, ['single', 'collage', 'grid'], 'multiSceneLayout');
 

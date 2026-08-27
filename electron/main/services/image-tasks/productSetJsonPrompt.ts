@@ -7,6 +7,11 @@ import type {
   ProductEffectMode,
   ProductHandheldMode,
 } from '../../../../src/shared/domain/imageFeatureApi.js';
+import type {
+  ProductSetVisionBatch,
+  ProductSetVisionInstructionItem,
+} from '../../../../src/shared/domain/productSetVisionInstructions.js';
+import { findProductHandheldReferenceByPath } from '../../../../src/shared/domain/productHandheldReferences.js';
 
 export type ProductSetJsonSpec = Record<string, unknown> & {
   task: ImageFeature;
@@ -22,6 +27,12 @@ export type ProductSetJsonSpec = Record<string, unknown> & {
     must_preserve: string[];
     forbidden: string[];
   };
+  presentation?: {
+    mode: MainImagePresentationMode;
+    carousel_ready: boolean;
+    batch_role: string;
+    batch_distribution: string;
+  };
   composition: Record<string, unknown>;
   lighting: Record<string, unknown>;
   camera: Record<string, unknown>;
@@ -34,6 +45,7 @@ export type ProductSetJsonSpec = Record<string, unknown> & {
     total: number;
     cycle?: number;
     directive: string;
+    presentation_mode?: MainImagePresentationMode;
     single_image_only: true;
     forbidden: string[];
   };
@@ -59,6 +71,20 @@ export type ProductSetJsonSpec = Record<string, unknown> & {
   intensity?: ComparisonIntensity;
   intensity_guidance?: string;
   environment?: Record<string, unknown>;
+};
+
+type MainImageFields = {
+  presentation?: NonNullable<ProductSetJsonSpec['presentation']>;
+  scene_storytelling?: Record<string, unknown>;
+  handheld: NonNullable<ProductSetJsonSpec['handheld']>;
+  handheld_reference?: NonNullable<ProductSetJsonSpec['handheld_reference']>;
+  effect: NonNullable<ProductSetJsonSpec['effect']>;
+  spray_physics?: NonNullable<ProductSetJsonSpec['spray_physics']>;
+  composition: ProductSetJsonSpec['composition'];
+  copy: NonNullable<ProductSetJsonSpec['copy']>;
+  quality_targets: string[];
+  negative_prompt: string[];
+  image_inputs?: Record<string, unknown>;
 };
 
 const PRODUCT_SET_PRIORITY =
@@ -142,6 +168,13 @@ const BATCH_DIVERSITY_FORBIDDEN = [
 
 const BATCH_DIVERSITY_DIRECTION_COUNT = 3;
 
+const AUTO_COMPARISON_LAYOUTS = [
+  'horizontal',
+  'vertical',
+  'grid_2x2',
+  'grid_3x2',
+] as const;
+
 type ProductSetBatchFeature = 'product_main_image' | 'product_comparison_image' | 'product_multi_scene';
 
 const BATCH_DIVERSITY_DIMENSIONS: Record<ProductSetBatchFeature, readonly string[]> = {
@@ -163,19 +196,19 @@ const BATCH_DIVERSITY_DIMENSIONS: Record<ProductSetBatchFeature, readonly string
     'visual form of the Before problem state',
   ],
   product_multi_scene: [
-    'space type and environment category',
-    'primary surface or object type',
-    'viewing distance and camera angle',
-    'lighting mood and time-of-day feel',
-    'background complexity and density',
+    'panel problem types and stain/surface categories shown',
+    'headline wording and banner layout style',
+    'panel grid geometry and label bar treatment',
+    'lighting mood across panels',
+    'target environment category (exterior vs interior surfaces)',
   ],
 };
 
 const BATCH_DIVERSITY_SLOT_DIRECTIVES: Record<ProductSetBatchFeature, readonly string[]> = {
   product_main_image: [
-    'Use a distinct real-use sub-scene/environment (different room, surface, or indoor/outdoor location). Change sub-scene location, color temperature, and foreground layering. Same repair wall with different headline text is invalid.',
-    'Use a different sub-scene/environment from output file 1 (not the same wall, room, surface, or background objects). Change spatial depth, lighting direction/intensity, and background density. Reusing the same crack-repair location is invalid.',
-    'Use a third distinct sub-scene/environment from output files 1-2. Change product scale/position, headline layout, and camera distance/angle. Any output that repeats the same physical scene as another file is invalid.',
+    'Carousel-ready hero with visible problem context (file 1): show the actual dirty/problem surface AND the SKU as scene hero WITHOUT hand or spray. Example: insect-spattered windshield with product on hood, not a shelf/catalog shot.',
+    'Handheld-at-problem scene (file 2): hand holds SKU beside/at the visible problem surface, ready to use, but NO spray/effect yet. Must NOT be an empty car interior or generic portrait without the problem visible.',
+    'Active effect demo (file 3): the ONLY file that may show spray/application/result directly on the problem surface. Must differ in camera/action from files 1-2.',
   ],
   product_comparison_image: [
     'Change the core problem sub-area, foreground prop layout, and color temperature. Do not rely on minor recolor, title-only, or product-shift differences.',
@@ -183,11 +216,19 @@ const BATCH_DIVERSITY_SLOT_DIRECTIVES: Record<ProductSetBatchFeature, readonly s
     'Change foreground prop layout, lighting direction/intensity, and problem presentation while keeping single-scene Before/After consistency.',
   ],
   product_multi_scene: [
-    'Change space type, viewing distance/angle, and lighting mood. Output only target scenes/objects/surfaces/environments; no product or people.',
-    'Change primary surface/object type, background complexity, and space type. Output only target scenes/objects/surfaces/environments; no product or people.',
-    'Change viewing distance/angle, primary surface/object type, and background complexity. Output only target scenes/objects/surfaces/environments; no product or people.',
+    'Labeled multi-panel scope infographic (file 1): grid or collage showing 6 distinct applicable problem surfaces/states for this SKU (e.g. different stain types on car exterior). Each panel gets a short English label. No product, people, or cleaning-kit hero shots.',
+    'Labeled multi-panel scope infographic (file 2): different panel problem mix, headline, or layout treatment from file 1 — still a multi-panel scope chart, never a single lifestyle photograph.',
+    'Labeled multi-panel scope infographic (file 3): alternate problem-type set, banner color, or panel arrangement while keeping the labeled multi-panel application-scope format.',
   ],
 };
+
+function resolveMultiSceneLayout(request: ImageTaskRequest): MultiSceneLayout {
+  return request.multiSceneLayout ?? 'grid';
+}
+
+function isMultiPanelMultiSceneLayout(layout: MultiSceneLayout): boolean {
+  return layout === 'grid' || layout === 'collage';
+}
 
 const BATCH_PLAIN_TEXT_MARKER = '\n\n--- BATCH DIVERSITY (mandatory) ---\n';
 const VARIANT_PLAIN_TEXT_MARKER = '\n\n--- VARIANT DIRECTIVE (mandatory) ---\n';
@@ -233,6 +274,179 @@ export function isProductSetFeature(feature: ImageFeature) {
     || feature === 'product_multi_scene';
 }
 
+export type MainImagePresentationMode =
+  | 'carousel_hero'
+  | 'handheld_use'
+  | 'effect_demo'
+  | 'lifestyle_scene';
+
+export interface MainImageVariantPresentation {
+  mode: MainImagePresentationMode;
+  handheldRequired: boolean;
+  effectRequired: boolean;
+  carouselReady: boolean;
+  label: string;
+  sceneStorytelling: {
+    must_show: string[];
+    forbidden: string[];
+  };
+}
+
+export function resolveMainImageVariantPresentation(
+  request: ImageTaskRequest,
+): MainImageVariantPresentation | undefined {
+  if (
+    request.feature !== 'product_main_image'
+    || request.variantIndex === undefined
+    || request.variantTotal === undefined
+    || request.variantTotal <= 1
+  ) {
+    return undefined;
+  }
+
+  const slot = request.variantIndex;
+  const total = request.variantTotal;
+  const handheldPref = request.productHandheldMode ?? 'not_handheld';
+  const effectPref = request.productEffectMode ?? 'auto';
+
+  if (slot === 1) {
+    return {
+      mode: 'carousel_hero',
+      handheldRequired: false,
+      effectRequired: false,
+      carouselReady: true,
+      label: '轮播首图：具体痛点场景 + 产品主视觉，无手持、无喷射，但必须看见真实问题环境',
+      sceneStorytelling: {
+        must_show: [
+          'a specific real use location derived from the SKU category (not a generic studio)',
+          'a visible problem state or dirty/target surface that this product solves',
+          'SKU as scene hero with supporting props that explain the use case',
+        ],
+        forbidden: [
+          'shelf display or retail catalog shot',
+          'plain studio backdrop without a problem surface',
+          'product floating on white with no context',
+          'only accessory props without the actual problem area',
+        ],
+      },
+    };
+  }
+
+  const effectSlot = resolveMainImageEffectDemoSlot(total, handheldPref, effectPref);
+  if (slot === effectSlot) {
+    return {
+      mode: 'effect_demo',
+      handheldRequired: handheldPref === 'handheld',
+      effectRequired: true,
+      carouselReady: false,
+      label: handheldPref === 'handheld'
+        ? '效果演示图：在真实痛点表面上手持喷射/使用，可见具体作用过程'
+        : handheldPref === 'auto'
+          ? '效果演示图（AI 判断手持）：在真实痛点表面上展示具体使用/作用过程'
+          : '效果演示图：在真实痛点表面上展示具体使用/作用过程',
+      sceneStorytelling: {
+        must_show: [
+          'the same product use case family as other files, but during active use',
+          'product applied to the visible problem surface with credible action/effect',
+          'spray/mist/foam/foam wipe/cleaning action only if the SKU truly supports it',
+        ],
+        forbidden: [
+          'passive product portrait without action',
+          'shelf or catalog composition',
+          'effect happening away from the real problem surface',
+        ],
+      },
+    };
+  }
+
+  if (handheldPref === 'handheld') {
+    return {
+      mode: 'handheld_use',
+      handheldRequired: true,
+      effectRequired: false,
+      carouselReady: false,
+      label: '手持场景图：在真实痛点场景旁手持产品，展示即将使用，但本张不出喷射/效果',
+      sceneStorytelling: {
+        must_show: [
+          'hand holding the SKU inside or beside a concrete problem scene',
+          'visible problem surface/state that explains why the product is needed',
+          'realistic use location matching the SKU category',
+        ],
+        forbidden: [
+          'hand holding product in empty car door or generic interior without the problem visible',
+          'catalog/shelf presentation',
+          'spray/mist/foam or finished clean result in this file',
+        ],
+      },
+    };
+  }
+
+  if (handheldPref === 'auto' && total >= 3 && slot === 2) {
+    return {
+      mode: 'handheld_use',
+      handheldRequired: false,
+      effectRequired: false,
+      carouselReady: false,
+      label: '手持场景图（AI 判断）：Vision 决定是否在本文件加入手持；若 handheld_required=true 则必须手持但不出喷射/效果',
+      sceneStorytelling: {
+        must_show: [
+          'concrete problem surface/state that explains why the product is needed',
+          'realistic use location matching the SKU category',
+        ],
+        forbidden: [
+          'catalog/shelf presentation',
+          'spray/mist/foam or finished clean result in this file',
+        ],
+      },
+    };
+  }
+
+  return {
+    mode: slot === 2 ? 'lifestyle_scene' : 'carousel_hero',
+    handheldRequired: false,
+    effectRequired: false,
+    carouselReady: slot !== 2 ? true : false,
+    label: slot === 2
+      ? '痛点场景图：无手持、无特效，但画面必须清楚展示具体问题和适用环境'
+      : '轮播补充图：具体痛点场景中的产品主视觉，无手持、无特效',
+    sceneStorytelling: slot === 2
+      ? {
+        must_show: [
+          'a clearly readable problem surface/state without hands',
+          'environment props that match the SKU use case',
+        ],
+        forbidden: ['catalog/shelf shot', 'generic lifestyle without visible problem'],
+      }
+      : {
+        must_show: [
+          'specific use location and visible problem context',
+          'product as hero without hands',
+        ],
+        forbidden: ['shelf display', 'empty studio backdrop'],
+      },
+  };
+}
+
+function resolveMainImageEffectDemoSlot(
+  total: number,
+  handheldPref: ProductHandheldMode,
+  effectPref: ProductEffectMode,
+) {
+  if (effectPref === 'hide') {
+    return -1;
+  }
+  if (effectPref === 'show') {
+    return total;
+  }
+  if ((handheldPref === 'handheld' || handheldPref === 'auto') && total >= 3) {
+    return total;
+  }
+  if (total >= 2) {
+    return total;
+  }
+  return -1;
+}
+
 export function parseProductSetJsonPrompt(text: string): ProductSetJsonSpec {
   let jsonText = text;
   for (const marker of [BATCH_PLAIN_TEXT_MARKER, VARIANT_PLAIN_TEXT_MARKER]) {
@@ -244,30 +458,446 @@ export function parseProductSetJsonPrompt(text: string): ProductSetJsonSpec {
   return JSON.parse(jsonText.trim()) as ProductSetJsonSpec;
 }
 
+export function productSetExecutionRequiresHandheldReference(spec: ProductSetJsonSpec): boolean {
+  return spec.handheld?.mode === 'handheld' && spec.handheld?.required === true;
+}
+
 export function buildProductSetJsonPrompt(request: ImageTaskRequest): string {
   if (!isProductSetFeature(request.feature)) {
     throw new Error(`buildProductSetJsonPrompt does not support feature ${request.feature}`);
   }
 
-  const spec = buildProductSetSpec(request);
+  return formatProductSetJsonPromptFromSpec(buildProductSetSpec(request), request);
+}
+
+export function buildProductSetExecutionPrompt(request: ImageTaskRequest): string {
+  if (!isProductSetFeature(request.feature)) {
+    throw new Error(`buildProductSetExecutionPrompt does not support feature ${request.feature}`);
+  }
+
+  return formatProductSetExecutionPromptFromSpec(buildProductSetSpec(request), request);
+}
+
+export function formatProductSetExecutionPromptFromSpec(
+  spec: ProductSetJsonSpec,
+  request: ImageTaskRequest,
+): string {
+  return [
+    renderProductSetOutputTarget(spec),
+    renderProductSetSkuReference(spec, request),
+    renderProductSetFeatureContract(spec, request),
+    renderProductSetScene(spec, request),
+    renderProductSetCopyAndUserRequirements(spec),
+  ].filter((section): section is string => Boolean(section)).join('\n\n');
+}
+
+export function formatProductSetJsonPromptFromSpec(
+  spec: ProductSetJsonSpec,
+  request: ImageTaskRequest,
+): string {
   const json = JSON.stringify(spec, null, 2);
   const scenePrompt = request.feature === 'product_multi_scene' ? null : trimOrNull(request.scenePrompt);
   const suffix = spec.variant
-    ? buildVariantPlainTextSuffix(request.feature, spec.variant, scenePrompt)
+    ? buildVariantPlainTextSuffix(request.feature, spec.variant, scenePrompt, request)
     : spec.batch_output
-      ? buildBatchPlainTextSuffix(request.feature, spec.batch_output, scenePrompt)
+      ? buildBatchPlainTextSuffix(request.feature, spec.batch_output, scenePrompt, request)
       : '';
   return suffix ? `${json}${suffix}` : `${json}\n`;
 }
 
-function buildProductSetSpec(request: ImageTaskRequest): ProductSetJsonSpec {
+function renderProductSetOutputTarget(spec: ProductSetJsonSpec) {
+  return `Create one ${spec.output.aspect_ratio} ${spec.style} for ${spec.output.marketplace}. Render it as a photographic sRGB ecommerce image.`;
+}
+
+function renderProductSetSkuLock(spec: ProductSetJsonSpec) {
+  const preserve = spec.sku_lock.must_preserve.join('; ');
+  const forbidden = spec.sku_lock.forbidden.join('; ');
+  return [
+    `Use the supplied SKU as the only product identity reference. Preserve ${preserve}.`,
+    `Do not ${forbidden}.`,
+  ].join(' ');
+}
+
+function renderProductSetSkuReference(spec: ProductSetJsonSpec, request: ImageTaskRequest) {
+  if (request.feature === 'product_multi_scene') {
+    return 'Use the supplied SKU photo only to identify legitimate product use cases; do not render its body, packaging, brand, or label.';
+  }
+
+  return renderProductSetSkuLock(spec);
+}
+
+function renderProductSetFeatureContract(spec: ProductSetJsonSpec, request: ImageTaskRequest) {
+  switch (request.feature) {
+    case 'product_main_image':
+      return renderMainImageFeatureContract(spec);
+    case 'product_comparison_image':
+      return renderComparisonFeatureContract(spec);
+    case 'product_multi_scene':
+      return renderMultiSceneFeatureContract(spec);
+    default:
+      return '';
+  }
+}
+
+function renderMainImageFeatureContract(spec: ProductSetJsonSpec) {
+  const handheld = asRecord(spec.handheld);
+  const effect = asRecord(spec.effect);
+  const reference = asRecord(spec.handheld_reference);
+  const presentation = asRecord(spec.presentation);
+  const statements = [
+    presentation?.mode
+      ? `This is a ${mainImagePresentationExecutionSummary(String(presentation.mode))}.`
+      : 'Create one coherent ecommerce main-image scene.',
+    'Show the product, an actual use target, and an observable pre-use, action, or result state in one coherent scene.',
+    'Use one continuous photograph, never a split screen, triptych, or collage.',
+  ];
+
+  if (handheld?.mode === 'handheld') {
+    statements.push('Show a natural hand directly using or holding the SKU beside the actual use target.');
+    if (reference) {
+      statements.push('Match the supplied hand-reference grip and pose while keeping the SKU identity locked to the product reference.');
+    }
+  } else {
+    statements.push('Do not show a holding hand; place the SKU naturally as the scene hero.');
+  }
+
+  if (effect?.mode === 'show') {
+    statements.push('When showing product action, it must originate from the SKU’s real actuator and visibly act on the actual use target.');
+  } else {
+    statements.push('Do not show product-emitted action effects; keep the actual target state visible.');
+  }
+
+  return statements.join(' ');
+}
+
+function mainImagePresentationExecutionSummary(mode: string) {
+  switch (mode) {
+    case 'carousel_hero':
+      return 'carousel-opening hero image with a specific pain-point environment, the SKU as the clear visual hero, no handheld use, and no product action effect';
+    case 'handheld_use':
+      return 'handheld-use image with the SKU held naturally beside the real problem surface, without product action effects';
+    case 'effect_demo':
+      return 'effect-demonstration image with real product action visibly applied to the actual problem surface';
+    case 'lifestyle_scene':
+      return 'lifestyle-use image grounded in a real, relevant problem environment';
+    default:
+      return 'coherent ecommerce main-image scene';
+  }
+}
+
+function renderComparisonFeatureContract(spec: ProductSetJsonSpec) {
+  const composition = asRecord(spec.composition);
+  const overlay = asRecord(spec.product_overlay);
+  const layout = comparisonLayoutDescription(String(composition?.layout ?? 'auto'));
+  const statements = [
+    `Create a credible Before/After comparison: ${layout}`,
+    'The Before and After evidence must show the same relevant object or region with a real, observable improvement.',
+  ];
+
+  if (overlay?.enabled === true) {
+    statements.push('Use one readable foreground product layer integrated with the comparison frame. It must not cover the evidence or cause unrelated display surfaces or filler props to be introduced.');
+  } else {
+    statements.push('Do not render the SKU in the comparison; communicate the improvement through the matched evidence only.');
+  }
+
+  return statements.join(' ');
+}
+
+function comparisonLayoutDescription(layout: string) {
+  switch (layout) {
+    case 'horizontal':
+      return 'show BEFORE on the left and AFTER on the right for one matched target region.';
+    case 'vertical':
+      return 'show BEFORE above and AFTER below for one matched target region.';
+    case 'grid_2x2':
+      return 'use two rows, each with a matched BEFORE-left and AFTER-right pair for one relevant target region.';
+    case 'grid_3x2':
+      return 'use three rows, each with a matched BEFORE-left and AFTER-right pair for one relevant target region.';
+    default:
+      return 'choose the clearest matched Before/After arrangement for the target region.';
+  }
+}
+
+function renderMultiSceneFeatureContract(spec: ProductSetJsonSpec) {
+  const composition = asRecord(spec.composition);
+  const panels = asRecord(spec.panels);
+  const layout = String(composition?.layout ?? 'single');
+  const layoutDescription = layout === 'grid'
+    ? 'Use a readable six-cell grid; every cell shows a distinct applicable problem surface or state with a short English label.'
+    : layout === 'collage'
+      ? 'Use a readable four-to-six-panel collage; every panel shows a distinct applicable problem surface or state with a short English label.'
+      : 'Show one complete target scene with a visible pre-use problem state.';
+  const statements = [
+    'Do not render the SKU body, packaging, people, faces, hands, or handheld use.',
+    layoutDescription,
+  ];
+  const visionPanels = Array.isArray(panels?.vision_panels) ? panels.vision_panels : [];
+  if (visionPanels.length > 0) {
+    const panelSummary = visionPanels
+      .map((panel) => asRecord(panel))
+      .filter((panel): panel is Record<string, unknown> => Boolean(panel?.label))
+      .map((panel) => `${String(panel.label)} (${String(panel.problem_surface)}: ${String(panel.problem_state)})`)
+      .join('; ');
+    if (panelSummary) {
+      statements.push(`Use these panel subjects: ${panelSummary}.`);
+    }
+  }
+
+  return statements.join(' ');
+}
+
+function renderProductSetScene(spec: ProductSetJsonSpec, request: ImageTaskRequest) {
+  const environment = asRecord(spec.environment);
+  const storytelling = asRecord(spec.scene_storytelling);
+  const composition = asRecord(spec.composition);
+  const variant = spec.variant;
+  const sections: string[] = [];
+
+  if (environment?.location) {
+    sections.push(`Use location: ${String(environment.location)}.`);
+  }
+  if (environment?.set) {
+    sections.push(`Set dressing: ${String(environment.set)}.`);
+  }
+  if (storytelling?.problem_surface || storytelling?.problem_state) {
+    sections.push(`Make the target clear: ${[storytelling.problem_surface, storytelling.problem_state].filter(Boolean).join('; ')}.`);
+  }
+  if (composition?.vision_directive) {
+    sections.push(`Composition: ${String(composition.vision_directive)}.`);
+  }
+  if (variant?.directive) {
+    sections.push(`Make this variant distinct through: ${variant.directive}.`);
+  }
+  const userScene = request.feature === 'product_multi_scene' ? null : trimOrNull(request.scenePrompt);
+  if (userScene) {
+    sections.push(`User scene direction: ${userScene}.`);
+  }
+
+  return sections.join(' ');
+}
+
+function renderProductSetCopyAndUserRequirements(spec: ProductSetJsonSpec) {
+  const copy = asRecord(spec.copy);
+  const headline = asRecord(copy?.headline);
+  const overrides = asRecord(spec.user_overrides);
+  const sections = ['Use only concise, readable English visible copy. Do not add icon rows, price, discount, watermark, or long explanatory text.'];
+
+  if (headline?.suggested_text) {
+    sections.push(`Suggested headline: ${String(headline.suggested_text)}.`);
+  }
+  if (overrides?.supplement) {
+    sections.push(`Additional direction: ${String(overrides.supplement)}.`);
+  }
+  if (overrides?.avoid) {
+    sections.push(`Avoid: ${String(overrides.avoid)}.`);
+  }
+
+  return sections.join(' ');
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+export function buildProductSetExecutionPromptsFromVision(
+  request: ImageTaskRequest,
+  batch: ProductSetVisionBatch,
+): string[] {
+  return buildProductSetExecutionVariantsFromVision(request, batch).map((variant) => variant.prompt);
+}
+
+export interface ProductSetExecutionVariant {
+  prompt: string;
+  requiresHandheldReference: boolean;
+}
+
+export function buildProductSetExecutionVariantsFromVision(
+  request: ImageTaskRequest,
+  batch: ProductSetVisionBatch,
+): ProductSetExecutionVariant[] {
+  const count = batch.instructions.length;
+
+  return batch.instructions.map((item) => {
+    const variantRequest = count > 1
+      ? { ...request, count: 1, variantIndex: item.index, variantTotal: count }
+      : request;
+    const spec = mergeProductSetVisionInstruction(
+      buildProductSetSpec(variantRequest),
+      item,
+      variantRequest,
+    );
+    return {
+      prompt: formatProductSetExecutionPromptFromSpec(spec, variantRequest),
+      requiresHandheldReference: productSetExecutionRequiresHandheldReference(spec),
+    };
+  });
+}
+
+export function mergeProductSetVisionInstruction(
+  spec: ProductSetJsonSpec,
+  vision: ProductSetVisionInstructionItem,
+  request: ImageTaskRequest,
+): ProductSetJsonSpec {
+  const merged = cloneLook(spec) as ProductSetJsonSpec;
+
+  if (vision.environment) {
+    merged.environment = {
+      ...(merged.environment as Record<string, unknown>),
+      ...compactVisionFields(vision.environment),
+    };
+  }
+
+  if (vision.composition_directive?.trim()) {
+    merged.composition = {
+      ...(merged.composition as Record<string, unknown>),
+      vision_directive: vision.composition_directive.trim(),
+    };
+  }
+
+  if (vision.headline_suggestion?.trim() && merged.copy && typeof merged.copy === 'object') {
+    merged.copy = {
+      ...(merged.copy as Record<string, unknown>),
+      headline: {
+        ...((merged.copy as Record<string, unknown>).headline as Record<string, unknown> | undefined),
+        suggested_text: vision.headline_suggestion.trim(),
+      },
+    };
+  }
+
+  if (vision.panel_guidance?.trim() && merged.panels && typeof merged.panels === 'object') {
+    merged.panels = {
+      ...(merged.panels as Record<string, unknown>),
+      vision_guidance: vision.panel_guidance.trim(),
+    };
+  }
+
+  if (vision.panel_list?.length && merged.panels && typeof merged.panels === 'object') {
+    merged.panels = {
+      ...(merged.panels as Record<string, unknown>),
+      vision_panels: vision.panel_list.map((panel) => ({
+        label: panel.label.trim(),
+        problem_surface: panel.problem_surface.trim(),
+        problem_state: panel.problem_state.trim(),
+      })),
+    };
+  }
+
+  if (vision.scope_headline?.trim() && merged.copy && typeof merged.copy === 'object') {
+    merged.copy = {
+      ...(merged.copy as Record<string, unknown>),
+      headline: {
+        ...((merged.copy as Record<string, unknown>).headline as Record<string, unknown> | undefined),
+        suggested_text: vision.scope_headline.trim(),
+      },
+    };
+  }
+
+  if (vision.variant_directive?.trim() && merged.variant) {
+    merged.variant = {
+      ...merged.variant,
+      directive: vision.variant_directive.trim(),
+    };
+  }
+
+  if (vision.scene_notes?.length) {
+    merged.quality_targets = [
+      ...(merged.quality_targets ?? []),
+      ...vision.scene_notes.map((note) => note.trim()).filter(Boolean),
+    ];
+  }
+
+  if (vision.problem_surface?.trim() || vision.problem_state?.trim()) {
+    merged.scene_storytelling = {
+      ...(asRecord(merged.scene_storytelling) ?? {}),
+      ...(vision.problem_surface?.trim()
+        ? { problem_surface: vision.problem_surface.trim() }
+        : {}),
+      ...(vision.problem_state?.trim()
+        ? { problem_state: vision.problem_state.trim() }
+        : {}),
+    };
+  }
+
+  if (request.feature === 'product_main_image') {
+    applyVisionMainImageHandheldEffect(merged, vision, request);
+  }
+
+  return merged;
+}
+
+function resolveVisionHandheldRequired(
+  request: ImageTaskRequest,
+  vision: ProductSetVisionInstructionItem,
+): boolean {
+  const pref = request.productHandheldMode ?? 'auto';
+  if (pref === 'not_handheld') {
+    return false;
+  }
+  if (pref === 'handheld') {
+    const presentation = resolveMainImageVariantPresentation(request);
+    return presentation?.handheldRequired ?? true;
+  }
+  return vision.handheld_required ?? resolveMainImageVariantPresentation(request)?.handheldRequired ?? false;
+}
+
+function resolveVisionEffectRequired(
+  request: ImageTaskRequest,
+  vision: ProductSetVisionInstructionItem,
+): boolean {
+  const pref = request.productEffectMode ?? 'auto';
+  if (pref === 'hide') {
+    return false;
+  }
+  if (pref === 'show') {
+    return true;
+  }
+  return vision.show_effect ?? resolveMainImageVariantPresentation(request)?.effectRequired ?? false;
+}
+
+function applyVisionMainImageHandheldEffect(
+  merged: ProductSetJsonSpec,
+  vision: ProductSetVisionInstructionItem,
+  request: ImageTaskRequest,
+) {
+  const handheldRequired = resolveVisionHandheldRequired(request, vision);
+  const effectRequired = resolveVisionEffectRequired(request, vision);
+  const patch = buildMainImageFields(request, { handheldRequired, effectRequired });
+
+  merged.handheld = patch.handheld;
+  merged.effect = patch.effect;
+  if (patch.spray_physics) {
+    merged.spray_physics = patch.spray_physics;
+  } else {
+    delete merged.spray_physics;
+  }
+  if (patch.handheld_reference) {
+    merged.handheld_reference = patch.handheld_reference;
+  } else {
+    delete merged.handheld_reference;
+  }
+  if (patch.image_inputs) {
+    merged.image_inputs = patch.image_inputs;
+  } else {
+    delete merged.image_inputs;
+  }
+  merged.composition = {
+    ...(merged.composition as Record<string, unknown>),
+    ...(patch.composition as Record<string, unknown>),
+  };
+  merged.quality_targets = patch.quality_targets;
+  merged.negative_prompt = patch.negative_prompt;
+}
+
+export function buildProductSetSpec(request: ImageTaskRequest): ProductSetJsonSpec {
   const scene = request.feature === 'product_multi_scene' ? null : trimOrNull(request.scenePrompt);
   const supplement = trimOrNull(request.prompt);
   const avoid = trimOrNull(request.negativePrompt);
 
   const draft: Record<string, unknown> = {
     task: request.feature,
-    style: styleForFeature(request.feature),
+    style: styleForFeature(request.feature, resolveMultiSceneLayout(request)),
     output: {
       aspect_ratio: request.aspectRatio?.trim() && request.aspectRatio !== 'auto'
         ? request.aspectRatio.trim()
@@ -314,13 +944,40 @@ function buildProductSetSpec(request: ImageTaskRequest): ProductSetJsonSpec {
   return orderedSpec(draft);
 }
 
-function buildMainImageFields(request: ImageTaskRequest) {
-  const handheldMode: ProductHandheldMode = request.productHandheldMode ?? 'not_handheld';
+function buildMainImageFields(
+  request: ImageTaskRequest,
+  overrides?: { handheldRequired?: boolean; effectRequired?: boolean },
+) {
+  const handheldMode: ProductHandheldMode = request.productHandheldMode ?? 'auto';
   const effectMode: ProductEffectMode = request.productEffectMode ?? 'auto';
-  const isHandheld = handheldMode === 'handheld';
   const hasReference = hasReferenceImage(request);
+  const presentation = resolveMainImageVariantPresentation(request);
+  const isHandheld = overrides?.handheldRequired ?? (
+    presentation
+      ? presentation.handheldRequired
+      : handheldMode === 'handheld'
+  );
+  const effectRequired = overrides?.effectRequired ?? (
+    presentation
+      ? presentation.effectRequired
+      : effectMode === 'show'
+  );
+  const effectGuidanceText = presentation
+    ? presentation.effectRequired
+      ? effectGuidance('show')
+      : effectGuidance('hide')
+    : effectGuidance(effectMode);
 
-  const fields: Record<string, unknown> = {
+  const fields: MainImageFields = {
+    ...(presentation ? {
+      presentation: {
+        mode: presentation.mode,
+        carousel_ready: presentation.carouselReady,
+        batch_role: presentation.label,
+        batch_distribution: 'Handheld and effect are assigned per output file in this batch; obey this file\'s presentation block only.',
+      },
+      scene_storytelling: presentation.sceneStorytelling,
+    } : {}),
     handheld: isHandheld
       ? hasReference
         ? {
@@ -344,28 +1001,41 @@ function buildMainImageFields(request: ImageTaskRequest) {
           ],
         },
     effect: {
-      mode: effectMode,
-      guidance: effectGuidance(effectMode),
+      mode: presentation
+        ? (presentation.effectRequired ? 'show' : 'hide')
+        : effectMode,
+      guidance: effectGuidanceText,
     },
     composition: {
       strategy: 'free_within_controls',
       product_required: true,
       hand_required: isHandheld,
-      goal: 'Within about 3 seconds, show what the product is, where it is used, what problem it solves, and what result it delivers',
+      goal: presentation?.carouselReady
+        ? 'Within about 3 seconds on a product carousel, show what the product is, where it is used, and the core benefit — clean hero hierarchy without hand blocking the label'
+        : 'Within about 3 seconds, show what the product is, where it is used, what problem it solves, and what result it delivers',
       allowed_approaches: isHandheld
-        ? [
+        ? presentation?.mode === 'effect_demo'
+          ? [
+            'handheld action/effect demonstration',
+            'handheld real usage with visible product result',
+          ]
+          : [
             'handheld real usage',
             'handheld usage process',
             'handheld pain-point close-up',
-            'handheld action/effect demonstration',
             'handheld lifestyle use',
           ]
-        : [
+        : presentation?.mode === 'effect_demo'
+          ? [
+            'action/effect demonstration',
+            'real usage scene with visible product result',
+          ]
+          : [
             'real usage scene',
             'usage process',
             'pain-point close-up',
-            'action/effect demonstration',
             'lifestyle placement',
+            'carousel hero product placement',
             'before-after feeling within a single main image when useful',
           ],
       one_composition_only: 'Each output image is exactly ONE continuous photograph of ONE commercial scene with ONE product placement. Never stack strips, layers, triptychs, split-screen grids, or collage panels inside one frame — even to show multiple use cases.',
@@ -387,11 +1057,13 @@ function buildMainImageFields(request: ImageTaskRequest) {
             'handheld use',
             'visible holding hand',
           ],
-      note: isHandheld
-        ? hasReference
-          ? 'Handheld is a hard structured control. Match the reference image grip/pose/form; sku_lock still controls product identity.'
-          : 'Handheld is a hard structured control. Free composition only chooses HOW the hand holds/uses the SKU, never WHETHER a hand appears.'
-        : 'Do not force one non-handheld template. Choose the strongest commercial approach for this SKU and scene; batch diversity is controlled by batch_output.',
+      note: presentation
+        ? `Batch file presentation: ${presentation.label}. Handheld/effect settings from the UI apply across the batch but are distributed per file — obey this file's presentation block only.`
+        : isHandheld
+          ? hasReference
+            ? 'Handheld is a hard structured control. Match the reference image grip/pose/form; sku_lock still controls product identity.'
+            : 'Handheld is a hard structured control. Free composition only chooses HOW the hand holds/uses the SKU, never WHETHER a hand appears.'
+          : 'Do not force one non-handheld template. Choose the strongest commercial approach for this SKU and scene; batch diversity is controlled by batch_output.',
     },
     copy: {
       headline: {
@@ -408,6 +1080,12 @@ function buildMainImageFields(request: ImageTaskRequest) {
     },
     quality_targets: [
       'SKU identity locked to the reference photo',
+      ...(presentation?.carouselReady
+        ? [
+          'Ready for ecommerce product carousel/slider: clean hero product placement with readable label',
+          'No hand blocking the product or primary label',
+        ]
+        : []),
       ...(isHandheld
         ? hasReference
           ? [
@@ -424,16 +1102,24 @@ function buildMainImageFields(request: ImageTaskRequest) {
         : [
             'No holding hand in frame',
           ]),
+      ...(presentation && !presentation.effectRequired
+        ? ['No spray, mist, foam, vapor, or product-emitted action effects in this file']
+        : []),
+      ...(presentation?.sceneStorytelling.must_show ?? []),
       'English headline readable in 3 seconds',
       'No small icon selling-point UI',
     ],
     negative_prompt: [
       ...MAIN_NEGATIVE,
       ...(isHandheld ? HANDHELD_NEGATIVE : ['no holding hand', 'no handheld grip']),
+      ...(presentation && !presentation.effectRequired
+        ? ['no spray', 'no mist', 'no foam', 'no vapor trail', 'no product-emitted effects']
+        : []),
+      ...(presentation?.sceneStorytelling.forbidden ?? []),
     ],
   };
 
-  if (effectMode === 'show') {
+  if (effectRequired) {
     fields.spray_physics = {
       ...SPRAY_PHYSICS,
       forbidden: [...SPRAY_PHYSICS.forbidden],
@@ -460,11 +1146,56 @@ function buildMainImageFields(request: ImageTaskRequest) {
     };
   }
 
+  const imageInputs = buildExecutionImageInputs(request, isHandheld);
+  if (imageInputs) {
+    fields.image_inputs = imageInputs;
+  }
+
   return fields;
 }
 
+function buildExecutionImageInputs(request: ImageTaskRequest, handheldRequired: boolean) {
+  const images = request.images ?? [];
+  if (images.length === 0) {
+    return undefined;
+  }
+
+  const order: Array<Record<string, string>> = [];
+  for (const image of images) {
+    if (image.role === 'product') {
+      order.push({
+        index: String(order.length + 1),
+        role: 'product',
+        use: 'SKU identity lock — packaging, label, and product geometry only',
+      });
+      continue;
+    }
+    if (image.role === 'reference' && handheldRequired) {
+      const refDef = findProductHandheldReferenceByPath(image.path);
+      order.push({
+        index: String(order.length + 1),
+        role: 'handheld_reference',
+        use: refDef
+          ? `Match hand grip/pose from reference (${refDef.label}); SKU body comes from product image(s) only`
+          : 'Match hand grip and pose from this reference silhouette; SKU body comes from product image(s) only',
+      });
+    }
+  }
+
+  if (order.length === 0) {
+    return undefined;
+  }
+
+  return {
+    order,
+    edit_request_note: order.some((item) => item.role === 'handheld_reference')
+      ? 'Attached edit images follow this order. When handheld.required is true, replicate the handheld_reference grip/pose exactly.'
+      : 'Attached edit images follow this order.',
+  };
+}
+
 function buildComparisonFields(request: ImageTaskRequest) {
-  const layout: ComparisonLayout = request.comparisonLayout ?? 'auto';
+  const layout = resolveComparisonLayout(request);
   const intensity: ComparisonIntensity = request.comparisonIntensity ?? 'medium';
   const showProduct = request.showProduct !== false;
 
@@ -473,12 +1204,17 @@ function buildComparisonFields(request: ImageTaskRequest) {
       type: 'single_scene_before_after',
       layout,
       layout_rules: {
-        auto: 'Choose horizontal or vertical based on aspect ratio and subject',
         horizontal: 'BEFORE left, AFTER right',
         vertical: 'BEFORE top, AFTER bottom',
+        grid_2x2: 'Two rows; each row is BEFORE left and AFTER right for one relevant target region',
+        grid_3x2: 'Three rows; each row is BEFORE left and AFTER right for one relevant target region',
       }[layout],
       invariant: 'Before and After keep the same scene, object, camera, scale, material, and structure',
-      one_pair_only: 'Each output image contains exactly one BEFORE/AFTER pair. Never stack multiple comparison pairs as layers or strips in the same image.',
+      one_pair_only: layout === 'grid_2x2'
+        ? 'Each output image contains two matched BEFORE/AFTER pairs arranged as rows, never unrelated process stages or stacked variants.'
+        : layout === 'grid_3x2'
+          ? 'Each output image contains three matched BEFORE/AFTER pairs arranged as rows, never unrelated process stages or stacked variants.'
+          : 'Each output image contains exactly one matched BEFORE/AFTER pair. Never stack multiple comparison variants as layers or strips in the same image.',
     },
     panels: {
       sku_inside_panels: false,
@@ -531,7 +1267,9 @@ function buildComparisonFields(request: ImageTaskRequest) {
     ],
     negative_prompt: [
       'no SKU inside Before or After panels',
-      'no multi-stage process grids',
+      ...(layout === 'grid_2x2' || layout === 'grid_3x2'
+        ? ['no unrelated multi-stage process grid']
+        : ['no multi-stage process grids']),
       'no stacked multiple BEFORE/AFTER pairs in one image',
       'no three-layer or strip collage of different comparison variants',
       'no benefit slogans or icon rows',
@@ -551,24 +1289,43 @@ function buildComparisonFields(request: ImageTaskRequest) {
 }
 
 function buildMultiSceneFields(request: ImageTaskRequest) {
-  const layout: MultiSceneLayout = request.multiSceneLayout ?? 'single';
+  const layout = resolveMultiSceneLayout(request);
+  const multiPanel = isMultiPanelMultiSceneLayout(layout);
 
   const fields: Record<string, unknown> = {
     composition: {
-      focus: 'application scope: objects, materials, locations, environments',
+      focus: 'application scope: distinct problem surfaces, materials, stains, or environments the SKU can address',
       layout,
+      format: multiPanel ? 'labeled_multi_panel_scope_infographic' : 'single_target_scene',
       layout_rules: {
-        single: 'One complete target scene per image with readable foreground/midground/background detail',
-        collage: 'Divide canvas into 4 irregular panels with at least 2 different panel aspect ratios and clear borders; each panel a different applicable scene',
-        grid: '2x2 equal cells with clear dividers; each cell a different applicable scene; do not erase grid borders with near-identical fills',
+        single: 'One complete target scene per image with readable foreground/midground/background detail; show a visible before-use problem state on the surface',
+        collage: 'Divide canvas into 4-6 irregular panels with clear borders; each panel a different applicable problem surface/state; optional top English benefit headline banner',
+        grid: '2 rows x 3 columns (6 equal cells) with clear dividers and label bars; each cell shows a different applicable problem/stain/type on the target surface; optional top English benefit headline banner (e.g. "ALL THESE CAN BE REMOVED"); infographic ecommerce scope chart, NOT one continuous photograph',
       }[layout],
       sku_in_frame: false,
       people_allowed: false,
-      note: 'SKU photo is only for recognizing category and true use cases; never render the product body',
+      note: multiPanel
+        ? 'SKU photo is only for recognizing category and true use cases; output a labeled multi-panel scope infographic — never a single lifestyle detail shot with cleaning tools'
+        : 'SKU photo is only for recognizing category and true use cases; never render the product body',
     },
+    ...(multiPanel ? {
+      panels: {
+        required: true,
+        min_distinct_scenes: layout === 'grid' ? 6 : 4,
+        structure: 'Each panel = one distinct applicable problem surface + visible before-use problem state',
+        labels: 'Short English label under each panel naming the problem/stain/surface type',
+        headline: 'Optional top banner with 3-8 word English benefit headline summarizing application scope',
+        forbidden: [
+          'product bottle or SKU in any panel',
+          'cleaning tools, microfiber, or brushes as the hero subject',
+          'single full-bleed photograph without visible panel dividers',
+          'one-scene lifestyle staging instead of a scope chart',
+        ],
+      },
+    } : {}),
     copy: {
       optional_title: 'short English main title allowed when helpful',
-      panel_labels: 'short English scene names allowed',
+      panel_labels: 'short English scene or stain names required for multi-panel layouts',
       forbidden: [
         'long paragraphs',
         'parameter stacks',
@@ -579,15 +1336,31 @@ function buildMultiSceneFields(request: ImageTaskRequest) {
     quality_targets: [
       'No SKU, packaging, or branded container in frame',
       'No people, faces, hands, or handheld actions',
-      'Scenes are clearly different and truly relevant to the product use case',
-      'Readable commercial layout without clutter',
+      ...(multiPanel
+        ? [
+            'Output is a readable labeled multi-panel scope infographic, not a single continuous photograph',
+            'Each panel shows a clearly different applicable problem surface/state relevant to the SKU',
+            'Panel labels and optional headline are short English text',
+          ]
+        : [
+            'Scenes are clearly different and truly relevant to the product use case',
+            'Readable commercial layout without clutter',
+          ]),
     ],
     negative_prompt: [
       'no SKU product body',
       'no product packaging',
       'no branded bottle or recognizable product instance',
       'no people, body, face, hands, or handheld use',
-      'no weak/irrelevant filler scenes',
+      ...(multiPanel
+        ? [
+            'no single continuous photograph without panel grid',
+            'no cleaning-kit flat lay or microfiber/towel hero shot',
+            'no one-scene bumper/detail photo with tools in corner',
+          ]
+        : [
+            'no weak/irrelevant filler scenes',
+          ]),
       'no Chinese marketing text',
       'no icon selling-point templates',
     ],
@@ -606,8 +1379,11 @@ function orderedSpec(draft: Record<string, unknown>): ProductSetJsonSpec {
     'style',
     'output',
     'sku_lock',
+    'presentation',
+    'scene_storytelling',
     'handheld',
     'handheld_reference',
+    'image_inputs',
     'effect',
     'spray_physics',
     'composition',
@@ -664,18 +1440,38 @@ function buildVariantField(request: ImageTaskRequest) {
   const feature = request.feature as ProductSetBatchFeature;
   const slot = buildDiversitySlots(feature, request.variantTotal)[request.variantIndex - 1];
   const cycle = Math.floor((request.variantIndex - 1) / BATCH_DIVERSITY_DIRECTION_COUNT) + 1;
+  const presentation = request.feature === 'product_main_image'
+    ? resolveMainImageVariantPresentation(request)
+    : undefined;
+  const directive = presentation
+    ? `${slot.directive} Presentation assignment: ${mainImagePresentationExecutionSummary(presentation.mode)}.`
+    : slot.directive;
+  const multiSceneLayout = request.feature === 'product_multi_scene'
+    ? resolveMultiSceneLayout(request)
+    : undefined;
+  const multiPanelMultiScene = multiSceneLayout
+    ? isMultiPanelMultiSceneLayout(multiSceneLayout)
+    : false;
 
   return {
     index: request.variantIndex,
     total: request.variantTotal,
     ...(cycle > 1 ? { cycle } : {}),
-    directive: slot.directive,
+    directive,
+    ...(presentation ? { presentation_mode: presentation.mode } : {}),
     single_image_only: true as const,
-    forbidden: [
-      'triptych or multi-panel collage',
-      'split-screen with 2/3/4 panels',
-      'packing multiple use-case scenes into one image',
-    ],
+    ...(multiPanelMultiScene ? { multi_panel_scope_infographic: true as const } : {}),
+    forbidden: multiPanelMultiScene
+      ? [
+          'single continuous photograph without panel dividers',
+          'one-scene detail shot with cleaning tools as hero',
+          'lifestyle staging instead of labeled scope panels',
+        ]
+      : [
+          'triptych or multi-panel collage',
+          'split-screen with 2/3/4 panels',
+          'packing multiple use-case scenes into one image',
+        ],
   };
 }
 
@@ -683,13 +1479,21 @@ function buildVariantPlainTextSuffix(
   feature: ImageFeature,
   variant: NonNullable<ProductSetJsonSpec['variant']>,
   scenePrompt: string | null,
+  request: ImageTaskRequest,
 ) {
+  const multiPanelMultiScene = feature === 'product_multi_scene'
+    && isMultiPanelMultiSceneLayout(resolveMultiSceneLayout(request));
+
   const lines = [
     VARIANT_PLAIN_TEXT_MARKER.trim(),
     `This request produces exactly ONE output image: variant ${variant.index} of ${variant.total} in the user batch.`,
-    'CRITICAL: Output exactly ONE single continuous photograph of ONE scene. Never use triptych, split-screen, or multi-panel collage.',
+    multiPanelMultiScene
+      ? 'CRITICAL: Output exactly ONE labeled multi-panel application-scope infographic (grid or collage). Each panel must show a different applicable problem surface/state with a short English label. Never output a single continuous lifestyle photograph.'
+      : 'CRITICAL: Output exactly ONE single continuous photograph of ONE scene. Never use triptych, split-screen, or multi-panel collage.',
     `Scene direction for this variant: ${variant.directive}`,
-    'This image must use a different physical sub-scene/environment from the other variants in the batch.',
+    multiPanelMultiScene
+      ? 'This infographic must use a different panel problem mix, headline, or layout treatment from the other variants in the batch.'
+      : 'This image must use a different physical sub-scene/environment from the other variants in the batch.',
   ];
 
   if (scenePrompt) {
@@ -698,10 +1502,23 @@ function buildVariantPlainTextSuffix(
     );
   } else if (feature === 'product_main_image') {
     lines.push('Choose a real applicable sub-scene that is clearly different from the other variants.');
+    if (variant.presentation_mode === 'carousel_hero') {
+      lines.push('This file MUST be carousel-ready AND show a concrete problem scene: visible dirty/problem surface plus product hero, without hand or spray/effect.');
+    } else if (variant.presentation_mode === 'handheld_use') {
+      lines.push('This file MUST show the hand holding the product beside/at the visible problem surface, ready to use, but MUST NOT show spray/mist/foam or other product-emitted effects.');
+    } else if (variant.presentation_mode === 'effect_demo') {
+      lines.push('This file is the ONLY file in the batch that may show concrete product action/effect on the problem surface (spray/pump/result). Other files must not repeat this effect.');
+    } else if (variant.presentation_mode === 'lifestyle_scene') {
+      lines.push('This file MUST show the problem surface/state clearly without hands or product-emitted effects.');
+    }
+  } else if (multiPanelMultiScene) {
+    lines.push('Choose 4-6 distinct applicable problem surfaces/states derived from the SKU category (e.g. different stain types on car exterior).');
   }
 
   lines.push(
-    'Invalid outputs: multi-panel collage; same wall/room/surface as another variant; headline-only change.',
+    multiPanelMultiScene
+      ? 'Invalid outputs: single continuous photograph; cleaning tools hero shot; product bottle; repeating the same panel set as another variant.'
+      : 'Invalid outputs: multi-panel collage; same wall/room/surface as another variant; headline-only change.',
   );
 
   return `\n\n${lines.join('\n')}\n`;
@@ -749,14 +1566,24 @@ function buildBatchPlainTextSuffix(
   feature: ImageFeature,
   batchOutput: NonNullable<ProductSetJsonSpec['batch_output']>,
   scenePrompt: string | null,
+  request: ImageTaskRequest,
 ) {
+  const multiPanelMultiScene = feature === 'product_multi_scene'
+    && isMultiPanelMultiSceneLayout(resolveMultiSceneLayout(request));
+
   const lines = [
     BATCH_PLAIN_TEXT_MARKER.trim(),
     `Generate exactly ${batchOutput.count} separate image files in this single request.`,
-    'CRITICAL: Each output file must be ONE single continuous photograph of ONE scene only. Never put 2, 3, or 4 panels, triptychs, split-screens, or collage grids inside one file.',
-    'Batch diversity is ACROSS files (file 1 vs file 2 vs file 3), NOT by packing multiple scenes into one file.',
-    'Each output file MUST use a visibly different sub-scene/environment from the other files — NOT the same room, wall, surface, or background with different headline text.',
-    `Compared to the other files in this batch, each file must differ in at least ${batchOutput.diversity.min_changed_dimensions} visual dimensions listed in batch_output.diversity.dimensions. This does NOT mean showing ${batchOutput.diversity.min_changed_dimensions} scenes inside one file.`,
+    multiPanelMultiScene
+      ? 'CRITICAL: Each output file must be ONE labeled multi-panel application-scope infographic (grid or collage). Put multiple distinct problem surfaces/states INSIDE each file with panel dividers and English labels. Never output a single continuous lifestyle photograph.'
+      : 'CRITICAL: Each output file must be ONE single continuous photograph of ONE scene only. Never put 2, 3, or 4 panels, triptychs, split-screens, or collage grids inside one file.',
+    multiPanelMultiScene
+      ? 'Batch diversity is ACROSS files (file 1 vs file 2): vary panel problem mix, headline, or layout — NOT by collapsing into one single-scene photo per file.'
+      : 'Batch diversity is ACROSS files (file 1 vs file 2 vs file 3), NOT by packing multiple scenes into one file.',
+    multiPanelMultiScene
+      ? 'Each output file MUST use a visibly different panel problem set, headline, or layout treatment from the other files.'
+      : 'Each output file MUST use a visibly different sub-scene/environment from the other files — NOT the same room, wall, surface, or background with different headline text.',
+    `Compared to the other files in this batch, each file must differ in at least ${batchOutput.diversity.min_changed_dimensions} visual dimensions listed in batch_output.diversity.dimensions.${multiPanelMultiScene ? ' For multi-panel scope infographics, diversity means different panel content/headline/layout — not omitting the panel grid.' : ` This does NOT mean showing ${batchOutput.diversity.min_changed_dimensions} scenes inside one file.`}`,
   ];
 
   if (scenePrompt) {
@@ -767,14 +1594,24 @@ function buildBatchPlainTextSuffix(
     lines.push(
       'Without a fixed user scene, choose different real applicable sub-scenes per file (e.g. different rooms, surfaces, indoor/outdoor contexts).',
     );
+  } else if (multiPanelMultiScene) {
+    lines.push(
+      'Derive panel problems from the SKU category (e.g. for car cleaner: black spots, bug splatter, tree sap, bird droppings, water stains, grease on car exterior panels).',
+    );
   }
 
   for (const slot of batchOutput.diversity.slots) {
-    lines.push(`Output file ${slot.index} (one single-scene photograph only): ${slot.directive}`);
+    lines.push(
+      multiPanelMultiScene
+        ? `Output file ${slot.index} (one labeled multi-panel scope infographic): ${slot.directive}`
+        : `Output file ${slot.index} (one single-scene photograph only): ${slot.directive}`,
+    );
   }
 
   lines.push(
-    'Invalid batch outputs: triptych or multi-panel collage inside one file; split-screen with multiple locations in one file; same physical scene repeated with only headline/text changes; same wall crack location; same background props and camera with recolor only.',
+    multiPanelMultiScene
+      ? 'Invalid batch outputs: single continuous photograph; one-scene detail with microfiber/tools; product bottle; same panel set repeated with only headline change.'
+      : 'Invalid batch outputs: triptych or multi-panel collage inside one file; split-screen with multiple locations in one file; same physical scene repeated with only headline/text changes; same wall crack location; same background props and camera with recolor only.',
   );
 
   return `\n\n${lines.join('\n')}\n`;
@@ -821,19 +1658,34 @@ function placementForLayout(layout: ComparisonLayout) {
       return 'Center the enlarged product vertically across the left/right divider';
     case 'vertical':
       return 'Center the enlarged product horizontally across the top/bottom divider';
+    case 'grid_2x2':
+      return 'Integrate the product in the central comparison frame without covering either matched row';
+    case 'grid_3x2':
+      return 'Integrate the product in the central comparison frame without covering any matched row';
     default:
       return 'After choosing layout, center the enlarged product across the divider';
   }
 }
 
-function styleForFeature(feature: ImageFeature) {
+export function resolveComparisonLayout(request: ImageTaskRequest): Exclude<ComparisonLayout, 'auto'> {
+  if (request.comparisonLayout && request.comparisonLayout !== 'auto') {
+    return request.comparisonLayout;
+  }
+
+  const index = Math.max(0, (request.variantIndex ?? 1) - 1);
+  return AUTO_COMPARISON_LAYOUTS[index % AUTO_COMPARISON_LAYOUTS.length];
+}
+
+function styleForFeature(feature: ImageFeature, multiSceneLayout: MultiSceneLayout = 'grid') {
   switch (feature) {
     case 'product_main_image':
       return 'US Temu functional ecommerce main image, commercial photography, clear benefit hierarchy';
     case 'product_comparison_image':
       return 'US Temu before/after comparison ecommerce image, credible commercial photography';
     case 'product_multi_scene':
-      return 'US Temu multi-application-scope ecommerce image, realistic scene photography without product body';
+      return isMultiPanelMultiSceneLayout(multiSceneLayout)
+        ? 'US Temu application-scope infographic, labeled multi-panel collage of problem surfaces, commercial ecommerce layout'
+        : 'US Temu multi-application-scope ecommerce image, realistic scene photography without product body';
     default:
       return 'US Temu ecommerce commercial photography';
   }
@@ -870,4 +1722,10 @@ function trimOrNull(value: string | undefined) {
 
 function avoidExtra(value: string | undefined) {
   return Boolean(value?.trim());
+}
+
+function compactVisionFields<T extends Record<string, string | undefined>>(value: T) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => Boolean(entry?.trim())),
+  );
 }

@@ -186,6 +186,25 @@ describe('imageTaskExecutor', () => {
     let singleCalls = 0;
     const executor = createImageTaskExecutor({
       runtimeConfig,
+      visionInstructionClient: {
+        generateReplaceProductInstruction: async () => {
+          throw new Error('not used');
+        },
+        generateProductSetInstructions: async ({ plan }) => ({
+          visionModel: 'gpt-5.4-mini',
+          rawContent: '{"instructions":[{"index":1},{"index":2},{"index":3}]}',
+          batch: {
+            instructions: [
+              { index: 1, variant_directive: 'a' },
+              { index: 2, variant_directive: 'b' },
+              { index: 3, variant_directive: 'c' },
+            ],
+          },
+          executionPrompts: Array.from({ length: plan.count }, (_, index) => (
+            `vision-prompt-${index + 1}`
+          )),
+        }),
+      },
       modelGateway: {
         executeImage: async () => {
           throw new Error('executeImage should not be called for product-set multi-count tasks');
@@ -241,12 +260,148 @@ describe('imageTaskExecutor', () => {
     }), new AbortController().signal);
 
     expect(singleCalls).toBe(3);
-    expect(variantPrompts).toHaveLength(3);
-    expect(variantPrompts[0]).toContain('variant 1 of 3');
-    expect(variantPrompts[1]).toContain('variant 2 of 3');
-    expect(variantPrompts[2]).toContain('variant 3 of 3');
-    expect(variantPrompts.every((prompt) => prompt.includes('ONE single continuous photograph'))).toBe(true);
+    expect(variantPrompts).toEqual(['vision-prompt-1', 'vision-prompt-2', 'vision-prompt-3']);
     expect(result.images).toHaveLength(3);
+  });
+
+  it('uses vision-generated prompt for single-count product-set tasks', async () => {
+    const prompts: string[] = [];
+    const executor = createImageTaskExecutor({
+      runtimeConfig,
+      visionInstructionClient: {
+        generateReplaceProductInstruction: async () => {
+          throw new Error('not used');
+        },
+        generateProductSetInstructions: async () => ({
+          visionModel: 'gpt-5.4-mini',
+          rawContent: '{"instructions":[{"index":1}]}',
+          batch: { instructions: [{ index: 1, variant_directive: 'single' }] },
+          executionPrompts: ['vision-single-prompt'],
+        }),
+      },
+      modelGateway: {
+        executeImage: async () => {
+          throw new Error('executeImage should not be called');
+        },
+        executeSingleImage: async ({ finalPrompt }) => {
+          prompts.push(finalPrompt);
+          return {
+            images: [{
+              fileName: 'result-1.png',
+              buffer: new Uint8Array([1]),
+              mimeType: 'image/png',
+            }],
+          };
+        },
+      },
+      artifactStore: {
+        begin: async ({ task, finalPrompt }) => {
+          const imagePaths: string[] = [];
+          return {
+            outputDir: `/outputs/${task.taskId}`,
+            requestJsonPath: `/outputs/${task.taskId}/request.json`,
+            imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
+            outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
+            imagePaths,
+            appendImage: async () => {
+              const imagePath = `/outputs/${task.taskId}/result-1.png`;
+              imagePaths.push(imagePath);
+              return imagePath;
+            },
+            finalize: async () => ({
+              outputDir: `/outputs/${task.taskId}`,
+              requestJsonPath: `/outputs/${task.taskId}/request.json`,
+              imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
+              outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
+              images: imagePaths,
+            }),
+          };
+        },
+        save: async () => {
+          throw new Error('save should not be called directly');
+        },
+      },
+    });
+
+    await executor(createTask({
+      feature: 'product_main_image',
+      count: 1,
+      images: [{ role: 'product', path: '/authorized/input/product.png' }],
+    }), new AbortController().signal);
+
+    expect(prompts).toEqual(['vision-single-prompt']);
+  });
+
+  it('passes the handheld reference only to variants that require it', async () => {
+    const executionImageCounts: number[] = [];
+    const executor = createImageTaskExecutor({
+      runtimeConfig,
+      visionInstructionClient: {
+        generateReplaceProductInstruction: async () => {
+          throw new Error('not used');
+        },
+        generateProductSetInstructions: async () => ({
+          visionModel: 'gpt-5.4-mini',
+          rawContent: '{"instructions":[{"index":1},{"index":2}]}',
+          batch: { instructions: [{ index: 1 }, { index: 2 }] },
+          executionPrompts: ['plain non-handheld prompt', 'plain handheld prompt'],
+          executionHandheldReferenceRequired: [false, true],
+        }),
+      },
+      modelGateway: {
+        executeImage: async () => {
+          throw new Error('executeImage should not be called');
+        },
+        executeSingleImage: async ({ plan }) => {
+          executionImageCounts.push(plan.executionImages.length);
+          return {
+            images: [{
+              fileName: `result-${executionImageCounts.length}.png`,
+              buffer: new Uint8Array([executionImageCounts.length]),
+              mimeType: 'image/png',
+            }],
+          };
+        },
+      },
+      artifactStore: {
+        begin: async ({ task }) => {
+          const imagePaths: string[] = [];
+          return {
+            outputDir: `/outputs/${task.taskId}`,
+            requestJsonPath: `/outputs/${task.taskId}/request.json`,
+            imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
+            outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
+            imagePaths,
+            appendImage: async () => {
+              const imagePath = `/outputs/${task.taskId}/result-${imagePaths.length + 1}.png`;
+              imagePaths.push(imagePath);
+              return imagePath;
+            },
+            finalize: async () => ({
+              outputDir: `/outputs/${task.taskId}`,
+              requestJsonPath: `/outputs/${task.taskId}/request.json`,
+              imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
+              outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
+              images: imagePaths,
+            }),
+          };
+        },
+        save: async () => {
+          throw new Error('save should not be called directly');
+        },
+      },
+    });
+
+    await executor(createTask({
+      feature: 'product_main_image',
+      count: 2,
+      images: [
+        { role: 'product', path: '/authorized/input/product.png' },
+        { role: 'reference', path: '/authorized/resources/hand-pose.png' },
+      ],
+    }), new AbortController().signal);
+
+    expect(executionImageCounts).toEqual([1, 2]);
   });
 });
 

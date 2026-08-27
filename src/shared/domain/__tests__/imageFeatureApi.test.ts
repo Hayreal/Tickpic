@@ -140,17 +140,17 @@ describe('image feature API contract', () => {
     const expectations = [
       [
         'product_main_image',
-        ['US Temu ecommerce main product image', 'single primary SKU', 'JSON execution prompt'],
+        ['US Temu ecommerce main product image', 'single primary SKU', 'natural-language execution prompt'],
         true,
       ],
       [
         'product_comparison_image',
-        ['before/after comparison', 'single primary SKU', 'JSON execution prompt'],
+        ['before/after comparison', 'single primary SKU', 'natural-language execution prompt'],
         true,
       ],
       [
         'product_multi_scene',
-        ['multi-application-scope', 'Never render the SKU body', 'JSON execution prompt'],
+        ['multi-application-scope', 'Never render the SKU body', 'natural-language execution prompt'],
         false,
       ],
     ] as const;
@@ -207,20 +207,27 @@ describe('image feature API contract', () => {
     );
   });
 
-  it('accepts handheld reference images on product main image in handheld mode', () => {
-    const request = validateImageTaskRequest({
+  it('accepts handheld reference images on product main image in handheld or auto mode', () => {
+    expect(validateImageTaskRequest({
       feature: 'product_main_image',
       productHandheldMode: 'handheld',
       images: [
         { role: 'product', path: '/authorized/input/product.png' },
         { role: 'reference', path: '/authorized/resources/product/handheld-pump-foam.png' },
       ],
-    });
+    }).images).toHaveLength(2);
 
-    expect(request.images).toHaveLength(2);
+    expect(validateImageTaskRequest({
+      feature: 'product_main_image',
+      productHandheldMode: 'auto',
+      images: [
+        { role: 'product', path: '/authorized/input/product.png' },
+        { role: 'reference', path: '/authorized/resources/product/handheld-spray-side-press.png' },
+      ],
+    }).images).toHaveLength(2);
   });
 
-  it('rejects handheld reference images on product main image outside handheld mode', () => {
+  it('rejects handheld reference images on product main image in not_handheld mode', () => {
     expect(() => validateImageTaskRequest({
       feature: 'product_main_image',
       productHandheldMode: 'not_handheld',
@@ -228,13 +235,13 @@ describe('image feature API contract', () => {
         { role: 'product', path: '/authorized/input/product.png' },
         { role: 'reference', path: '/authorized/resources/product/handheld-pump-foam.png' },
       ],
-    })).toThrow('product_main_image accepts reference images only in handheld mode');
+    })).toThrow('product_main_image accepts reference images only in handheld or auto mode');
   });
 
   it('accepts every product-set control for its owning feature', () => {
     const productImage = [{ role: 'product' as const, path: '/authorized/input/product.png' }];
 
-    for (const productHandheldMode of ['handheld', 'not_handheld'] as const) {
+    for (const productHandheldMode of ['auto', 'handheld', 'not_handheld'] as const) {
       for (const productEffectMode of ['auto', 'show', 'hide'] as const) {
         expect(validateImageTaskRequest({
           feature: 'product_main_image',
@@ -248,7 +255,7 @@ describe('image feature API contract', () => {
       }
     }
 
-    for (const comparisonLayout of ['auto', 'horizontal', 'vertical'] as const) {
+    for (const comparisonLayout of ['auto', 'horizontal', 'vertical', 'grid_2x2', 'grid_3x2'] as const) {
       for (const comparisonIntensity of ['light', 'medium', 'heavy'] as const) {
         for (const showProduct of [true, false]) {
           expect(validateImageTaskRequest({
@@ -283,7 +290,7 @@ describe('image feature API contract', () => {
     };
 
     expect(() => validateImageTaskRequest({ ...request, productHandheldMode: 'held_by_robot' as never })).toThrow(
-      'productHandheldMode must be one of handheld, not_handheld',
+      'productHandheldMode must be one of auto, handheld, not_handheld',
     );
     expect(() => validateImageTaskRequest({ ...request, productEffectMode: 'sometimes' as never })).toThrow(
       'productEffectMode must be one of auto, show, hide',
