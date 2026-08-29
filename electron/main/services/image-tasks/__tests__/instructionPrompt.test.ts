@@ -208,9 +208,13 @@ describe('instructionPrompt', () => {
     expect(spec.copy.allowed_labels).toEqual(['BEFORE', 'AFTER']);
   });
 
-  it.each(['single', 'collage', 'grid'] as const)('maps multi-scene layout %s into JSON', (multiSceneLayout) => {
+  it.each([
+    ['single', 'single'],
+    ['collage', 'collage_4'],
+    ['grid', 'grid_2x2'],
+  ] as const)('maps multi-scene layout %s into JSON', (multiSceneLayout, expectedLayout) => {
     const spec = productSetSpec({ feature: 'product_multi_scene', multiSceneLayout });
-    expect(spec.composition.layout).toBe(multiSceneLayout);
+    expect(spec.composition.layout).toBe(expectedLayout);
     expect(spec.composition.sku_in_frame).toBe(false);
     expect(spec.composition.people_allowed).toBe(false);
   });

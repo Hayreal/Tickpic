@@ -1,12 +1,12 @@
 export const EYE_CARE_STORAGE_KEY = 'tickpic-eye-care-mode';
 
 export function readEyeCareMode(): boolean {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined' || !window.localStorage) return false;
   return window.localStorage.getItem(EYE_CARE_STORAGE_KEY) === 'true';
 }
 
 export function writeEyeCareMode(enabled: boolean): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || !window.localStorage) return;
   window.localStorage.setItem(EYE_CARE_STORAGE_KEY, String(enabled));
 }
 
