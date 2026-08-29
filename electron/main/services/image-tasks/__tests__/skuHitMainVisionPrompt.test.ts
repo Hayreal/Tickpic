@@ -31,13 +31,21 @@ describe('skuHitMainVisionPrompt', () => {
     expect(parts[1]?.image.role).toBe('source');
   });
 
-  it('passes vision execution prompts through unchanged', () => {
-    const planned = 'Place the SKU on the right with a rebuilt before/after radiator scene.';
-    const prompt = finalizeSkuHitMainVisionInstruction(baseRequest, planned);
+  it('renders fallback execution prompt with design plan section', () => {
+    const planned = 'Place the jar large in the foreground with a rebuilt wall repair scene.';
+    const prompt = finalizeSkuHitMainVisionInstruction({
+      feature: 'sku_hit_main_image',
+      brand: 'wkau',
+      images: [
+        { role: 'source', path: '/authorized/input/sku.png' },
+        { role: 'reference', path: '/authorized/input/hit-main.png' },
+      ],
+    }, planned);
 
-    expect(prompt).toBe(planned);
-    expect(prompt).not.toContain('IMAGE ROLES:');
-    expect(prompt).not.toContain('MAIN IMAGE DESIGN PLAN:');
+    expect(prompt).toContain('USAGE SCENE POLICY:');
+    expect(prompt).toContain('MAIN IMAGE DESIGN PLAN:');
+    expect(prompt).toContain(planned);
+    expect(prompt).toContain('Brand: "wkau"');
   });
 
   it('parses one instruction batch and rejects Chinese execution text', () => {

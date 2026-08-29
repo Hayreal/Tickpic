@@ -12,7 +12,7 @@ describe('skuVisionPrompt', () => {
     (feature) => {
       const prompt = buildSkuVisionSystemPrompt(feature);
 
-      expect(prompt).toContain('Return every execution prompt in English only.');
+      expect(prompt).toContain('Return every creative plan in English only.');
       expect(prompt).toContain('Never alter the SKU container');
       expect(prompt).toContain('only edit the printed label area');
     },
@@ -43,7 +43,7 @@ describe('skuVisionPrompt', () => {
       images: [{ role: 'source', path: '/authorized/input/sku.png' }],
     }, 2);
 
-    expect(text).toContain('Create one batch with 2 independent English SKU label-edit execution prompts');
+    expect(text).toContain('Create one batch with 2 independent English SKU label design plans');
     expect(text).toContain('"batch_diversity_plan"');
     expect(text).toContain('"index": 2');
   });
@@ -83,10 +83,11 @@ describe('skuVisionPrompt', () => {
 
     expect(plannerPrompt).toContain('All batch variants must remain unmistakably derived from the same reference label design system');
     expect(plannerPrompt).toContain('Never use the source label design or product category aesthetics as visual direction');
-    expect(executionPrompt).toContain('The reference label design system overrides any conflicting LABEL DESIGN PLAN');
+    expect(executionPrompt).toContain('The reference label design system overrides any conflicting creative plan wording');
     expect(executionPrompt).toContain('Vary layout and element placement only within that reference design system');
-    expect(executionPrompt).toContain('accessory quantity callouts, gift badges');
-    expect(executionPrompt).toContain('extract visible copy only as brand, product name, and capacity');
+    expect(executionPrompt).toContain('This is a label-only edit');
+    expect(executionPrompt).toContain('Preserve every non-label element in Image 1 exactly as uploaded');
+    expect(executionPrompt).toContain('bundle accessories and secondary products');
   });
 
   it('extracts only brand, product name, and capacity from the source label in variation mode', () => {
@@ -102,7 +103,8 @@ describe('skuVisionPrompt', () => {
     expect(executionPrompt).toContain('The exact brand is "wukau".');
     expect(executionPrompt).toContain('The exact product name is "HEADLIGHT RESTORE".');
     expect(executionPrompt).toContain('The exact capacity is "NET: 45ML".');
-    expect(executionPrompt).toContain('Remove ecommerce overlay graphics from Image 1');
+    expect(executionPrompt).toContain('Preserve every non-label element in Image 1 exactly as uploaded');
+    expect(executionPrompt).not.toContain('Output only the primary SKU container on a clean background');
   });
 
   it('adds batch-slot diversity directives for multi-count original outputs', () => {
@@ -225,11 +227,10 @@ describe('skuVisionPrompt', () => {
     expect(prompt).toContain('Image 1 is the fixed source canvas');
     expect(prompt).toContain('dimension lines, arrows, numbers, and units');
     expect(prompt).toContain('Preserve every non-label element in Image 1 exactly as uploaded');
-    expect(prompt).toContain('accessories, bundle items, gift icons');
+    expect(prompt).toContain('accessories, bundle items, gift items');
     expect(prompt).not.toContain('Remove ecommerce overlay graphics from Image 1');
-    expect(prompt).toContain('From Image 1 primary label only, extract visible copy as brand, product name, and capacity');
     expect(prompt).toContain('blank package render');
-    expect(prompt).toContain('Images 2 and later are label-design references only');
+    expect(prompt).toContain('Use reference label style as instructed');
     expect(prompt).toContain('The exact product name is "Heavy Oil Eliminator"');
     expect(prompt).not.toContain('Planner Product Name');
     expect(prompt).toContain('Ignore every existing label design on Image 1');
@@ -267,7 +268,7 @@ describe('skuVisionPrompt', () => {
 
     expect(plannerPrompt).toContain('Never infer product category, usage, target object, or label imagery from the source image');
     expect(executionPrompt).toContain("The user's product name is the sole semantic authority");
-    expect(executionPrompt).toContain('Any source-derived category or usage direction in LABEL DESIGN PLAN is invalid');
+    expect(executionPrompt).toContain('Any source-derived category or usage direction in the creative plan is invalid');
     expect(executionPrompt).toContain('do not show cars, vehicles, headlights, engines, dashboards, wheels, or other automotive imagery');
   });
 

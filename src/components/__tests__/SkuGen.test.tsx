@@ -6,29 +6,42 @@ import SkuGen from '../SkuGen';
 const submitMany = vi.fn();
 const restoreTask = vi.fn();
 const reset = vi.fn();
+const getTask = vi.fn(() => null);
+const getTasks = vi.fn(() => []);
+const getError = vi.fn(() => null);
 const imageTaskGet = vi.fn(() => Promise.resolve(null));
 const listTasks = vi.fn(() => Promise.resolve([]));
+const openActiveTaskDirectory = vi.fn(() => Promise.resolve());
+const desktopClient = {
+  listTasks,
+  imageTask: { get: imageTaskGet },
+};
 
 vi.mock('../../hooks/useImageTask', () => ({
   useImageTask: () => ({
     submitMany,
     restoreTask,
-    getTask: vi.fn(() => null),
-    getTasks: vi.fn(() => []),
-    getError: vi.fn(() => null),
+    getTask,
+    getTasks,
+    getError,
     isSubmitting: false,
     reset,
   }),
 }));
 
 vi.mock('../../hooks/useOpenOutputDirectory', () => ({
-  useOpenOutputDirectory: () => ({ openActiveTaskDirectory: vi.fn() }),
+  useOpenOutputDirectory: () => ({ openActiveTaskDirectory }),
 }));
 
 vi.mock('../../hooks/useDesktopClient', () => ({
-  useDesktopClient: () => ({
-    listTasks,
-    imageTask: { get: imageTaskGet },
+  useDesktopClient: () => desktopClient,
+}));
+
+vi.mock('../../hooks/useOpenLocalImage', () => ({
+  useOpenLocalImage: () => ({
+    openPreview: vi.fn(),
+    fallbackPreview: null,
+    closeFallbackPreview: vi.fn(),
   }),
 }));
 

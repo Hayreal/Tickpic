@@ -23,17 +23,26 @@ import {
 import {
   buildSkuVisionSystemPrompt,
   buildSkuVisionUserText,
-  finalizeSkuVisionInstruction,
   parseSkuVisionBatch,
 } from './skuVisionPrompt.js';
+import {
+  buildSkuLabelConstraintSpec,
+  renderSkuLabelExecutionPrompt,
+  resolveLockedCopy,
+  sanitizePlannedInstructionForLockedCopy,
+} from './skuConstraintSpec.js';
 import {
   buildHitMainVisionImageParts,
   buildSkuHitMainVisionSystemPrompt,
   buildSkuHitMainVisionUserText,
-  finalizeSkuHitMainVisionInstruction,
   parseSkuHitMainVisionBatch,
   type SkuHitMainVisionBatch,
 } from './skuHitMainVisionPrompt.js';
+import {
+  buildSkuHitMainConstraintSpec,
+  renderSkuHitMainExecutionPrompt,
+} from './skuHitMainConstraintSpec.js';
+import { assembleSkuExecutionPrompt } from './skuPromptAssembler.js';
 import { isSkuHitMainImageFeature } from './skuHitMainImagePrompt.js';
 import { isSkuFeature } from './skuExecutionPrompt.js';
 import {
@@ -330,18 +339,20 @@ export function createVisionInstructionClient(
       });
 
       const batch = parseSkuVisionBatch(content, plan.count);
+      const executionPrompts = await assembleSkuLabelExecutionPrompts({
+        openai,
+        baseUrl: options.baseUrl,
+        visionModel,
+        task,
+        plan,
+        batch,
+        abortSignal,
+      });
       return {
         visionModel,
         rawContent: content,
         batch,
-        executionPrompts: batch.instructions.map((instruction) => (
-          finalizeSkuVisionInstruction({
-            ...task.request,
-            count: 1,
-            variantIndex: instruction.index,
-            variantTotal: plan.count,
-          }, instruction.prompt, batch.lockedCopy)
-        )),
+        executionPrompts,
       };
     },
 
@@ -417,21 +428,92 @@ export function createVisionInstructionClient(
       });
 
       const batch = parseSkuHitMainVisionBatch(content, plan.count);
+      const executionPrompts = await assembleSkuHitMainExecutionPrompts({
+        openai,
+        baseUrl: options.baseUrl,
+        visionModel,
+        task,
+        plan,
+        batch,
+        abortSignal,
+      });
       return {
         visionModel,
         rawContent: content,
         batch,
-        executionPrompts: batch.instructions.map((instruction) => (
-          finalizeSkuHitMainVisionInstruction({
-            ...task.request,
-            count: 1,
-            variantIndex: instruction.index,
-            variantTotal: plan.count,
-          }, instruction.prompt)
-        )),
+        executionPrompts,
       };
     },
   };
+}
+
+async function assembleSkuLabelExecutionPrompts(input: {
+  openai: OpenAI;
+  baseUrl: string;
+  visionModel: string;
+  task: ImageTaskRecord;
+  plan: ImageTaskPlan;
+  batch: import('./skuVisionPrompt.js').SkuVisionBatch;
+  abortSignal: AbortSignal;
+}): Promise<string[]> {
+  const prompts: string[] = [];
+  for (const instruction of input.batch.instructions) {
+    const variantRequest = {
+      ...input.task.request,
+      count: 1,
+      variantIndex: instruction.index,
+      variantTotal: input.plan.count,
+    };
+    const lockedCopy = resolveLockedCopy(variantRequest, input.batch.lockedCopy);
+    const creativePlan = sanitizePlannedInstructionForLockedCopy(instruction.prompt, lockedCopy);
+    const spec = buildSkuLabelConstraintSpec(variantRequest, lockedCopy);
+    const { prompt } = await assembleSkuExecutionPrompt({
+      openai: input.openai,
+      model: input.visionModel,
+      baseUrl: input.baseUrl,
+      feature: input.task.feature,
+      creativePlan,
+      constraints: spec,
+      renderFallback: () => renderSkuLabelExecutionPrompt(spec, creativePlan),
+      abortSignal: input.abortSignal,
+    });
+    prompts.push(prompt);
+  }
+  return prompts;
+}
+
+async function assembleSkuHitMainExecutionPrompts(input: {
+  openai: OpenAI;
+  baseUrl: string;
+  visionModel: string;
+  task: ImageTaskRecord;
+  plan: ImageTaskPlan;
+  batch: SkuHitMainVisionBatch;
+  abortSignal: AbortSignal;
+}): Promise<string[]> {
+  const prompts: string[] = [];
+  for (const instruction of input.batch.instructions) {
+    const variantRequest = {
+      ...input.task.request,
+      count: 1,
+      variantIndex: instruction.index,
+      variantTotal: input.plan.count,
+    };
+    const spec = buildSkuHitMainConstraintSpec(variantRequest);
+    const creativePlan = instruction.prompt.trim();
+    const { prompt } = await assembleSkuExecutionPrompt({
+      openai: input.openai,
+      model: input.visionModel,
+      baseUrl: input.baseUrl,
+      feature: input.task.feature,
+      creativePlan,
+      constraints: spec,
+      renderFallback: () => renderSkuHitMainExecutionPrompt(spec, creativePlan),
+      abortSignal: input.abortSignal,
+    });
+    prompts.push(prompt);
+  }
+  return prompts;
 }
 
 function resolveVisionModel(

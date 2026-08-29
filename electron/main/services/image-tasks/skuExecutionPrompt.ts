@@ -34,8 +34,7 @@ function buildOutputTargetSection(request: ImageTaskRequest) {
   return [
     '输出目标:',
     ratioRule,
-    '输出一张完整的 SKU 产品图：包含包材本体与贴好的标签，适合电商 SKU 展示。',
-    '产品居中或接近居中，背景干净（白底、灰底或轻微棚拍渐变），不要生活方式场景、手部、道具堆叠或广告标题区。',
+    '输出一张完整的 SKU 产品图：保持源图构图，只替换主 SKU 标签区域的设计与文字。',
     '标签只覆盖产品标签区域，不得溢出到背景；不要输出 2D 平面展开图或纯贴纸稿。',
   ].join('\n');
 }
@@ -52,6 +51,7 @@ function buildModeSection(request: ImageTaskRequest) {
   if (request.feature === 'sku_replica') {
     return [
       '模式: SKU 复刻。',
+      '只修改 SKU 包材上主产品的贴纸/标签；包材本体、配件、组合陈列、背景与构图保持不变。',
       '将参考图中的标签版式、排版结构、色系与装饰气质复刻到 SKU 包材的标签区域。',
       '所有参考图同时影响标签的版式与风格；融合参考信息时保持与 SKU 瓶身比例协调。',
       '用户指定的品牌、容量、产品名称覆盖参考图中的对应文案；未指定的文案可从参考图或 SKU 源图继承。',
@@ -61,6 +61,7 @@ function buildModeSection(request: ImageTaskRequest) {
   if (request.feature === 'sku_variation') {
     return [
       '模式: SKU 裂变。',
+      '只修改 SKU 包材上主产品的贴纸/标签；包材本体、配件、组合陈列、背景与构图保持不变。',
       '在 SKU 现有标签基础上做明显差异化：至少同时改变风格、排版、色系中的两个维度。',
       '品牌、容量、产品名称等核心文案默认保持不变，除非用户在附加要求中明确修改。',
       '若 SKU 源图为无标签空白包材，先依据参考图与用户提供的文案建立标签，再执行裂变。',
@@ -70,6 +71,7 @@ function buildModeSection(request: ImageTaskRequest) {
 
   return [
     '模式: SKU 原创。',
+    '只修改 SKU 包材上主产品的贴纸/标签；包材本体、配件、组合陈列、背景与构图保持不变。',
     '依据用户提供的结构化产品信息，在 SKU 包材上从零设计标签。',
     '参考图只借包装设计、排版气质与色系方向，不复制其他品牌、产品名或字面文字。',
     '保持 SKU 源图完整构图，包括配件、赠品标注、组合陈列等非标签元素。',

@@ -2,9 +2,10 @@ import type { ImageInput, ImageTaskRequest } from '../../../../src/shared/domain
 import { stripJsonFence } from '../../../../src/shared/domain/replaceProductExecutionPrompt.js';
 import { sanitizeRequestForInstruction } from './instructionPrompt.js';
 import {
-  isSkuHitMainImageFeature,
-  orderHitMainExecutionImages,
-} from './skuHitMainImagePrompt.js';
+  buildSkuHitMainConstraintSpec,
+  renderSkuHitMainExecutionPrompt,
+} from './skuHitMainConstraintSpec.js';
+import { isSkuHitMainImageFeature, orderHitMainExecutionImages } from './skuHitMainImagePrompt.js';
 
 const HAN_CHARACTER_PATTERN = /\p{Script=Han}/u;
 
@@ -30,15 +31,15 @@ export function buildSkuHitMainVisionSystemPrompt(): string {
     'Study Image 1 for marketing theme, core English headline/subheadline, usage-scene type, selling logic, and before/after intent.',
     'Study Image 2 as the only allowed SKU identity. Never redesign, stretch, recolor, or reinterpret the SKU container or label.',
     'Plan a visibly new 1:1 ecommerce main image: inherit Image 1 selling points, never inherit Image 1 layout, scene objects, camera angle, or composition.',
-    'Each prompt must be a complete English instruction for an image editing model, not an explanation or design memo.',
-    'Each prompt must require replacing Image 1 product with Image 2 SKU, preserving Image 2 packaging exactly.',
-    'Each prompt must change at least 3 differentiation dimensions such as product placement, product scale, headline placement, scene composition, camera angle, depth, before/after layout, info-block layout, background structure, or product-scene relationship.',
+    'Each prompt must be a concise English main-image design plan for an image editing model, not a complete execution prompt and not an explanation memo.',
+    'Describe scene type, product placement, headline block layout, before/after structure, camera angle, and differentiation dimensions only.',
+    'Build the usage/demo scene from Image 2 SKU product category and visible label copy, not from Image 1 literal repair object when they differ.',
     'Never plan only recoloring, mirroring, swapping left/right, moving the title slightly, or reusing the same scene objects and camera angle from Image 1.',
-    'Keep Image 1 usage-scene type and target object, but recreate the concrete scene assets, props, damage/repair areas, and viewpoints.',
-    'If Image 1 includes before/after repair logic, preserve that marketing logic but redesign the comparison format.',
+    'Keep Image 1 before/after marketing logic when present, but redesign the comparison format.',
+    'Change at least 3 differentiation dimensions such as product placement, product scale, headline placement, scene composition, camera angle, depth, before/after layout, info-block layout, background structure, or product-scene relationship.',
     'Keep core English marketing copy from Image 1 unless structured user fields override matching words.',
     'Every visible capacity in the planned output must use the exact prefix "NET:".',
-    'Return every execution prompt in English only.',
+    'Return every creative plan in English only.',
     'For batches, return every instruction in one JSON response and follow batch_diversity_plan when provided.',
   ].join('\n');
 }
@@ -54,8 +55,8 @@ export function buildSkuHitMainVisionUserText(request: ImageTaskRequest, count: 
 
   return [
     count === 1
-      ? 'Create 1 English viral-main-image execution prompt from the attached images.'
-      : `Create one batch with ${count} independent English viral-main-image execution prompts from the attached images.`,
+      ? 'Create 1 English viral-main-image design plan from the attached images.'
+      : `Create one batch with ${count} independent English viral-main-image design plans from the attached images.`,
     JSON.stringify({
       feature: request.feature,
       requested_count: count,
@@ -111,10 +112,11 @@ export function parseSkuHitMainVisionBatch(raw: string, expectedCount: number): 
 }
 
 export function finalizeSkuHitMainVisionInstruction(
-  _request: ImageTaskRequest,
+  request: ImageTaskRequest,
   plannedInstruction: string,
 ): string {
-  return plannedInstruction.trim();
+  const spec = buildSkuHitMainConstraintSpec(request);
+  return renderSkuHitMainExecutionPrompt(spec, plannedInstruction);
 }
 
 export function buildHitMainVisionImageParts(executionImages: ImageInput[]) {
