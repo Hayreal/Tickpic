@@ -13,6 +13,26 @@ describe('productSetVisionPrompt', () => {
     expect(prompt).toContain('最终 SKU 锁定与执行提示词由后续渲染器处理');
   });
 
+  it('asks Vision to choose a distinct carousel role for each main image', () => {
+    const prompt = buildProductSetVisionSystemPrompt('product_main_image');
+    const text = buildProductSetVisionUserText({
+      feature: 'product_main_image',
+      count: 3,
+      scenePrompt: 'show an expected Before/After outcome',
+    }, 3);
+
+    expect(prompt).toContain('由你决定每张的 presentation_mode');
+    expect(prompt).toContain('至少 3 项明显不同');
+    expect(text).not.toContain('batch_presentation_plan');
+  });
+
+  it('treats effect demos as category-specific use instead of defaulting to spray', () => {
+    const prompt = buildProductSetVisionSystemPrompt('product_main_image');
+
+    expect(prompt).toContain('真实品类对应的使用动作或使用后效果');
+    expect(prompt).toContain('非喷雾类 SKU 禁止生成喷雾、雾气或虚构喷嘴');
+  });
+
   it('plans a distinct comparison layout for every auto-layout variant', () => {
     const text = buildProductSetVisionUserText({
       feature: 'product_comparison_image',

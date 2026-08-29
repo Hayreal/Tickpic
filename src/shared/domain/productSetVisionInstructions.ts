@@ -2,7 +2,7 @@ import { stripJsonFence } from './replaceProductExecutionPrompt.js';
 
 export interface ProductSetVisionInstructionItem {
   index: number;
-  presentation_mode?: 'carousel_hero' | 'handheld_use' | 'effect_demo' | 'lifestyle_scene';
+  presentation_mode?: 'carousel_hero' | 'before_after' | 'handheld_use' | 'effect_demo' | 'lifestyle_scene';
   handheld_required?: boolean;
   show_effect?: boolean;
   problem_surface?: string;
