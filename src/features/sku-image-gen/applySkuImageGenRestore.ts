@@ -4,6 +4,7 @@ import {
   DEFAULT_SKU_ORIGINAL_COUNT,
   DEFAULT_SKU_REPLICA_COUNT,
   DEFAULT_SKU_VARIATION_COUNT,
+  DEFAULT_SKU_BRAND,
   resolveSkuImageCount,
   type SkuImageCountValue,
 } from '../../shared/view/skuCountOptions';
@@ -45,7 +46,7 @@ function emptyTabState(
     referenceBatch: null,
     aspectRatio,
     count: defaultCount,
-    brand: '',
+    brand: DEFAULT_SKU_BRAND,
     productName: '',
     capacity: '',
     prompt: '',
@@ -55,7 +56,7 @@ function emptyTabState(
 
 function structuredFields(request: NonNullable<TaskRecord['request']>) {
   return {
-    brand: request.brand ?? '',
+    brand: request.brand?.trim() || DEFAULT_SKU_BRAND,
     productName: request.productName ?? '',
     capacity: request.capacity ?? '',
     prompt: request.prompt ?? '',

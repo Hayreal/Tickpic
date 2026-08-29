@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { ImportBatch } from '../shared/domain/images';
+import type { ImageFeature } from '../shared/domain/imageFeatureApi';
 import type { TaskRecord } from '../shared/domain/tasks';
 import type { ImageAspectRatioValue } from '../shared/view/imageAspectRatioOptions';
 import type { SkuSubTab } from '../shared/view/ui';
@@ -8,6 +9,7 @@ import {
   DEFAULT_SKU_ORIGINAL_COUNT,
   DEFAULT_SKU_REPLICA_COUNT,
   DEFAULT_SKU_VARIATION_COUNT,
+  DEFAULT_SKU_BRAND,
   SKU_IMAGE_COUNT_OPTIONS,
 } from '../shared/view/skuCountOptions';
 import { useAppLogs } from '../hooks/useAppLogs';
@@ -72,7 +74,7 @@ function defaultTabState(subTab: SkuSubTab): SkuTabState {
     referenceBatch: null,
     aspectRatio: subTab === 'hitMain' ? '1:1' : DEFAULT_IMAGE_ASPECT_RATIO,
     count: DEFAULT_COUNT_BY_SUBTAB[subTab],
-    brand: '',
+    brand: DEFAULT_SKU_BRAND,
     productName: '',
     capacity: '',
     prompt: '',
@@ -181,7 +183,8 @@ export default function SkuGen({ restoredTask, onRestoreConsumed }: SkuGenProps)
   const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
   const desktopClient = useDesktopClient();
   const { logs, isLoading: isLoadingLogs } = useAppLogs(desktopClient);
-  const { submitMany, bindTask, restoreTask, getTask, getTasks, getError, isSubmitting, reset } = useImageTask();
+  const restoringFeatureRef = useRef<ImageFeature | null>(null);
+  const { submit, submitMany, restoreTask, getTask, getTasks, getError, isSubmitting, reset } = useImageTask();
   const { openActiveTaskDirectory } = useOpenOutputDirectory();
 
   const activeState = tabStates[subTab];
@@ -220,19 +223,69 @@ export default function SkuGen({ restoredTask, onRestoreConsumed }: SkuGenProps)
       hitMain: restored.hitMain,
     });
 
-    const fallbackTask = imageTaskRecordFromTaskRecord(restoredTask);
-    if (fallbackTask) {
+    let cancelled = false;
+    const expectedFeature = restoredTask.request.feature;
+    const previousFeature = restoringFeatureRef.current;
+    if (previousFeature && previousFeature !== expectedFeature) {
+      reset(previousFeature);
+    }
+    reset(expectedFeature);
+    restoringFeatureRef.current = expectedFeature;
+
+    const restorePersistedTask = (task: TaskRecord) => {
+      if (cancelled) {
+        return Promise.resolve();
+      }
+
+      const fallbackTask = imageTaskRecordFromTaskRecord(task);
+      if (!fallbackTask) {
+        return Promise.resolve();
+      }
+
       restoreTask(fallbackTask);
-      void bindTask(restoredTask.taskId, restoredTask.request.feature).catch(() => undefined);
-      void desktopClient?.imageTask.get(restoredTask.taskId).then((liveTask) => {
-        if (liveTask) {
+      return desktopClient?.imageTask.get(task.taskId).then((liveTask) => {
+        if (!cancelled && liveTask?.feature === fallbackTask.feature) {
           restoreTask(liveTask);
         }
-      });
-    }
+      }).catch((error) => {
+        console.error('恢复实时任务失败', task.taskId, error);
+      }) ?? Promise.resolve();
+    };
 
-    onRestoreConsumed?.();
-  }, [restoredTask, bindTask, restoreTask, desktopClient, onRestoreConsumed]);
+    void (async () => {
+      const pendingLiveTasks = [restorePersistedTask(restoredTask)];
+      const outputBatchId = restoredTask.request!.outputBatchId?.trim();
+      if (outputBatchId && desktopClient) {
+        const tasks = await desktopClient.listTasks().catch(() => []);
+        if (cancelled) {
+          return;
+        }
+
+        for (const task of tasks) {
+          if (cancelled) {
+            return;
+          }
+
+          if (
+            task.taskId !== restoredTask.taskId
+            && task.request?.feature === expectedFeature
+            && task.request.outputBatchId?.trim() === outputBatchId
+          ) {
+            pendingLiveTasks.push(restorePersistedTask(task));
+          }
+        }
+      }
+
+      await Promise.all(pendingLiveTasks);
+      if (!cancelled) {
+        onRestoreConsumed?.();
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [restoredTask, restoreTask, reset, desktopClient, onRestoreConsumed]);
 
   const expectedCount = activeState.count;
   const activeProgress = getTaskBatchProgress(activeTasks, expectedCount);
@@ -290,7 +343,11 @@ export default function SkuGen({ restoredTask, onRestoreConsumed }: SkuGenProps)
         negativePrompt: state.negativePrompt,
       });
       reset(getSkuImageGenFeature(type));
-      await submitMany(requests);
+      if (requests.length === 1) {
+        await submit(requests[0]!);
+      } else {
+        await submitMany(requests, { forceOutputBatchId: true });
+      }
       setIsTaskDrawerOpen(true);
     } catch (err) {
       alert(err instanceof Error ? err.message : '提交失败');
@@ -324,7 +381,11 @@ export default function SkuGen({ restoredTask, onRestoreConsumed }: SkuGenProps)
         onDrawerOpenChange={setIsTaskDrawerOpen}
         onOpenDirectory={handleOpenOutputDirectory}
         showOpenDirectory={showTaskResults}
-        parameters={renderParameterPanels(subTab, activeState, updateActiveState)}
+        parameters={(
+          <React.Fragment key={subTab}>
+            {renderParameterPanels(subTab, activeState, updateActiveState)}
+          </React.Fragment>
+        )}
         drawer={(
           <div className="space-y-4" id="sku-workspace-preview">
             <GenerationTaskStatus

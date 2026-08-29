@@ -69,20 +69,12 @@ export function buildSkuImageGenRequests(input: SkuImageGenRequestInput): ImageT
     ...optionalString('negativePrompt', input.negativePrompt),
   };
 
-  const requests: ImageTaskRequest[] = [];
-  for (let index = 0; index < input.count; index += 1) {
-    requests.push({
-      feature,
-      images,
-      count: 1,
-      ...sharedFields,
-      ...(input.count > 1
-        ? { variantIndex: index + 1, variantTotal: input.count }
-        : {}),
-    });
-  }
-
-  return requests;
+  return [{
+    feature,
+    images,
+    count: input.count,
+    ...sharedFields,
+  }];
 }
 
 export function getSkuImageGenFeature(subTab: SkuSubTab): ImageTaskRequest['feature'] {

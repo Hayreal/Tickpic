@@ -19,7 +19,7 @@ describe('skuExecutionPrompt', () => {
     expect(prompt).toContain('图片 2');
     expect(prompt).toContain('图片 3');
     expect(prompt).toContain('输出一张完整的 SKU 产品图');
-    expect(prompt).toContain('容量/规格: "45ml"');
+    expect(prompt).toContain('容量/规格: "NET: 45ml"');
   });
 
   it('locks package unless user asks to change packaging form', () => {
@@ -34,6 +34,7 @@ describe('skuExecutionPrompt', () => {
     });
 
     expect(locked).toContain('必须锁定 SKU 源图的瓶型');
+    expect(locked).toContain('SKU 源图贴纸仅提取品牌、产品名称、容量三项信息');
     expect(unlocked).toContain('明确请求改变包材形态');
   });
 
@@ -47,6 +48,7 @@ describe('skuExecutionPrompt', () => {
     });
 
     expect(prompt).toContain('模式: SKU 原创。');
+    expect(prompt).toContain('保持 SKU 源图完整构图');
     expect(prompt).toContain('产品名称来源: "墙面修补膏"');
     expect(prompt).toContain('与同批其他输出相比');
   });

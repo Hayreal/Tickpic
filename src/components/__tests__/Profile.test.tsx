@@ -269,13 +269,16 @@ describe('Profile', () => {
     expect(screen.getByText('输出图片 (1)')).toBeInTheDocument();
   });
 
-  it('allows restoring only product image set batch representatives', () => {
+  it('allows restoring product image set and sku batch representatives', () => {
     const onRestoreTask = vi.fn();
-    const makeBatchTask = (taskId: string, feature: 'product_multi_scene' | 'sticker_variation'): TaskRecord => ({
+    const makeBatchTask = (
+      taskId: string,
+      feature: 'product_multi_scene' | 'sku_variation' | 'sticker_variation',
+    ): TaskRecord => ({
       taskId,
       batchId: 'batch-shared',
-      category: '套图',
-      feature: feature === 'product_multi_scene' ? '多场景图' : '贴纸裂变',
+      category: feature.startsWith('sku_') ? 'SKU' : feature.startsWith('product_') ? '套图' : '贴纸',
+      feature: feature === 'product_multi_scene' ? '多场景图' : feature === 'sku_variation' ? 'SKU 裂变' : '贴纸裂变',
       status: 'Completed',
       imports: [],
       outputs: [],
@@ -287,25 +290,58 @@ describe('Profile', () => {
       makeBatchTask('product-1', 'product_multi_scene'),
       makeBatchTask('product-2', 'product_multi_scene'),
     ];
+    const skuTasks = [
+      makeBatchTask('sku-1', 'sku_variation'),
+      makeBatchTask('sku-2', 'sku_variation'),
+    ];
     const stickerTasks = [
       makeBatchTask('sticker-1', 'sticker_variation'),
       makeBatchTask('sticker-2', 'sticker_variation'),
     ];
 
-    render(<Profile tasks={[...productTasks, ...stickerTasks]} onRefresh={vi.fn()} onRestoreTask={onRestoreTask} />);
+    render(<Profile tasks={[...productTasks, ...skuTasks, ...stickerTasks]} onRefresh={vi.fn()} onRestoreTask={onRestoreTask} />);
 
     const productRestore = document.getElementById('restore-task-product-2')!;
+    const skuRestore = document.getElementById('restore-task-sku-2')!;
     const stickerRestore = document.getElementById('restore-task-sticker-2')!;
     expect(productRestore).toBeEnabled();
+    expect(skuRestore).toBeEnabled();
     expect(stickerRestore).toBeDisabled();
 
     fireEvent.click(productRestore);
+    fireEvent.click(skuRestore);
     fireEvent.click(stickerRestore);
     expect(onRestoreTask).toHaveBeenCalledWith(productTasks[1]);
-    expect(onRestoreTask).toHaveBeenCalledTimes(1);
+    expect(onRestoreTask).toHaveBeenCalledWith(skuTasks[1]);
+    expect(onRestoreTask).toHaveBeenCalledTimes(2);
 
-    fireEvent.click(screen.getAllByText('批量任务 · 2 项')[1]!);
+    const stickerBatchRow = screen.getAllByText('批量任务 · 2 项').find((element) => (
+      element.closest('tr')?.textContent?.includes('贴纸裂变')
+    ));
+    fireEvent.click(stickerBatchRow!);
     expect(screen.getByRole('button', { name: '还原到功能页' })).toBeDisabled();
+  });
+
+  it('restores a sku batch from its detail drawer', () => {
+    const onRestoreTask = vi.fn();
+    const tasks: TaskRecord[] = ['sku-1', 'sku-2'].map((taskId) => ({
+      taskId,
+      batchId: 'batch-sku',
+      category: 'SKU',
+      feature: 'SKU 裂变',
+      status: 'Completed',
+      imports: [],
+      outputs: [],
+      request: { feature: 'sku_variation', outputBatchId: 'batch-sku' },
+      createdAt: '2026-07-31T00:00:00.000Z',
+      updatedAt: '2026-07-31T00:00:00.000Z',
+    }));
+    render(<Profile tasks={tasks} onRefresh={vi.fn()} onRestoreTask={onRestoreTask} />);
+
+    fireEvent.click(screen.getByText('批量任务 · 2 项'));
+    fireEvent.click(screen.getByRole('button', { name: '还原到功能页' }));
+
+    expect(onRestoreTask).toHaveBeenCalledWith(tasks[0]);
   });
 
   it('restores a product image set batch from its detail drawer', () => {

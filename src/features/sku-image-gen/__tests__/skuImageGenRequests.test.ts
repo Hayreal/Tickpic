@@ -30,7 +30,7 @@ describe('buildSkuImageGenRequests', () => {
     });
   });
 
-  it('builds six variation requests with variant metadata', () => {
+  it('builds one variation request with the requested count', () => {
     const requests = buildSkuImageGenRequests({
       subTab: 'variation',
       skuPath: '/tmp/sku.png',
@@ -44,10 +44,38 @@ describe('buildSkuImageGenRequests', () => {
       negativePrompt: '',
     });
 
-    expect(requests).toHaveLength(6);
-    expect(requests[0].variantIndex).toBe(1);
-    expect(requests[5].variantTotal).toBe(6);
-    expect(requests.every((request) => request.feature === 'sku_variation')).toBe(true);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({
+      feature: 'sku_variation',
+      count: 6,
+      prompt: '差异化再大一点',
+      images: [{ role: 'source', path: '/tmp/sku.png' }],
+    });
+    expect(requests[0].variantIndex).toBeUndefined();
+    expect(requests[0].variantTotal).toBeUndefined();
+  });
+
+  it('builds one original request with the requested count', () => {
+    const requests = buildSkuImageGenRequests({
+      subTab: 'original',
+      skuPath: '/tmp/sku.png',
+      referencePaths: ['/tmp/ref.png'],
+      aspectRatio: 'auto',
+      count: 2,
+      brand: '',
+      productName: '油污清洁剂',
+      capacity: '',
+      prompt: '',
+      negativePrompt: '',
+    });
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({
+      feature: 'sku_original',
+      count: 2,
+      productName: '油污清洁剂',
+    });
+    expect(requests[0].variantIndex).toBeUndefined();
   });
 
   it('requires product name for original tab', () => {
@@ -94,24 +122,21 @@ describe('buildSkuImageGenRequests', () => {
       negativePrompt: 'no fake english',
     });
 
-    expect(requests).toHaveLength(3);
+    expect(requests).toHaveLength(1);
     expect(requests[0]).toMatchObject({
       feature: 'sku_hit_main_image',
-      count: 1,
+      count: 3,
       aspectRatio: '1:1',
       brand: 'wkau',
       productName: 'Radiator Repair',
       capacity: '100ml',
       prompt: '对比更强',
       negativePrompt: 'no fake english',
-      variantIndex: 1,
-      variantTotal: 3,
       images: [
         { role: 'source', path: '/tmp/sku.png' },
         { role: 'reference', path: '/tmp/hit-main.png' },
       ],
     });
-    expect(requests[2].variantIndex).toBe(3);
   });
 
   it('requires exactly one hit-main reference image', () => {

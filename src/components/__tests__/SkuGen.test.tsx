@@ -1,19 +1,23 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { TaskRecord } from '../../shared/domain/tasks';
 import SkuGen from '../SkuGen';
 
 const submitMany = vi.fn();
+const restoreTask = vi.fn();
+const reset = vi.fn();
+const imageTaskGet = vi.fn(() => Promise.resolve(null));
+const listTasks = vi.fn(() => Promise.resolve([]));
 
 vi.mock('../../hooks/useImageTask', () => ({
   useImageTask: () => ({
     submitMany,
-    bindTask: vi.fn(() => Promise.resolve(null)),
-    restoreTask: vi.fn(),
+    restoreTask,
     getTask: vi.fn(() => null),
     getTasks: vi.fn(() => []),
     getError: vi.fn(() => null),
     isSubmitting: false,
-    reset: vi.fn(),
+    reset,
   }),
 }));
 
@@ -22,7 +26,10 @@ vi.mock('../../hooks/useOpenOutputDirectory', () => ({
 }));
 
 vi.mock('../../hooks/useDesktopClient', () => ({
-  useDesktopClient: () => null,
+  useDesktopClient: () => ({
+    listTasks,
+    imageTask: { get: imageTaskGet },
+  }),
 }));
 
 vi.mock('../../hooks/useAppLogs', () => ({
@@ -32,9 +39,34 @@ vi.mock('../../hooks/useAppLogs', () => ({
 afterEach(() => {
   cleanup();
   submitMany.mockReset();
+  restoreTask.mockClear();
+  reset.mockClear();
+  imageTaskGet.mockClear();
+  listTasks.mockClear();
 });
 
 describe('SkuGen hit main tab', () => {
+  it('defaults brand fields to wkau on every sub tab', async () => {
+    render(<SkuGen />);
+
+    for (const subTab of ['replica', 'variation', 'original', 'hitMain'] as const) {
+      fireEvent.click(document.getElementById(`sku-subtab-${subTab}`)!);
+      await waitFor(() => {
+        expect(document.getElementById(`sku-subtab-${subTab}`)).toHaveClass('ui-subtab-active');
+      });
+
+      const panel = document.getElementById('feature-parameters-panel')!;
+      fireEvent.click(within(panel).getByRole('button', { name: /高级参数/ }));
+
+      const brandInput = await waitFor(() => {
+        const input = within(panel).getByLabelText('品牌') as HTMLInputElement;
+        expect(input.id).toBe(`${subTab}-brand-input`);
+        return input;
+      });
+      expect(brandInput.value).toBe('wkau');
+    }
+  });
+
   it('renders the fourth tab and required hit-main reference uploader', () => {
     render(<SkuGen />);
 
@@ -57,3 +89,48 @@ describe('SkuGen hit main tab', () => {
     alertSpy.mockRestore();
   });
 });
+
+describe('SkuGen restore', () => {
+  it('restores every persisted task in a sku output batch', async () => {
+    const first = createSkuVariationTask();
+    const second = { ...createSkuVariationTask(), taskId: 'task-variation-2' };
+    first.request!.outputBatchId = 'output-batch-1';
+    second.request!.outputBatchId = 'output-batch-1';
+    listTasks.mockResolvedValue([first, second]);
+
+    render(<SkuGen restoredTask={first} />);
+
+    await waitFor(() => expect(imageTaskGet).toHaveBeenCalledWith('task-variation-2'));
+    expect(restoreTask).toHaveBeenCalledTimes(2);
+    expect(reset).toHaveBeenCalledWith('sku_variation');
+  });
+
+  it('restores form state from the representative task', async () => {
+    render(<SkuGen restoredTask={createSkuVariationTask()} />);
+
+    await waitFor(() => {
+      expect(document.getElementById('sku-subtab-variation')).toHaveClass('ui-subtab-active');
+    });
+    expect(document.getElementById('variation-count-selector')).toHaveAttribute('aria-label', '生成数量 6 张');
+  });
+});
+
+function createSkuVariationTask(): TaskRecord {
+  return {
+    taskId: 'task-variation-1',
+    batchId: 'batch-variation',
+    category: 'SKU',
+    feature: 'SKU 裂变',
+    status: 'Completed',
+    imports: [],
+    outputs: [],
+    request: {
+      feature: 'sku_variation',
+      images: [{ role: 'source', path: 'C:/sku/front.png' }],
+      prompt: '差异化再大一点',
+      count: 6,
+    },
+    createdAt: '2026-08-29T00:00:00.000Z',
+    updatedAt: '2026-08-29T00:00:00.000Z',
+  };
+}

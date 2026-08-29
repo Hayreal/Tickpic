@@ -26,6 +26,15 @@ import {
   finalizeSkuVisionInstruction,
   parseSkuVisionBatch,
 } from './skuVisionPrompt.js';
+import {
+  buildHitMainVisionImageParts,
+  buildSkuHitMainVisionSystemPrompt,
+  buildSkuHitMainVisionUserText,
+  finalizeSkuHitMainVisionInstruction,
+  parseSkuHitMainVisionBatch,
+  type SkuHitMainVisionBatch,
+} from './skuHitMainVisionPrompt.js';
+import { isSkuHitMainImageFeature } from './skuHitMainImagePrompt.js';
 import { isSkuFeature } from './skuExecutionPrompt.js';
 import {
   buildReplaceProductVisionSystemPrompt,
@@ -47,6 +56,13 @@ export interface SkuVisionInstructionResult {
   executionPrompts: string[];
 }
 
+export interface SkuHitMainVisionInstructionResult {
+  visionModel: string;
+  rawContent: string;
+  batch: SkuHitMainVisionBatch;
+  executionPrompts: string[];
+}
+
 export interface VisionInstructionClient {
   generateReplaceProductInstruction(input: {
     task: ImageTaskRecord;
@@ -63,6 +79,11 @@ export interface VisionInstructionClient {
     plan: ImageTaskPlan;
     abortSignal: AbortSignal;
   }): Promise<SkuVisionInstructionResult>;
+  generateSkuHitMainInstructions?(input: {
+    task: ImageTaskRecord;
+    plan: ImageTaskPlan;
+    abortSignal: AbortSignal;
+  }): Promise<SkuHitMainVisionInstructionResult>;
 }
 
 export interface CreateVisionInstructionClientOptions {
@@ -314,7 +335,99 @@ export function createVisionInstructionClient(
         rawContent: content,
         batch,
         executionPrompts: batch.instructions.map((instruction) => (
-          finalizeSkuVisionInstruction(task.request, instruction.prompt, batch.lockedCopy)
+          finalizeSkuVisionInstruction({
+            ...task.request,
+            count: 1,
+            variantIndex: instruction.index,
+            variantTotal: plan.count,
+          }, instruction.prompt, batch.lockedCopy)
+        )),
+      };
+    },
+
+    async generateSkuHitMainInstructions({ task, plan, abortSignal }) {
+      if (!isSkuHitMainImageFeature(task.feature)) {
+        throw new Error(`generateSkuHitMainInstructions does not support feature ${task.feature}`);
+      }
+
+      const visionModel = resolveVisionModel(task.request, options.runtimeConfig);
+      if (!visionModel) {
+        throw new Error('vision model is not configured in settings');
+      }
+      if (isImageGenerationModel(visionModel)) {
+        throw new Error('vision model must not be an image-only model');
+      }
+      if (plan.executionImages.length === 0) {
+        throw new Error('hit-main tasks require execution images for vision instruction');
+      }
+
+      const imageParts = [];
+      for (const { image, caption } of buildHitMainVisionImageParts(plan.executionImages)) {
+        imageParts.push(...await buildOpenAIImageContentParts(image, caption));
+      }
+
+      const messages = [
+        { role: 'system' as const, content: buildSkuHitMainVisionSystemPrompt() },
+        {
+          role: 'user' as const,
+          content: [
+            { type: 'text' as const, text: buildSkuHitMainVisionUserText(task.request, plan.count) },
+            ...imageParts,
+          ],
+        },
+      ];
+
+      logModelRequest('instruction', {
+        protocol: 'openai',
+        url: buildOpenAIChatCompletionsUrl(options.baseUrl),
+        model: visionModel,
+        feature: task.feature,
+        requestedCount: plan.count,
+        messages: messages.map((message) => ({
+          role: message.role,
+          content: typeof message.content === 'string'
+            ? message.content
+            : message.content.map((part) => (
+              part.type === 'text'
+                ? part
+                : { type: part.type, image_url: { url: '[base64 redacted]', detail: 'high' } }
+            )),
+        })),
+      });
+
+      const response = await openai.chat.completions.create({
+        model: visionModel,
+        messages,
+        response_format: { type: 'json_object' },
+      }, {
+        signal: abortSignal,
+      });
+
+      const content = response.choices[0]?.message?.content?.trim();
+      if (!content) {
+        throw new Error('vision model returned empty hit-main instruction batch');
+      }
+
+      logModelResponse('instruction', {
+        protocol: 'openai',
+        url: buildOpenAIChatCompletionsUrl(options.baseUrl),
+        model: visionModel,
+        feature: task.feature,
+        response,
+      });
+
+      const batch = parseSkuHitMainVisionBatch(content, plan.count);
+      return {
+        visionModel,
+        rawContent: content,
+        batch,
+        executionPrompts: batch.instructions.map((instruction) => (
+          finalizeSkuHitMainVisionInstruction({
+            ...task.request,
+            count: 1,
+            variantIndex: instruction.index,
+            variantTotal: plan.count,
+          }, instruction.prompt)
         )),
       };
     },

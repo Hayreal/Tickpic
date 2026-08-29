@@ -116,6 +116,15 @@ describe('productSetJsonPrompt', () => {
     expect(prompt).toContain('omit optional copy rather than use non-English text');
   });
 
+  it.each(['product_main_image', 'product_comparison_image', 'product_multi_scene'] as const)(
+    'requires every visible capacity to use the NET: prefix for %s',
+    (feature) => {
+      const prompt = productSetPrompt.buildProductSetExecutionPrompt({ feature });
+
+      expect(prompt).toContain('Every visible capacity must start with the exact prefix "NET:".');
+    },
+  );
+
   it('renders vision-merged execution variants as natural language', () => {
     const [prompt] = buildProductSetExecutionPromptsFromVision({
       feature: 'product_main_image',

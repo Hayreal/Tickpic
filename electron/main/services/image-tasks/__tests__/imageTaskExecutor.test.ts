@@ -383,7 +383,68 @@ describe('imageTaskExecutor', () => {
     expect(executionImageCounts).toEqual([2]);
   });
 
-  it('shares one full vision plan across split tasks in the same SKU batch', async () => {
+  it('plans a hit-main prompt before editing the reference and SKU images', async () => {
+    const prompts: string[] = [];
+    const executionImageRoles: string[][] = [];
+    const executor = createImageTaskExecutor({
+      runtimeConfig,
+      visionInstructionClient: {
+        generateReplaceProductInstruction: async () => {
+          throw new Error('not used');
+        },
+        generateProductSetInstructions: async () => {
+          throw new Error('not used');
+        },
+        generateSkuInstructions: async () => {
+          throw new Error('not used');
+        },
+        generateSkuHitMainInstructions: async () => ({
+          visionModel: 'gpt-5.4-mini',
+          rawContent: '{"instructions":[{"index":1,"prompt":"Rebuild the scene with a diagonal layout and larger SKU exposure."}]}',
+          batch: {
+            instructions: [{ index: 1, prompt: 'Rebuild the scene with a diagonal layout and larger SKU exposure.' }],
+          },
+          executionPrompts: ['Rebuild the scene with a diagonal layout and larger SKU exposure.'],
+        }),
+      },
+      modelGateway: {
+        executeImage: async () => {
+          throw new Error('executeImage should not be called');
+        },
+        executeSingleImage: async ({ finalPrompt, plan }) => {
+          prompts.push(finalPrompt);
+          executionImageRoles.push(plan.executionImages.map((image) => image.role));
+          return {
+            images: [{
+              fileName: 'result-1.png',
+              buffer: new Uint8Array([1]),
+              mimeType: 'image/png',
+            }],
+          };
+        },
+      },
+      artifactStore: {
+        begin: async ({ task }) => createMockArtifactSession(task.taskId, { fixedResultIndex: 1 }),
+        save: async () => {
+          throw new Error('save should not be called directly');
+        },
+      },
+    });
+
+    await executor(createTask({
+      feature: 'sku_hit_main_image',
+      count: 1,
+      images: [
+        { role: 'source', path: '/authorized/input/sku.png' },
+        { role: 'reference', path: '/authorized/input/hit-main.png' },
+      ],
+    }), new AbortController().signal);
+
+    expect(prompts[0]).toBe('Rebuild the scene with a diagonal layout and larger SKU exposure.');
+    expect(executionImageRoles).toEqual([['reference', 'source']]);
+  });
+
+  it('plans all SKU outputs in one vision batch for a single multi-count task', async () => {
     const plannedCounts: number[] = [];
     const prompts: string[] = [];
     const executor = createImageTaskExecutor({
@@ -403,7 +464,10 @@ describe('imageTaskExecutor', () => {
           }));
           return {
             visionModel: 'gpt-5.4-mini',
-            rawContent: JSON.stringify({ instructions }),
+            rawContent: JSON.stringify({
+              locked_copy: { brand: '', product_name: '', capacity: '' },
+              instructions,
+            }),
             batch: {
               lockedCopy: { brand: '', productName: '', capacity: '' },
               instructions,
@@ -434,21 +498,12 @@ describe('imageTaskExecutor', () => {
         },
       },
     });
-    const sharedRequest = {
-      feature: 'sku_variation' as const,
-      count: 1,
-      variantTotal: 2,
-      outputBatchId: 'sku-batch-1',
-      images: [{ role: 'source' as const, path: '/authorized/input/sku.png' }],
-    };
 
-    await Promise.all([
-      executor(createTask({ ...sharedRequest, variantIndex: 1 }), new AbortController().signal),
-      executor({
-        ...createTask({ ...sharedRequest, variantIndex: 2 }),
-        taskId: 'task-2',
-      }, new AbortController().signal),
-    ]);
+    await executor(createTask({
+      feature: 'sku_variation',
+      count: 2,
+      images: [{ role: 'source' as const, path: '/authorized/input/sku.png' }],
+    }), new AbortController().signal);
 
     expect(plannedCounts).toEqual([2]);
     expect(prompts).toEqual(['batch-prompt-1', 'batch-prompt-2']);

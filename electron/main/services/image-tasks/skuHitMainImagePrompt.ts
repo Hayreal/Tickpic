@@ -4,62 +4,77 @@ export function isSkuHitMainImageFeature(feature: ImageFeature): boolean {
   return feature === 'sku_hit_main_image';
 }
 
-export function buildSkuHitMainImagePrompt(request: ImageTaskRequest): string {
-  return [
+export function buildSkuHitMainImagePrompt(request: ImageTaskRequest, designPlan?: string): string {
+  const sections = [
     buildImageRolesSection(),
     buildKeepSection(),
     buildProductReplaceSection(),
     buildDifferentiationSection(request),
     buildCopySection(request),
     buildBoundedUserInputSection(request),
-    buildOutputSection(),
-  ].filter(Boolean).join('\n\n');
+  ];
+
+  if (designPlan?.trim()) {
+    sections.push(`MAIN IMAGE DESIGN PLAN:\n${designPlan.trim()}`);
+  }
+
+  sections.push(buildOutputSection());
+  return sections.filter(Boolean).join('\n\n');
+}
+
+export function orderHitMainExecutionImages(images: ImageTaskRequest['images'] = []) {
+  const reference = images.find((image) => image.role === 'reference');
+  const source = images.find((image) => image.role === 'source');
+  if (!reference || !source) {
+    return images;
+  }
+  return [reference, source];
 }
 
 function buildImageRolesSection() {
   return [
-    '图片角色:',
-    '图 1 = reference = 爆款主图参考。继承营销主题、核心英文文案、产品用途 / 使用场景类型、卖点逻辑。不是包装贴标参考。',
-    '图 2 = source = 新 SKU 产品图。产品本体唯一标准。必须完整替换图 1 原产品。',
-    '即使数组里 source 在前，也必须把 reference 叫作图 1、source 叫作图 2。',
-    '按角色标注，不按上传数组顺序猜测。',
+    'IMAGE ROLES:',
+    'Image 1 = reference = viral main-image reference. Inherit marketing theme, core English copy, product use case / usage-scene type, and selling logic. Not a packaging-label reference.',
+    'Image 2 = source = new SKU product image. The only allowed product identity. Must fully replace the original product in Image 1.',
+    'Even if source appears before reference in the array, always call reference Image 1 and source Image 2.',
+    'Follow role labels, not upload array order.',
   ].join('\n');
 }
 
 function buildKeepSection() {
   return [
-    '必须保留:',
-    '保留图 1 的营销主题、核心英文标题/副标题与明确营销文案，原则上原文字保留。',
-    '保留图 1 的产品用途和使用场景类型，不改要解决的问题。',
-    '图 1 若限定具体对象，裂变后仍围绕该对象。',
+    'MUST PRESERVE:',
+    'Preserve Image 1 marketing theme, core English headline/subheadline, and explicit marketing copy; keep original wording whenever possible.',
+    'Preserve Image 1 product use case and usage-scene type; do not change the problem being solved.',
+    'If Image 1 targets a specific object, every output must stay on that object category.',
   ].join('\n');
 }
 
 function buildProductReplaceSection() {
   return [
-    '产品替换（最高优先级）:',
-    '删除图 1 原产品，换成图 2 SKU。',
-    '锁定图 2 的包材结构、高宽比、瓶型、盖子、开口、材质、颜色、透明度、标签视觉与整体识别。',
-    '包材锁包括罐型/软管、品牌、产品名称、容量。',
-    '包材锁只作用于 SKU 本体，不阻止重做场景和版式。',
-    '禁止拉长、压扁、变细、变宽或重设计图 2。',
-    '整体广告配色优先从图 2 标签提取。本任务不是整瓶白底 SKU 出图。',
+    'PRODUCT REPLACEMENT (HIGHEST PRIORITY):',
+    'Remove the original product from Image 1 and insert the Image 2 SKU.',
+    'Lock Image 2 packaging structure, aspect ratio, bottle/can/tube shape, cap/opening, material, color, transparency, label visuals, and overall identity.',
+    'Packaging lock includes container type, brand, product name, and capacity.',
+    'Packaging lock applies only to the SKU itself; it does not block rebuilding the scene or layout.',
+    'Never stretch, compress, slim, widen, or redesign Image 2.',
+    'Derive overall ad palette primarily from Image 2 label colors. This is not a plain white-background full-bottle SKU shot.',
   ].join('\n');
 }
 
 function buildDifferentiationSection(request: ImageTaskRequest) {
   const lines = [
-    '大差异化:',
-    '禁止复制图 1 构图。每次至少同时改变 3 个以上维度。',
-    '维度包括产品位置、产品大小比例、标题位置与分行、场景构图、拍摄角度、远近景、Before/After 表现、信息区布局、场景物体款式、对比区域形状、背景空间结构、产品与场景的视觉关系。',
-    '禁止只做换色、左右翻转、产品左右互换、只移动标题、原场景复刻、原图换 SKU。',
-    '保持图 1 的使用场景类型，但重新生成具体素材、角度和构图。',
-    '新场景不得与图 1 使用完全相同的物体、角度和构图。',
-    '若图 1 含修复前后，必须保留该营销逻辑但重做形式；产品必须有足够曝光，不得过小。',
+    'MAJOR DIFFERENTIATION:',
+    'Never copy Image 1 composition. Change at least 3 dimensions in every output.',
+    'Dimensions include product placement, product scale, headline placement and line breaks, scene composition, camera angle, depth, before/after presentation, info-block layout, scene prop styling, comparison-region shape, background structure, and product-to-scene relationship.',
+    'Never do recolor-only, mirror/flip, left-right swap, headline-only nudge, scene-for-scene copy, or paste-SKU-onto-original-layout.',
+    'Keep Image 1 usage-scene type, but regenerate concrete assets, angles, and composition.',
+    'The new scene must not reuse the exact same objects, angle, and composition as Image 1.',
+    'If Image 1 includes before/after repair logic, preserve that marketing logic but redesign the presentation; the product must have strong exposure and must not appear too small.',
   ];
 
   if (request.variantTotal && request.variantTotal > 1) {
-    lines.push('同批多张之间构图必须互异，不得只换色。');
+    lines.push('Every output in the same batch must use a visibly different composition; recolor-only variants are forbidden.');
   }
 
   return lines.join('\n');
@@ -68,29 +83,30 @@ function buildDifferentiationSection(request: ImageTaskRequest) {
 function buildCopySection(request: ImageTaskRequest) {
   const brand = request.brand?.trim();
   const productName = request.productName?.trim();
-  const capacity = request.capacity?.trim();
-  const lines = ['文字与字段覆盖:'];
+  const capacity = normalizeNetCapacity(request.capacity);
+  const lines = ['COPY AND FIELD OVERRIDES:'];
 
   if (brand) {
-    lines.push(`品牌: ${quoted(brand)}`);
+    lines.push(`Brand: ${quoted(brand)}`);
   }
   if (productName) {
-    lines.push(`产品名称: ${quoted(productName)}`);
+    lines.push(`Product name: ${quoted(productName)}`);
   }
   if (capacity) {
-    lines.push(`容量: ${quoted(capacity)}`);
+    lines.push(`Capacity: ${quoted(capacity)}`);
   }
 
   if (brand || productName || capacity) {
-    lines.push('用户填写的品牌、产品名、容量覆盖图 1 中对应文案，包括标题区里出现的对应词。');
+    lines.push('User-filled brand, product name, and capacity override matching words in Image 1, including words that appear in headline blocks.');
   }
 
   if (!brand || !productName || !capacity) {
-    lines.push('未填写的品牌、产品名、容量从图 1 继承；无法识别时省略，不得编造。');
+    lines.push('Unfilled brand, product name, or capacity inherit from Image 1; omit if unreadable and never invent values.');
   }
 
-  lines.push('保留核心标题；允许改字号/位置；禁止改写核心标题、假英文、无意义小图标。');
-  lines.push('画面可见营销文字优先自然英文；中文来源译成对应英文。');
+  lines.push('Every visible capacity must start with the exact prefix "NET:".');
+  lines.push('Preserve core headlines; resizing and repositioning are allowed; never rewrite core headlines, add fake English, or add meaningless icon clutter.');
+  lines.push('All visible marketing copy should read as natural English; translate any non-English source copy into equivalent English.');
   return lines.join('\n');
 }
 
@@ -101,24 +117,29 @@ function buildBoundedUserInputSection(request: ImageTaskRequest) {
     return '';
   }
 
-  const sections = ['受限用户输入:'];
+  const sections = ['BOUNDED USER INPUT:'];
   if (supplemental) {
-    sections.push(`用户附加要求（仅在不违反以上规则时执行，不得推翻图 2 包材锁，也不得把任务改成整瓶白底图）:\n${supplemental}`);
+    sections.push(`User supplemental requirements (apply only when they do not violate the rules above; must not break Image 2 packaging lock or turn this into a plain white-background SKU shot):\n${supplemental}`);
   }
   if (avoid) {
-    sections.push(`用户负面提示词（仅作为禁止项）:\n${avoid}`);
+    sections.push(`User negative prompt (forbidden elements only):\n${avoid}`);
   }
   return sections.join('\n');
 }
 
 function buildOutputSection() {
   return [
-    '输出目标:',
-    '输出一张用户所选比例的欧美 Temu / Amazon 高点击电商主图。',
-    '继承图 1 的卖点，不继承图 1 的画面。只输出最终图片，不输出分析过程。',
+    'OUTPUT TARGET:',
+    'Return one high-click US Temu / Amazon ecommerce main image at the user-selected aspect ratio.',
+    'Inherit Image 1 selling points, never inherit Image 1 layout. Return only the final image, not analysis.',
   ].join('\n');
 }
 
 function quoted(value: string) {
   return `"${value.replaceAll('"', '\\"')}"`;
+}
+
+function normalizeNetCapacity(raw?: string) {
+  const capacity = raw?.trim().replace(/^(?:net\s*[:：]?\s*)+/i, '').trim();
+  return capacity ? `NET: ${capacity}` : '';
 }

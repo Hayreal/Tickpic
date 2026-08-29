@@ -32,9 +32,14 @@ const ITEMS_PER_PAGE = 10;
 
 function canRestoreGroup(group: TaskListGroup): boolean {
   const feature = group.representative.request?.feature;
-  return Boolean(feature) && (
-    group.kind !== 'batch' || getFeatureRoute(feature).tab === 'productSet'
-  );
+  if (!feature) {
+    return false;
+  }
+  if (group.kind !== 'batch') {
+    return true;
+  }
+  const tab = getFeatureRoute(feature).tab;
+  return tab === 'productSet' || tab === 'sku';
 }
 
 interface ProfileProps {

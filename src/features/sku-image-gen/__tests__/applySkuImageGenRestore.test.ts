@@ -61,8 +61,9 @@ describe('applySkuImageGenRestore', () => {
     }));
 
     expect(restored?.subTab).toBe('replica');
+    expect(restored?.replica.brand).toBe('wkau');
     expect(restored?.hitMain.aspectRatio).toBe('1:1');
-    expect(restored?.hitMain.count).toBe(3);
+    expect(restored?.hitMain.count).toBe(1);
     expect(restored?.hitMain.skuBatch).toBeNull();
   });
 });

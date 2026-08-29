@@ -72,6 +72,7 @@ function buildModeSection(request: ImageTaskRequest) {
     '模式: SKU 原创。',
     '依据用户提供的结构化产品信息，在 SKU 包材上从零设计标签。',
     '参考图只借包装设计、排版气质与色系方向，不复制其他品牌、产品名或字面文字。',
+    '保持 SKU 源图完整构图，包括配件、赠品标注、组合陈列等非标签元素。',
     '同一批次的多张输出之间版式、色系、视觉结构必须有明显差异。',
   ].join('\n');
 }
@@ -94,7 +95,7 @@ function buildImageRoleLines(request: ImageTaskRequest) {
 function buildContentSection(request: ImageTaskRequest) {
   const brand = registeredBrand(request.brand);
   const productName = request.productName?.trim();
-  const capacity = request.capacity?.trim();
+  const capacity = normalizeNetCapacity(request.capacity);
   const lines = ['可见文案:'];
 
   if (brand) {
@@ -116,16 +117,22 @@ function buildContentSection(request: ImageTaskRequest) {
   }
 
   if (capacity) {
-    lines.push(`容量/规格: ${quoted(capacity)}（逐字显示，不得换算或规范化）`);
-  } else if (request.feature !== 'sku_original') {
-    lines.push('容量/规格: 从 SKU 源图或参考图可靠识别后保留；无法识别时省略。');
+    lines.push(`容量/规格: ${quoted(capacity)}（逐字显示，必须保留 NET: 前缀）`);
+  } else {
+    lines.push('容量/规格: 从 SKU 源图主标签识别；识别后必须在标签上显示，且以 "NET:" 开头。');
   }
 
   if (request.feature === 'sku_variation') {
     lines.push('裂变模式下除用户明确修改外，不得擅自改写品牌、容量与产品名称。');
+    lines.push('SKU 源图贴纸仅提取品牌、产品名称、容量三项信息；不得沿用源图促销语、图标、配件标注或其他贴纸视觉元素。');
+  }
+
+  if (request.feature === 'sku_replica') {
+    lines.push('SKU 源图贴纸仅提取品牌、产品名称、容量三项信息；不得沿用源图促销语、图标、配件标注或其他贴纸视觉元素。');
   }
 
   lines.push('标签上的可见文字优先使用自然英文；中文来源需翻译成对应英文。');
+  lines.push('所有可见容量必须以 "NET:" 开头；源图或用户已提供容量时，出图标签不得缺少容量。');
   lines.push('不得添加用户未提供的促销语、假英文、乱码或无意义小字。');
 
   return lines.join('\n');
@@ -166,8 +173,9 @@ function buildBoundedUserInputSection(request: ImageTaskRequest) {
 }
 
 function buildFinalCheckSection(request: ImageTaskRequest) {
-  const batchRule = request.variantTotal && request.variantTotal > 1
-    ? '与同批其他输出相比，版式、色系或视觉结构必须有明显差异。'
+  const multiCount = (request.variantTotal ?? 0) > 1 || (request.count ?? 0) > 1;
+  const batchRule = multiCount
+    ? '与同批其他输出相比，版式、色系、层级或视觉结构必须有明显差异。'
     : '';
 
   return [
@@ -196,4 +204,9 @@ function targetRatio(request: ImageTaskRequest) {
 
 function quoted(value: string) {
   return `"${value.replaceAll('"', '\\"')}"`;
+}
+
+function normalizeNetCapacity(raw?: string) {
+  const capacity = raw?.trim().replace(/^(?:net\s*[:：]?\s*)+/i, '').trim();
+  return capacity ? `NET: ${capacity}` : '';
 }
