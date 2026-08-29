@@ -3,7 +3,12 @@ import type { ImageTaskPlan, ImageTaskRuntimeConfig } from '../../../../src/shar
 import { buildImageTaskPlan } from '../../../../src/shared/domain/imageTaskPlan.js';
 import { buildExecutionPrompt } from './instructionPrompt.js';
 import { isProductSetFeature } from './productSetJsonPrompt.js';
-import type { VisionInstructionClient, ProductSetVisionInstructionResult } from './visionInstructionClient.js';
+import { isSkuFeature } from './skuExecutionPrompt.js';
+import type {
+  VisionInstructionClient,
+  ProductSetVisionInstructionResult,
+  SkuVisionInstructionResult,
+} from './visionInstructionClient.js';
 import {
   finalizeProductSetDebugManifest,
   resolveArtifactFilePrefix,
@@ -91,6 +96,7 @@ export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions)
     });
 
     const isProductSet = isProductSetFeature(task.feature);
+    const isSku = isSkuFeature(task.feature);
     const productSetVisionResult = isProductSet
       ? await resolveProductSetVisionResult({
         task,
@@ -100,16 +106,26 @@ export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions)
         logger,
       })
       : undefined;
-    const productSetPrompts = productSetVisionResult?.executionPrompts;
-    const finalPrompt = isProductSet
-      ? productSetPrompts!.join('\n\n--- NEXT OUTPUT ---\n\n')
+    const skuVisionResult = isSku
+      ? await resolveSkuVisionResult({
+        task,
+        plan,
+        abortSignal,
+        visionInstructionClient: options.visionInstructionClient,
+        logger,
+      })
+      : undefined;
+    const visionPrompts = productSetVisionResult?.executionPrompts ?? skuVisionResult?.executionPrompts;
+    const isVisionPromptTask = isProductSet || isSku;
+    const finalPrompt = isVisionPromptTask
+      ? visionPrompts!.join('\n\n--- NEXT OUTPUT ---\n\n')
       : buildExecutionPrompt(task.request, plan.mainPrompt);
 
     logger.info('image-task', '图片执行提示词已组装', {
       taskId: task.taskId,
       promptLength: finalPrompt.length,
-      visionGenerated: isProductSet,
-      promptCount: isProductSet ? productSetPrompts!.length : 1,
+      visionGenerated: isVisionPromptTask,
+      promptCount: isVisionPromptTask ? visionPrompts!.length : 1,
     });
 
     const session = await options.artifactStore.begin({ task, plan, finalPrompt });
@@ -185,22 +201,26 @@ export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions)
       }
     };
 
-    if (isProductSet) {
+    if (isVisionPromptTask) {
       for (let index = 0; index < plan.count; index += 1) {
         const outputIndex = index + 1;
         const variantRequest = plan.count > 1
           ? { ...task.request, count: 1, variantIndex: outputIndex, variantTotal: plan.count }
           : task.request;
-        const prompt = productSetPrompts![index];
-        const executionImages = filterProductSetExecutionImages(
-          plan.executionImages,
-          productSetVisionResult?.executionHandheldReferenceRequired?.[index] === true,
-        );
+        const prompt = visionPrompts![index];
+        const executionImages = isProductSet
+          ? filterProductSetExecutionImages(
+            plan.executionImages,
+            productSetVisionResult?.executionHandheldReferenceRequired?.[index] === true,
+          )
+          : isSku && task.feature !== 'sku_replica'
+            ? plan.executionImages.filter((image) => image.role === 'source')
+            : plan.executionImages;
         const variantPlan = plan.count > 1
           ? { ...plan, request: variantRequest, count: 1, executionImages }
           : { ...plan, executionImages };
-        logger.info('image-task', `开始生成套图 ${outputIndex}/${plan.count}`, { taskId: task.taskId });
-        logger.info('image-task', '套图出图提示词', {
+        logger.info('image-task', `开始生成${isSku ? ' SKU' : '套图'} ${outputIndex}/${plan.count}`, { taskId: task.taskId });
+        logger.info('image-task', `${isSku ? 'SKU' : '套图'}出图提示词`, {
           taskId: task.taskId,
           feature: task.feature,
           index: outputIndex,
@@ -276,6 +296,42 @@ export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions)
       warnings: generated.warnings ?? [],
     } satisfies ImageTaskExecutionResult;
   };
+}
+
+async function resolveSkuVisionResult(input: {
+  task: ImageTaskRecord;
+  plan: ImageTaskPlan;
+  abortSignal: AbortSignal;
+  visionInstructionClient?: VisionInstructionClient;
+  logger: ReturnType<typeof getAppLogger>;
+}): Promise<SkuVisionInstructionResult> {
+  if (!input.visionInstructionClient?.generateSkuInstructions) {
+    throw new Error('SKU tasks require a configured vision instruction client');
+  }
+
+  input.logger.info('image-task', '开始生成 SKU 英文视觉提示词', {
+    taskId: input.task.taskId,
+    feature: input.task.feature,
+    count: input.plan.count,
+  });
+  const result = await input.visionInstructionClient.generateSkuInstructions({
+    task: input.task,
+    plan: input.plan,
+    abortSignal: input.abortSignal,
+  });
+
+  if (result.executionPrompts.length !== input.plan.count) {
+    throw new Error(
+      `vision model returned ${result.executionPrompts.length} SKU prompts, expected ${input.plan.count}`,
+    );
+  }
+
+  input.logger.info('image-task', 'SKU 英文视觉提示词已生成', {
+    taskId: input.task.taskId,
+    promptCount: result.executionPrompts.length,
+    visionModel: result.visionModel,
+  });
+  return result;
 }
 
 async function resolveProductSetVisionResult(input: {

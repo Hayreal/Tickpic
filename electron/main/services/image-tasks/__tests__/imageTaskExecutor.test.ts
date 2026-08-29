@@ -332,6 +332,83 @@ describe('imageTaskExecutor', () => {
     expect(prompts).toEqual(['vision-single-prompt']);
   });
 
+  it('plans an English SKU prompt before editing the SKU image', async () => {
+    const prompts: string[] = [];
+    const executionImageCounts: number[] = [];
+    const executor = createImageTaskExecutor({
+      runtimeConfig,
+      visionInstructionClient: {
+        generateReplaceProductInstruction: async () => {
+          throw new Error('not used');
+        },
+        generateProductSetInstructions: async () => {
+          throw new Error('not used');
+        },
+        generateSkuInstructions: async () => ({
+          visionModel: 'gpt-5.4-mini',
+          rawContent: '{"instructions":[{"index":1,"prompt":"Edit the supplied SKU image; only redesign its label."}]}',
+          batch: { instructions: [{ index: 1, prompt: 'Edit the supplied SKU image; only redesign its label.' }] },
+          executionPrompts: ['Edit the supplied SKU image; only redesign its label.'],
+        }),
+      },
+      modelGateway: {
+        executeImage: async () => {
+          throw new Error('executeImage should not be called');
+        },
+        executeSingleImage: async ({ finalPrompt, plan }) => {
+          prompts.push(finalPrompt);
+          executionImageCounts.push(plan.executionImages.length);
+          return {
+            images: [{
+              fileName: 'result-1.png',
+              buffer: new Uint8Array([1]),
+              mimeType: 'image/png',
+            }],
+          };
+        },
+      },
+      artifactStore: {
+        begin: async ({ task }) => {
+          const imagePaths: string[] = [];
+          return {
+            outputDir: `/outputs/${task.taskId}`,
+            requestJsonPath: `/outputs/${task.taskId}/request.json`,
+            imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
+            outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
+            imagePaths,
+            appendImage: async () => {
+              const imagePath = `/outputs/${task.taskId}/result-1.png`;
+              imagePaths.push(imagePath);
+              return imagePath;
+            },
+            finalize: async () => ({
+              outputDir: `/outputs/${task.taskId}`,
+              requestJsonPath: `/outputs/${task.taskId}/request.json`,
+              imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
+              outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
+              images: imagePaths,
+            }),
+          };
+        },
+        save: async () => {
+          throw new Error('save should not be called directly');
+        },
+      },
+    });
+
+    await executor(createTask({
+      feature: 'sku_replica',
+      count: 1,
+      images: [
+        { role: 'source', path: '/authorized/input/sku.png' },
+        { role: 'reference', path: '/authorized/input/reference.png' },
+      ],
+    }), new AbortController().signal);
+
+    expect(prompts).toEqual(['Edit the supplied SKU image; only redesign its label.']);
+    expect(executionImageCounts).toEqual([2]);
+  });
+
   it('passes the handheld reference only to variants that require it', async () => {
     const executionImageCounts: number[] = [];
     const executor = createImageTaskExecutor({

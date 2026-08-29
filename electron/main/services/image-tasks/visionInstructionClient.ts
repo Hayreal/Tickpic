@@ -21,6 +21,12 @@ import {
   buildProductSetVisionUserText,
 } from './productSetVisionPrompt.js';
 import {
+  buildSkuVisionSystemPrompt,
+  buildSkuVisionUserText,
+  parseSkuVisionBatch,
+} from './skuVisionPrompt.js';
+import { isSkuFeature } from './skuExecutionPrompt.js';
+import {
   buildReplaceProductVisionSystemPrompt,
   buildReplaceProductVisionUserText,
 } from './replaceProductVisionPrompt.js';
@@ -31,6 +37,13 @@ export interface ProductSetVisionInstructionResult {
   batch: ProductSetVisionBatch;
   executionPrompts: string[];
   executionHandheldReferenceRequired?: boolean[];
+}
+
+export interface SkuVisionInstructionResult {
+  visionModel: string;
+  rawContent: string;
+  batch: import('./skuVisionPrompt.js').SkuVisionBatch;
+  executionPrompts: string[];
 }
 
 export interface VisionInstructionClient {
@@ -44,6 +57,11 @@ export interface VisionInstructionClient {
     plan: ImageTaskPlan;
     abortSignal: AbortSignal;
   }): Promise<ProductSetVisionInstructionResult>;
+  generateSkuInstructions?(input: {
+    task: ImageTaskRecord;
+    plan: ImageTaskPlan;
+    abortSignal: AbortSignal;
+  }): Promise<SkuVisionInstructionResult>;
 }
 
 export interface CreateVisionInstructionClientOptions {
@@ -212,6 +230,89 @@ export function createVisionInstructionClient(
         executionHandheldReferenceRequired: executionVariants.map(
           (variant) => variant.requiresHandheldReference,
         ),
+      };
+    },
+
+    async generateSkuInstructions({ task, plan, abortSignal }) {
+      if (!isSkuFeature(task.feature)) {
+        throw new Error(`generateSkuInstructions does not support feature ${task.feature}`);
+      }
+
+      const visionModel = resolveVisionModel(task.request, options.runtimeConfig);
+      if (!visionModel) {
+        throw new Error('vision model is not configured in settings');
+      }
+      if (isImageGenerationModel(visionModel)) {
+        throw new Error('vision model must not be an image-only model');
+      }
+      if (plan.executionImages.length === 0) {
+        throw new Error('SKU tasks require execution images for vision instruction');
+      }
+
+      const imageParts = [];
+      for (const [index, image] of plan.executionImages.entries()) {
+        const caption = image.role === 'source'
+          ? `Image ${index + 1}: fixed SKU product canvas`
+          : `Image ${index + 1}: label design reference only`;
+        imageParts.push(...await buildOpenAIImageContentParts(image, caption));
+      }
+
+      const messages = [
+        { role: 'system' as const, content: buildSkuVisionSystemPrompt(task.feature) },
+        {
+          role: 'user' as const,
+          content: [
+            { type: 'text' as const, text: buildSkuVisionUserText(task.request, plan.count) },
+            ...imageParts,
+          ],
+        },
+      ];
+
+      logModelRequest('instruction', {
+        protocol: 'openai',
+        url: buildOpenAIChatCompletionsUrl(options.baseUrl),
+        model: visionModel,
+        feature: task.feature,
+        requestedCount: plan.count,
+        messages: messages.map((message) => ({
+          role: message.role,
+          content: typeof message.content === 'string'
+            ? message.content
+            : message.content.map((part) => (
+              part.type === 'text'
+                ? part
+                : { type: part.type, image_url: { url: '[base64 redacted]', detail: 'high' } }
+            )),
+        })),
+      });
+
+      const response = await openai.chat.completions.create({
+        model: visionModel,
+        messages,
+        response_format: { type: 'json_object' },
+      }, {
+        signal: abortSignal,
+      });
+
+      const content = response.choices[0]?.message?.content?.trim();
+      if (!content) {
+        throw new Error('vision model returned empty SKU instruction batch');
+      }
+
+      logModelResponse('instruction', {
+        protocol: 'openai',
+        url: buildOpenAIChatCompletionsUrl(options.baseUrl),
+        model: visionModel,
+        feature: task.feature,
+        response,
+      });
+
+      const batch = parseSkuVisionBatch(content, plan.count);
+      return {
+        visionModel,
+        rawContent: content,
+        batch,
+        executionPrompts: batch.instructions.map((instruction) => instruction.prompt),
       };
     },
   };

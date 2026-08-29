@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "chrome-release-cls": {
+      "source": "electron/electron",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/chrome-release-cls/SKILL.md",
+      "computedHash": "0414e6404ec882c597957acb3419ada783fe504337943ce02d8f5c64945956b0"
+    },
+    "chrome-release-verify": {
+      "source": "electron/electron",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/chrome-release-verify/SKILL.md",
+      "computedHash": "073e9ec7936beb9db575f5530d88924bcc98c9c18614a2a32cbfc1ed2dd94852"
+    },
+    "electron-chromium-upgrade": {
+      "source": "electron/electron",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/electron-chromium-upgrade/SKILL.md",
+      "computedHash": "c7402cbf5fa8187b4a2c27cbe815a43b6a02104d26aa5d6c6df6943ea220f3b4"
+    },
+    "electron-development": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/electron-development/SKILL.md",
+      "computedHash": "b47faf3ba9d7993e8e46bfc8612e4f0a15961e3356f882b20b9a03d81c652311"
+    },
+    "electron-node-upgrade": {
+      "source": "electron/electron",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/electron-node-upgrade/SKILL.md",
+      "computedHash": "b7649ee2508d10cbfbd281745fc24233384bd47c625f8b488dcbe52465b24f38"
+    }
+  }
+}

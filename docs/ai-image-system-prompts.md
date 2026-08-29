@@ -2,13 +2,14 @@
 
 This document records how Tickpic assembles the execution prompt sent directly to the image generation/edit model.
 
-The app no longer runs a separate instruction-generation stage. Main Process combines the feature `mainPrompt`, the user `prompt`, and structured task parameters into one text prompt before calling the image model.
+Most features assemble their prompt locally. Product-set and SKU label-edit tasks first use the vision model to create execution prompts, then send those prompts to the image model.
 
 Runtime source of truth:
 
 - `src/shared/domain/imageFeatureApi.ts` defines each feature `mainPrompt`.
 - `electron/main/services/image-tasks/instructionPrompt.ts` implements `buildExecutionPrompt()`.
 - `electron/main/services/image-tasks/productSetJsonPrompt.ts` keeps internal product-set specs and renders final execution prompts as natural language.
+- `electron/main/services/image-tasks/skuVisionPrompt.ts` defines the SKU label-edit vision contract and English-prompt validation.
 
 ## Execution Prompt Assembly
 
@@ -20,7 +21,9 @@ Runtime source of truth:
 
 视觉规划模型的批次输出仍为内部 JSON，便于校验和调试；调试包中的 `vision-batch.json` 因此保留，但 `image-instruction.txt` 和 `execution-prompt-N.txt` 为纯文本。
 
-非套图保持原有顺序：`mainPrompt`、用户 `prompt`、其他 structured parameters/regions、批次差异要求；若贴纸复刻提供独立 Logo/reference 图且功能主提示词未包含对应说明，最后追加贴纸 Logo 角色说明，并追加英文可见文字规则。
+三个 SKU 功能（`sku_replica`、`sku_variation`、`sku_original`）与套图一样先生成视觉提示词。视觉模型读取 SKU 原图、可选包装设计参考图和用户输入，为每张输出返回完整英文编辑提示词；执行器在写入 `image-instruction.txt` 后才开始出图。提示词必须锁定原 SKU 的构图、机位、透视、容器形态、结构、材质和背景，只改标签承载面。中文产品名、品类、卖点和附加要求会转为自然英文；品牌、容量和型号保持字面值。任何“做成软管/喷雾/罐”等要求只能影响标签品类视觉，不能重做容器。
+
+其余非套图、非 SKU 功能保持原有顺序：`mainPrompt`、用户 `prompt`、其他 structured parameters/regions、批次差异要求；若贴纸复刻提供独立 Logo/reference 图且功能主提示词未包含对应说明，最后追加贴纸 Logo 角色说明，并追加英文可见文字规则。
 
 Structured parameters are rendered as natural lines:
 
