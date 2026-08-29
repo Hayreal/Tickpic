@@ -1,8 +1,47 @@
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ENGLISH_ONLY_VISIBLE_TEXT_RULE } from '../../../../../src/shared/domain/imageOutputRules';
 import { createImageTaskExecutor } from '../imageTaskExecutor';
 import type { ImageTaskRecord } from '../../../../../src/shared/domain/imageFeatureApi';
 import type { ImageTaskRuntimeConfig } from '../../../../../src/shared/domain/imageTaskPlan';
+
+const TEST_OUTPUT_ROOT = path.join(os.tmpdir(), 'tickpic-image-task-executor-test');
+
+function outputPaths(taskId: string) {
+  const outputDir = path.join(TEST_OUTPUT_ROOT, taskId);
+  return {
+    outputDir,
+    requestJsonPath: path.join(outputDir, 'request.json'),
+    imageInstructionPath: path.join(outputDir, 'image-instruction.txt'),
+    outputJsonPath: path.join(outputDir, 'result-1.json'),
+    resultImagePath: (index: number) => path.join(outputDir, `result-${index}.png`),
+  };
+}
+
+function createMockArtifactSession(taskId: string, options?: { fixedResultIndex?: number }) {
+  const paths = outputPaths(taskId);
+  const imagePaths: string[] = [];
+  return {
+    outputDir: paths.outputDir,
+    requestJsonPath: paths.requestJsonPath,
+    imageInstructionPath: paths.imageInstructionPath,
+    outputJsonPath: paths.outputJsonPath,
+    imagePaths,
+    appendImage: async () => {
+      const imagePath = paths.resultImagePath(options?.fixedResultIndex ?? imagePaths.length + 1);
+      imagePaths.push(imagePath);
+      return imagePath;
+    },
+    finalize: async () => ({
+      outputDir: paths.outputDir,
+      requestJsonPath: paths.requestJsonPath,
+      imageInstructionPath: paths.imageInstructionPath,
+      outputJsonPath: paths.outputJsonPath,
+      images: imagePaths,
+    }),
+  };
+}
 
 function withEnglishOnlyRule(...lines: string[]) {
   return [...lines, ENGLISH_ONLY_VISIBLE_TEXT_RULE].join('\n');
@@ -43,28 +82,18 @@ describe('imageTaskExecutor', () => {
       artifactStore: {
         begin: async ({ task, finalPrompt }) => {
           calls.push(`begin:${task.taskId}:${finalPrompt}`);
-          const imagePaths: string[] = [];
+          const session = createMockArtifactSession(task.taskId, { fixedResultIndex: 1 });
           return {
-            outputDir: `/outputs/${task.taskId}`,
-            requestJsonPath: `/outputs/${task.taskId}/request.json`,
-            imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
-            outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
-            imagePaths,
+            ...session,
             appendImage: async () => {
-              const imagePath = `/outputs/${task.taskId}/result-1.png`;
-              imagePaths.push(imagePath);
+              const imagePath = session.appendImage();
               calls.push(`append:${task.taskId}`);
               return imagePath;
             },
             finalize: async () => {
+              const artifacts = await session.finalize();
               calls.push(`finalize:${task.taskId}`);
-              return {
-                outputDir: `/outputs/${task.taskId}`,
-                requestJsonPath: `/outputs/${task.taskId}/request.json`,
-                imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
-                outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
-                images: imagePaths,
-              };
+              return artifacts;
             },
           };
         },
@@ -98,20 +127,21 @@ describe('imageTaskExecutor', () => {
     );
     expect(calls.at(-1)).toBe('finalize:task-1');
     expect(progressUpdates).toEqual([0, 1, 2, 3, 4]);
+    const paths = outputPaths('task-1');
     expect(result).toEqual({
       model: 'gemini-2.5-flash-image',
       protocol: 'gemini',
-      outputDir: '/outputs/task-1',
+      outputDir: paths.outputDir,
       images: [
-        '/outputs/task-1/result-1.png',
-        '/outputs/task-1/result-1.png',
-        '/outputs/task-1/result-1.png',
-        '/outputs/task-1/result-1.png',
+        paths.resultImagePath(1),
+        paths.resultImagePath(1),
+        paths.resultImagePath(1),
+        paths.resultImagePath(1),
       ],
       progress: { completed: 4, total: 4 },
-      requestJsonPath: '/outputs/task-1/request.json',
-      imageInstructionPath: '/outputs/task-1/image-instruction.txt',
-      outputJsonPath: '/outputs/task-1/result-1.json',
+      requestJsonPath: paths.requestJsonPath,
+      imageInstructionPath: paths.imageInstructionPath,
+      outputJsonPath: paths.outputJsonPath,
       textNotes: ['ok', 'ok', 'ok', 'ok'],
       warnings: ['draft output', 'draft output', 'draft output', 'draft output'],
     });
@@ -138,34 +168,38 @@ describe('imageTaskExecutor', () => {
       },
       artifactStore: {
         begin: async ({ task }) => {
+          const paths = outputPaths(task.taskId);
           const imagePaths: string[] = [];
           return {
-            outputDir: `/outputs/${task.taskId}`,
-            requestJsonPath: `/outputs/${task.taskId}/request.json`,
-            imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
-            outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
+            outputDir: paths.outputDir,
+            requestJsonPath: paths.requestJsonPath,
+            imageInstructionPath: paths.imageInstructionPath,
+            outputJsonPath: paths.outputJsonPath,
             imagePaths,
             appendImage: async () => {
-              const imagePath = `/outputs/${task.taskId}/result-1.png`;
+              const imagePath = paths.resultImagePath(1);
               imagePaths.push(imagePath);
               return imagePath;
             },
             finalize: async () => ({
-              outputDir: `/outputs/${task.taskId}`,
-              requestJsonPath: `/outputs/${task.taskId}/request.json`,
-              imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
-              outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
+              outputDir: paths.outputDir,
+              requestJsonPath: paths.requestJsonPath,
+              imageInstructionPath: paths.imageInstructionPath,
+              outputJsonPath: paths.outputJsonPath,
               images: imagePaths,
             }),
           };
         },
-        save: async ({ task }) => ({
-          outputDir: `/outputs/${task.taskId}`,
-          requestJsonPath: `/outputs/${task.taskId}/request.json`,
-          imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
-          outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
-          images: [],
-        }),
+        save: async ({ task }) => {
+          const paths = outputPaths(task.taskId);
+          return {
+            outputDir: paths.outputDir,
+            requestJsonPath: paths.requestJsonPath,
+            imageInstructionPath: paths.imageInstructionPath,
+            outputJsonPath: paths.outputJsonPath,
+            images: [],
+          };
+        },
       },
     });
 
@@ -225,28 +259,7 @@ describe('imageTaskExecutor', () => {
         },
       },
       artifactStore: {
-        begin: async ({ task }) => {
-          const imagePaths: string[] = [];
-          return {
-            outputDir: `/outputs/${task.taskId}`,
-            requestJsonPath: `/outputs/${task.taskId}/request.json`,
-            imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
-            outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
-            imagePaths,
-            appendImage: async () => {
-              const imagePath = `/outputs/${task.taskId}/result-${imagePaths.length + 1}.png`;
-              imagePaths.push(imagePath);
-              return imagePath;
-            },
-            finalize: async () => ({
-              outputDir: `/outputs/${task.taskId}`,
-              requestJsonPath: `/outputs/${task.taskId}/request.json`,
-              imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
-              outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
-              images: imagePaths,
-            }),
-          };
-        },
+        begin: async ({ task }) => createMockArtifactSession(task.taskId),
         save: async () => {
           throw new Error('save should not be called directly');
         },
@@ -295,28 +308,7 @@ describe('imageTaskExecutor', () => {
         },
       },
       artifactStore: {
-        begin: async ({ task, finalPrompt }) => {
-          const imagePaths: string[] = [];
-          return {
-            outputDir: `/outputs/${task.taskId}`,
-            requestJsonPath: `/outputs/${task.taskId}/request.json`,
-            imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
-            outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
-            imagePaths,
-            appendImage: async () => {
-              const imagePath = `/outputs/${task.taskId}/result-1.png`;
-              imagePaths.push(imagePath);
-              return imagePath;
-            },
-            finalize: async () => ({
-              outputDir: `/outputs/${task.taskId}`,
-              requestJsonPath: `/outputs/${task.taskId}/request.json`,
-              imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
-              outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
-              images: imagePaths,
-            }),
-          };
-        },
+        begin: async ({ task }) => createMockArtifactSession(task.taskId, { fixedResultIndex: 1 }),
         save: async () => {
           throw new Error('save should not be called directly');
         },
@@ -368,28 +360,7 @@ describe('imageTaskExecutor', () => {
         },
       },
       artifactStore: {
-        begin: async ({ task }) => {
-          const imagePaths: string[] = [];
-          return {
-            outputDir: `/outputs/${task.taskId}`,
-            requestJsonPath: `/outputs/${task.taskId}/request.json`,
-            imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
-            outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
-            imagePaths,
-            appendImage: async () => {
-              const imagePath = `/outputs/${task.taskId}/result-1.png`;
-              imagePaths.push(imagePath);
-              return imagePath;
-            },
-            finalize: async () => ({
-              outputDir: `/outputs/${task.taskId}`,
-              requestJsonPath: `/outputs/${task.taskId}/request.json`,
-              imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
-              outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
-              images: imagePaths,
-            }),
-          };
-        },
+        begin: async ({ task }) => createMockArtifactSession(task.taskId, { fixedResultIndex: 1 }),
         save: async () => {
           throw new Error('save should not be called directly');
         },
@@ -441,28 +412,7 @@ describe('imageTaskExecutor', () => {
         },
       },
       artifactStore: {
-        begin: async ({ task }) => {
-          const imagePaths: string[] = [];
-          return {
-            outputDir: `/outputs/${task.taskId}`,
-            requestJsonPath: `/outputs/${task.taskId}/request.json`,
-            imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
-            outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
-            imagePaths,
-            appendImage: async () => {
-              const imagePath = `/outputs/${task.taskId}/result-${imagePaths.length + 1}.png`;
-              imagePaths.push(imagePath);
-              return imagePath;
-            },
-            finalize: async () => ({
-              outputDir: `/outputs/${task.taskId}`,
-              requestJsonPath: `/outputs/${task.taskId}/request.json`,
-              imageInstructionPath: `/outputs/${task.taskId}/image-instruction.txt`,
-              outputJsonPath: `/outputs/${task.taskId}/result-1.json`,
-              images: imagePaths,
-            }),
-          };
-        },
+        begin: async ({ task }) => createMockArtifactSession(task.taskId),
         save: async () => {
           throw new Error('save should not be called directly');
         },
