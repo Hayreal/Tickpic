@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as productSetPrompt from '../productSetJsonPrompt';
-import { buildProductSetExecutionPromptsFromVision, buildProductSetJsonPrompt, parseProductSetJsonPrompt, resolveMainImageVariantPresentation } from '../productSetJsonPrompt';
+import { buildProductSetExecutionPromptsFromVision, buildProductSetJsonPrompt, parseProductSetJsonPrompt } from '../productSetJsonPrompt';
 
 const MULTI_IMAGE_BATCH_OUTPUT = {
   meaning: 'API-level batch size: produce this many completely separate image files. Each file is one standalone final image.',
@@ -52,7 +52,7 @@ describe('productSetJsonPrompt', () => {
 
     expect(prompt).not.toMatch(/^\s*\{/);
     expect(prompt).toContain('Create one 1:1 US Temu functional ecommerce main image, commercial photography, clear benefit hierarchy for US Temu ecommerce.');
-    expect(prompt).toContain('This is a carousel-opening hero image');
+    expect(prompt).toContain('Create one coherent ecommerce main-image scene');
     expect(prompt).not.toMatch(/[\u4e00-\u9fff]/);
     expect(prompt).not.toContain('"sku_lock"');
     expect(prompt).not.toContain('--- VARIANT DIRECTIVE');
@@ -61,6 +61,59 @@ describe('productSetJsonPrompt', () => {
     expect(prompt).toContain('a real category-specific use setting');
     expect(prompt).toContain('premium but credible');
     expect(prompt).toContain('unrelated filler props');
+  });
+
+  it('renders hard hand anatomy and scale constraints for handheld main images', () => {
+    const prompt = productSetPrompt.buildProductSetExecutionPrompt({
+      feature: 'product_main_image',
+      productHandheldMode: 'handheld',
+      productEffectMode: 'hide',
+      images: [
+        { role: 'product', path: '/authorized/input/product.png' },
+        { role: 'reference', path: '/authorized/resources/product/handheld-spray-side-press.png' },
+      ],
+    });
+
+    expect(prompt).toContain('all 5 fingers');
+    expect(prompt).toContain('thumb must be visible');
+    expect(prompt).toContain('natural real-hand-to-product scale');
+    expect(prompt).toContain('no tiny hand with giant product');
+  });
+
+  it('renders real actuator and protective-cap constraints for spray effects', () => {
+    const prompt = productSetPrompt.buildProductSetExecutionPrompt({
+      feature: 'product_main_image',
+      productHandheldMode: 'handheld',
+      productEffectMode: 'show',
+    });
+
+    expect(prompt).toContain('remove any removable protective cap before spraying');
+    expect(prompt).toContain('never spray through a cap');
+    expect(prompt).toContain('real nozzle orifice only');
+    expect(prompt).toContain('wrong nozzle/cap/trigger geometry');
+  });
+
+  it('keeps effect demonstrations category-appropriate for non-spray products', () => {
+    const prompt = productSetPrompt.buildProductSetExecutionPrompt({
+      feature: 'product_main_image',
+      productHandheldMode: 'handheld',
+      productEffectMode: 'show',
+      scenePrompt: 'apply beeswax paste from a wide-mouth jar to a wooden table',
+    });
+
+    expect(prompt).toContain('real category-appropriate use action or visible after-use result');
+    expect(prompt).toContain('Never invent spray, mist, or a nozzle for a non-spray product');
+    expect(prompt).toContain('Only if the SKU truly has a spray nozzle, pump, trigger, or dispensing orifice');
+    expect(prompt).not.toContain('Spray mechanics:');
+  });
+
+  it('renders a zero-CJK visible-copy constraint for overseas ecommerce images', () => {
+    const prompt = productSetPrompt.buildProductSetExecutionPrompt({
+      feature: 'product_main_image',
+    });
+
+    expect(prompt).toContain('Do not render any Chinese, Han, or other CJK characters anywhere');
+    expect(prompt).toContain('omit optional copy rather than use non-English text');
   });
 
   it('renders vision-merged execution variants as natural language', () => {
@@ -251,7 +304,7 @@ describe('productSetJsonPrompt', () => {
     expect(keys.indexOf('composition')).toBeLessThan(keys.indexOf('lighting'));
     expect(keys.indexOf('lighting')).toBeLessThan(keys.indexOf('batch_output'));
     expect(spec.spray_physics).toBeUndefined();
-    expect(String(spec.effect.guidance)).toMatch(/only if the SKU truly has/i);
+    expect(String(spec.effect.guidance)).toMatch(/do not demonstrate action or result effects/i);
     expect(spec.lighting.key.position).toMatch(/Front-side|Side|Back|Top/i);
     expect(spec.camera.lens.focal_length_mm).toMatch(/^\d+$/);
     expect(spec.camera.exposure.iso).toMatch(/^\d+$/);
@@ -509,50 +562,33 @@ describe('productSetJsonPrompt', () => {
     ]));
   });
 
-  it('distributes handheld and effect across multi-count main-image variants instead of every file', () => {
-    const carousel = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
+  it('leaves multi-image carousel roles unassigned before Vision plans the batch', () => {
+    const spec = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
       feature: 'product_main_image',
-      productHandheldMode: 'handheld',
-      productEffectMode: 'show',
       count: 1,
       variantIndex: 1,
       variantTotal: 3,
     }));
-    const handheld = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
+
+    expect(spec.presentation).toBeUndefined();
+    expect(spec.variant?.presentation_mode).toBeUndefined();
+  });
+
+  it('uses Vision-selected carousel roles instead of variant order', () => {
+    const prompts = buildProductSetExecutionPromptsFromVision({
       feature: 'product_main_image',
-      productHandheldMode: 'handheld',
-      productEffectMode: 'show',
-      count: 1,
-      variantIndex: 2,
-      variantTotal: 3,
-    }));
-    const effect = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
-      feature: 'product_main_image',
-      productHandheldMode: 'handheld',
-      productEffectMode: 'show',
-      count: 1,
-      variantIndex: 3,
-      variantTotal: 3,
-    }));
+      count: 3,
+    }, {
+      instructions: [
+        { index: 1, presentation_mode: 'lifestyle_scene', handheld_required: false, show_effect: false },
+        { index: 2, presentation_mode: 'before_after', handheld_required: false, show_effect: false },
+        { index: 3, presentation_mode: 'handheld_use', handheld_required: true, show_effect: false },
+      ],
+    });
 
-    expect(carousel.presentation?.mode).toBe('carousel_hero');
-    expect(carousel.handheld.mode).toBe('not_handheld');
-    expect(carousel.effect.mode).toBe('hide');
-    expect(carousel.spray_physics).toBeUndefined();
-    expect(carousel.variant?.presentation_mode).toBe('carousel_hero');
-    expect(carousel.scene_storytelling?.must_show).toEqual(expect.arrayContaining([
-      expect.stringMatching(/problem state|problem surface|dirty/i),
-    ]));
-
-    expect(handheld.presentation?.mode).toBe('handheld_use');
-    expect(handheld.handheld.mode).toBe('handheld');
-    expect(handheld.effect.mode).toBe('hide');
-    expect(handheld.spray_physics).toBeUndefined();
-
-    expect(effect.presentation?.mode).toBe('effect_demo');
-    expect(effect.handheld.mode).toBe('handheld');
-    expect(effect.effect.mode).toBe('show');
-    expect(effect.spray_physics?.nozzle_must_match_sku).toBe(true);
+    expect(prompts[0]).toContain('lifestyle-use image');
+    expect(prompts[1]).toContain('BEFORE and AFTER');
+    expect(prompts[2]).toContain('handheld-use image');
   });
 
   it('merges vision instructions into per-variant execution prompts', () => {

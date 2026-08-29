@@ -129,8 +129,9 @@ const SPRAY_PHYSICS = {
   nozzle_must_match_sku: true,
   spray_origin: 'real nozzle orifice only',
   spray_direction: 'aligned with nozzle facing direction',
-  actuator_state: 'pressed or open when spraying',
+  actuator_state: 'pressed or open when spraying; remove any removable protective cap before spraying',
   forbidden: [
+    'never spray through a cap or closed actuator',
     'spray from bottle side, back, bottom, or empty air',
     'wrong nozzle/cap/trigger geometry versus SKU',
     'spray direction that disagrees with nozzle facing',
@@ -233,9 +234,9 @@ const BATCH_DIVERSITY_DIMENSIONS: Record<ProductSetBatchFeature, readonly string
 
 const BATCH_DIVERSITY_SLOT_DIRECTIVES: Record<ProductSetBatchFeature, readonly string[]> = {
   product_main_image: [
-    'Carousel-ready hero with visible problem context (file 1): show the actual dirty/problem surface AND the SKU as scene hero WITHOUT hand or spray. Example: insect-spattered windshield with product on hood, not a shelf/catalog shot.',
-    'Handheld-at-problem scene (file 2): hand holds SKU beside/at the visible problem surface, ready to use, but NO spray/effect yet. Must NOT be an empty car interior or generic portrait without the problem visible.',
-    'Active effect demo (file 3): the ONLY file that may show spray/application/result directly on the problem surface. Must differ in camera/action from files 1-2.',
+    'AI chooses the carousel role; make the physical sub-scene and product hierarchy clearly different from the other files.',
+    'AI chooses the carousel role; make the use stage or evidence framing clearly different from the other files.',
+    'AI chooses the carousel role; make the camera angle, product position, and headline treatment clearly different from the other files.',
   ],
   product_comparison_image: [
     'Change the core problem sub-area, evidence crop, and color temperature. Do not rely on minor recolor, title-only, or product-shift differences.',
@@ -322,176 +323,10 @@ export function isProductSetFeature(feature: ImageFeature) {
 
 export type MainImagePresentationMode =
   | 'carousel_hero'
+  | 'before_after'
   | 'handheld_use'
   | 'effect_demo'
   | 'lifestyle_scene';
-
-export interface MainImageVariantPresentation {
-  mode: MainImagePresentationMode;
-  handheldRequired: boolean;
-  effectRequired: boolean;
-  carouselReady: boolean;
-  label: string;
-  sceneStorytelling: {
-    must_show: string[];
-    forbidden: string[];
-  };
-}
-
-export function resolveMainImageVariantPresentation(
-  request: ImageTaskRequest,
-): MainImageVariantPresentation | undefined {
-  if (
-    request.feature !== 'product_main_image'
-    || request.variantIndex === undefined
-    || request.variantTotal === undefined
-    || request.variantTotal <= 1
-  ) {
-    return undefined;
-  }
-
-  const slot = request.variantIndex;
-  const total = request.variantTotal;
-  const handheldPref = request.productHandheldMode ?? 'not_handheld';
-  const effectPref = request.productEffectMode ?? 'auto';
-
-  if (slot === 1) {
-    return {
-      mode: 'carousel_hero',
-      handheldRequired: false,
-      effectRequired: false,
-      carouselReady: true,
-      label: '轮播首图：具体痛点场景 + 产品主视觉，无手持、无喷射，但必须看见真实问题环境',
-      sceneStorytelling: {
-        must_show: [
-          'a specific real use location derived from the SKU category (not a generic studio)',
-          'a visible problem state or dirty/target surface that this product solves',
-          'SKU as scene hero with supporting props that explain the use case',
-        ],
-        forbidden: [
-          'shelf display or retail catalog shot',
-          'plain studio backdrop without a problem surface',
-          'product floating on white with no context',
-          'only accessory props without the actual problem area',
-        ],
-      },
-    };
-  }
-
-  const effectSlot = resolveMainImageEffectDemoSlot(total, handheldPref, effectPref);
-  if (slot === effectSlot) {
-    return {
-      mode: 'effect_demo',
-      handheldRequired: handheldPref === 'handheld',
-      effectRequired: true,
-      carouselReady: false,
-      label: handheldPref === 'handheld'
-        ? '效果演示图：在真实痛点表面上手持喷射/使用，可见具体作用过程'
-        : handheldPref === 'auto'
-          ? '效果演示图（AI 判断手持）：在真实痛点表面上展示具体使用/作用过程'
-          : '效果演示图：在真实痛点表面上展示具体使用/作用过程',
-      sceneStorytelling: {
-        must_show: [
-          'the same product use case family as other files, but during active use',
-          'product applied to the visible problem surface with credible action/effect',
-          'spray/mist/foam/foam wipe/cleaning action only if the SKU truly supports it',
-        ],
-        forbidden: [
-          'passive product portrait without action',
-          'shelf or catalog composition',
-          'effect happening away from the real problem surface',
-        ],
-      },
-    };
-  }
-
-  if (handheldPref === 'handheld') {
-    return {
-      mode: 'handheld_use',
-      handheldRequired: true,
-      effectRequired: false,
-      carouselReady: false,
-      label: '手持场景图：在真实痛点场景旁手持产品，展示即将使用，但本张不出喷射/效果',
-      sceneStorytelling: {
-        must_show: [
-          'hand holding the SKU inside or beside a concrete problem scene',
-          'visible problem surface/state that explains why the product is needed',
-          'realistic use location matching the SKU category',
-        ],
-        forbidden: [
-          'hand holding product in empty car door or generic interior without the problem visible',
-          'catalog/shelf presentation',
-          'spray/mist/foam or finished clean result in this file',
-        ],
-      },
-    };
-  }
-
-  if (handheldPref === 'auto' && total >= 3 && slot === 2) {
-    return {
-      mode: 'handheld_use',
-      handheldRequired: false,
-      effectRequired: false,
-      carouselReady: false,
-      label: '手持场景图（AI 判断）：Vision 决定是否在本文件加入手持；若 handheld_required=true 则必须手持但不出喷射/效果',
-      sceneStorytelling: {
-        must_show: [
-          'concrete problem surface/state that explains why the product is needed',
-          'realistic use location matching the SKU category',
-        ],
-        forbidden: [
-          'catalog/shelf presentation',
-          'spray/mist/foam or finished clean result in this file',
-        ],
-      },
-    };
-  }
-
-  return {
-    mode: slot === 2 ? 'lifestyle_scene' : 'carousel_hero',
-    handheldRequired: false,
-    effectRequired: false,
-    carouselReady: slot !== 2 ? true : false,
-    label: slot === 2
-      ? '痛点场景图：无手持、无特效，但画面必须清楚展示具体问题和适用环境'
-      : '轮播补充图：具体痛点场景中的产品主视觉，无手持、无特效',
-    sceneStorytelling: slot === 2
-      ? {
-        must_show: [
-          'a clearly readable problem surface/state without hands',
-          'environment props that match the SKU use case',
-        ],
-        forbidden: ['catalog/shelf shot', 'generic lifestyle without visible problem'],
-      }
-      : {
-        must_show: [
-          'specific use location and visible problem context',
-          'product as hero without hands',
-        ],
-        forbidden: ['shelf display', 'empty studio backdrop'],
-      },
-  };
-}
-
-function resolveMainImageEffectDemoSlot(
-  total: number,
-  handheldPref: ProductHandheldMode,
-  effectPref: ProductEffectMode,
-) {
-  if (effectPref === 'hide') {
-    return -1;
-  }
-  if (effectPref === 'show') {
-    return total;
-  }
-  if ((handheldPref === 'handheld' || handheldPref === 'auto') && total >= 3) {
-    return total;
-  }
-  if (total >= 2) {
-    return total;
-  }
-  return -1;
-}
 
 export function parseProductSetJsonPrompt(text: string): ProductSetJsonSpec {
   let jsonText = text;
@@ -590,16 +425,20 @@ function renderMainImageFeatureContract(spec: ProductSetJsonSpec) {
   const effect = asRecord(spec.effect);
   const reference = asRecord(spec.handheld_reference);
   const presentation = asRecord(spec.presentation);
+  const isBeforeAfter = presentation?.mode === 'before_after';
   const statements = [
     presentation?.mode
       ? `This is a ${mainImagePresentationExecutionSummary(String(presentation.mode))}.`
       : 'Create one coherent ecommerce main-image scene.',
     'Show the product, an actual use target, and an observable pre-use, action, or result state in one coherent scene.',
-    'Use one continuous photograph, never a split screen, triptych, or collage.',
+    isBeforeAfter
+      ? 'Show clearly labeled BEFORE and AFTER states of the same object and matched region in one divided ecommerce image; keep the SKU as a readable product hero without covering either state.'
+      : 'Use one continuous photograph, never a split screen, triptych, or collage.',
   ];
 
   if (handheld?.mode === 'handheld') {
     statements.push('Show a natural hand directly using or holding the SKU beside the actual use target.');
+    statements.push(`The hand and grip must satisfy: ${HANDHELD_RULES.join('; ')}.`);
     if (reference) {
       statements.push('Match the supplied hand-reference grip and pose while keeping the SKU identity locked to the product reference.');
     }
@@ -608,7 +447,8 @@ function renderMainImageFeatureContract(spec: ProductSetJsonSpec) {
   }
 
   if (effect?.mode === 'show') {
-    statements.push('When showing product action, it must originate from the SKU’s real actuator and visibly act on the actual use target.');
+    statements.push('Show the SKU’s real category-appropriate use action or visible after-use result on the actual use target. Never invent spray, mist, or a nozzle for a non-spray product.');
+    statements.push(`Only if the SKU truly has a spray nozzle, pump, trigger, or dispensing orifice: ${String(spec.spray_physics?.actuator_state)}; spray origin: ${String(spec.spray_physics?.spray_origin)}; forbidden: ${Array.isArray(spec.spray_physics?.forbidden) ? spec.spray_physics.forbidden.join('; ') : 'none'}.`);
   } else {
     statements.push('Do not show product-emitted action effects; keep the actual target state visible.');
   }
@@ -620,6 +460,8 @@ function mainImagePresentationExecutionSummary(mode: string) {
   switch (mode) {
     case 'carousel_hero':
       return 'carousel-opening hero image with a specific pain-point environment, the SKU as the clear visual hero, no handheld use, and no product action effect';
+    case 'before_after':
+      return 'carousel-ready BEFORE and AFTER main image comparing the same object and matched region, with the SKU as a clear visual hero';
     case 'handheld_use':
       return 'handheld-use image with the SKU held naturally beside the real problem surface, without product action effects';
     case 'effect_demo':
@@ -759,7 +601,7 @@ function renderProductSetCopyAndUserRequirements(spec: ProductSetJsonSpec) {
   const copy = asRecord(spec.copy);
   const headline = asRecord(copy?.headline);
   const overrides = asRecord(spec.user_overrides);
-  const sections = ['Use only concise, readable English visible copy. Do not add icon rows, price, discount, watermark, or long explanatory text.'];
+  const sections = ['Use only concise, readable English visible copy. Do not render any Chinese, Han, or other CJK characters anywhere; omit optional copy rather than use non-English text. Do not add icon rows, price, discount, watermark, or long explanatory text.'];
 
   if (headline?.suggested_text) {
     sections.push(`Suggested headline: ${String(headline.suggested_text)}.`);
@@ -907,32 +749,17 @@ export function mergeProductSetVisionInstruction(
 }
 
 function resolveVisionHandheldRequired(
-  request: ImageTaskRequest,
+  _request: ImageTaskRequest,
   vision: ProductSetVisionInstructionItem,
 ): boolean {
-  const pref = request.productHandheldMode ?? 'auto';
-  if (pref === 'not_handheld') {
-    return false;
-  }
-  if (pref === 'handheld') {
-    const presentation = resolveMainImageVariantPresentation(request);
-    return presentation?.handheldRequired ?? true;
-  }
-  return vision.handheld_required ?? resolveMainImageVariantPresentation(request)?.handheldRequired ?? false;
+  return vision.handheld_required ?? false;
 }
 
 function resolveVisionEffectRequired(
-  request: ImageTaskRequest,
+  _request: ImageTaskRequest,
   vision: ProductSetVisionInstructionItem,
 ): boolean {
-  const pref = request.productEffectMode ?? 'auto';
-  if (pref === 'hide') {
-    return false;
-  }
-  if (pref === 'show') {
-    return true;
-  }
-  return vision.show_effect ?? resolveMainImageVariantPresentation(request)?.effectRequired ?? false;
+  return vision.show_effect ?? false;
 }
 
 function applyVisionMainImageHandheldEffect(
@@ -940,10 +767,19 @@ function applyVisionMainImageHandheldEffect(
   vision: ProductSetVisionInstructionItem,
   request: ImageTaskRequest,
 ) {
-  const handheldRequired = resolveVisionHandheldRequired(request, vision);
-  const effectRequired = resolveVisionEffectRequired(request, vision);
+  const beforeAfter = vision.presentation_mode === 'before_after';
+  const handheldRequired = beforeAfter ? false : resolveVisionHandheldRequired(request, vision);
+  const effectRequired = beforeAfter ? false : resolveVisionEffectRequired(request, vision);
   const patch = buildMainImageFields(request, { handheldRequired, effectRequired });
 
+  if (vision.presentation_mode) {
+    merged.presentation = {
+      mode: vision.presentation_mode,
+      carousel_ready: true,
+      batch_role: 'AI-selected carousel role',
+      batch_distribution: 'AI planned this role for batch diversity.',
+    };
+  }
   merged.handheld = patch.handheld;
   merged.effect = patch.effect;
   if (patch.spray_physics) {
@@ -1030,33 +866,11 @@ function buildMainImageFields(
   const handheldMode: ProductHandheldMode = request.productHandheldMode ?? 'auto';
   const effectMode: ProductEffectMode = request.productEffectMode ?? 'auto';
   const hasReference = hasReferenceImage(request);
-  const presentation = resolveMainImageVariantPresentation(request);
-  const isHandheld = overrides?.handheldRequired ?? (
-    presentation
-      ? presentation.handheldRequired
-      : handheldMode === 'handheld'
-  );
-  const effectRequired = overrides?.effectRequired ?? (
-    presentation
-      ? presentation.effectRequired
-      : effectMode === 'show'
-  );
-  const effectGuidanceText = presentation
-    ? presentation.effectRequired
-      ? effectGuidance('show')
-      : effectGuidance('hide')
-    : effectGuidance(effectMode);
+  const isHandheld = overrides?.handheldRequired ?? handheldMode === 'handheld';
+  const effectRequired = overrides?.effectRequired ?? effectMode === 'show';
+  const effectGuidanceText = effectGuidance(effectRequired ? 'show' : 'hide');
 
   const fields: MainImageFields = {
-    ...(presentation ? {
-      presentation: {
-        mode: presentation.mode,
-        carousel_ready: presentation.carouselReady,
-        batch_role: presentation.label,
-        batch_distribution: 'Handheld and effect are assigned per output file in this batch; obey this file\'s presentation block only.',
-      },
-      scene_storytelling: presentation.sceneStorytelling,
-    } : {}),
     handheld: isHandheld
       ? hasReference
         ? {
@@ -1080,43 +894,29 @@ function buildMainImageFields(
           ],
         },
     effect: {
-      mode: presentation
-        ? (presentation.effectRequired ? 'show' : 'hide')
-        : effectMode,
+      mode: effectRequired ? 'show' : 'hide',
       guidance: effectGuidanceText,
     },
     composition: {
       strategy: 'free_within_controls',
       product_required: true,
       hand_required: isHandheld,
-      goal: presentation?.carouselReady
-        ? 'Within about 3 seconds on a product carousel, show what the product is, where it is used, and the core benefit — clean hero hierarchy without hand blocking the label'
-        : 'Within about 3 seconds, show what the product is, where it is used, what problem it solves, and what result it delivers',
+      goal: 'Within about 3 seconds on a product carousel, show what the product is, where it is used, what problem it solves, and the core benefit',
       allowed_approaches: isHandheld
-        ? presentation?.mode === 'effect_demo'
-          ? [
-            'handheld action/effect demonstration',
-            'handheld real usage with visible product result',
-          ]
-          : [
-            'handheld real usage',
-            'handheld usage process',
-            'handheld pain-point close-up',
-            'handheld lifestyle use',
-          ]
-        : presentation?.mode === 'effect_demo'
-          ? [
-            'action/effect demonstration',
-            'real usage scene with visible product result',
-          ]
-          : [
-            'real usage scene',
-            'usage process',
-            'pain-point close-up',
-            'lifestyle placement',
-            'carousel hero product placement',
-            'before-after feeling within a single main image when useful',
-          ],
+        ? [
+          'handheld real usage',
+          'handheld usage process',
+          'handheld pain-point close-up',
+          'handheld lifestyle use',
+        ]
+        : [
+          'real usage scene',
+          'usage process',
+          'pain-point close-up',
+          'lifestyle placement',
+          'carousel hero product placement',
+          'before-after feeling within a single main image when useful',
+        ],
       one_composition_only: 'Each output image is exactly ONE continuous photograph of ONE commercial scene with ONE product placement. Never stack strips, layers, triptychs, split-screen grids, or collage panels inside one frame — even to show multiple use cases.',
       forbidden_approaches: isHandheld
         ? [
@@ -1136,13 +936,11 @@ function buildMainImageFields(
             'handheld use',
             'visible holding hand',
           ],
-      note: presentation
-        ? `Batch file presentation: ${presentation.label}. Handheld/effect settings from the UI apply across the batch but are distributed per file — obey this file's presentation block only.`
-        : isHandheld
-          ? hasReference
-            ? 'Handheld is a hard structured control. Match the reference image grip/pose/form; sku_lock still controls product identity.'
-            : 'Handheld is a hard structured control. Free composition only chooses HOW the hand holds/uses the SKU, never WHETHER a hand appears.'
-          : 'Do not force one non-handheld template. Choose the strongest commercial approach for this SKU and scene; batch diversity is controlled by batch_output.',
+      note: isHandheld
+        ? hasReference
+          ? 'Match the reference image grip/pose/form; sku_lock still controls product identity.'
+          : 'A real hand holds or uses the SKU.'
+        : 'Choose the strongest commercial approach for this SKU and scene; batch diversity is controlled by Vision.',
     },
     copy: {
       headline: {
@@ -1159,12 +957,6 @@ function buildMainImageFields(
     },
     quality_targets: [
       'SKU identity locked to the reference photo',
-      ...(presentation?.carouselReady
-        ? [
-          'Ready for ecommerce product carousel/slider: clean hero product placement with readable label',
-          'No hand blocking the product or primary label',
-        ]
-        : []),
       ...(isHandheld
         ? hasReference
           ? [
@@ -1181,20 +973,12 @@ function buildMainImageFields(
         : [
             'No holding hand in frame',
           ]),
-      ...(presentation && !presentation.effectRequired
-        ? ['No spray, mist, foam, vapor, or product-emitted action effects in this file']
-        : []),
-      ...(presentation?.sceneStorytelling.must_show ?? []),
       'English headline readable in 3 seconds',
       'No small icon selling-point UI',
     ],
     negative_prompt: [
       ...MAIN_NEGATIVE,
       ...(isHandheld ? HANDHELD_NEGATIVE : ['no holding hand', 'no handheld grip']),
-      ...(presentation && !presentation.effectRequired
-        ? ['no spray', 'no mist', 'no foam', 'no vapor trail', 'no product-emitted effects']
-        : []),
-      ...(presentation?.sceneStorytelling.forbidden ?? []),
     ],
   };
 
@@ -1518,12 +1302,7 @@ function buildVariantField(request: ImageTaskRequest) {
   const feature = request.feature as ProductSetBatchFeature;
   const slot = buildDiversitySlots(feature, request.variantTotal)[request.variantIndex - 1];
   const cycle = Math.floor((request.variantIndex - 1) / BATCH_DIVERSITY_DIRECTION_COUNT) + 1;
-  const presentation = request.feature === 'product_main_image'
-    ? resolveMainImageVariantPresentation(request)
-    : undefined;
-  const directive = presentation
-    ? `${slot.directive} Presentation assignment: ${mainImagePresentationExecutionSummary(presentation.mode)}.`
-    : slot.directive;
+  const directive = slot.directive;
   const multiSceneLayout = request.feature === 'product_multi_scene'
     ? resolveMultiScenePresentationLayout(request)
     : undefined;
@@ -1536,7 +1315,6 @@ function buildVariantField(request: ImageTaskRequest) {
     total: request.variantTotal,
     ...(cycle > 1 ? { cycle } : {}),
     directive,
-    ...(presentation ? { presentation_mode: presentation.mode } : {}),
     single_image_only: true as const,
     ...(multiPanelMultiScene ? { multi_panel_scope_infographic: true as const } : {}),
     forbidden: multiPanelMultiScene
