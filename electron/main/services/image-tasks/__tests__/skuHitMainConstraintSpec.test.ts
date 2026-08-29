@@ -34,11 +34,13 @@ describe('skuHitMainConstraintSpec', () => {
     expect(prompt).toContain('MAIN IMAGE DESIGN PLAN:');
     expect(prompt).toContain('Place the jar large in the foreground with a rebuilt wall repair scene.');
     expect(prompt).toContain('Brand: "wkau"');
-    expect(prompt).toContain('FORBIDDEN:');
-    expect(prompt).toContain('3-icon feature rows');
+    expect(prompt).toContain('PHYSICS REALISM:');
+    expect(prompt).toContain('floating scrapers');
+    expect(prompt).toContain('FINAL CHECK:');
+    expect(prompt).toContain('Physics realism and packaging lock override');
   });
 
-  it('includes anti-AI-template forbidden rules', () => {
+  it('includes physics realism rules', () => {
     const spec = buildSkuHitMainConstraintSpec({
       feature: 'sku_hit_main_image',
       images: [
@@ -47,8 +49,7 @@ describe('skuHitMainConstraintSpec', () => {
       ],
     });
 
-    const forbidden = spec.forbidden.join(' ');
-    expect(forbidden).toContain('hexagonal or circular icon badges');
-    expect(forbidden).toContain('3-icon feature rows');
+    expect(spec.physics_realism.join(' ')).toContain('floating scrapers');
+    expect(spec.final_check.join(' ')).toContain('Physics realism and packaging lock override');
   });
 });

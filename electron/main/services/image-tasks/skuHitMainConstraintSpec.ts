@@ -1,5 +1,14 @@
 import type { ImageTaskRequest } from '../../../../src/shared/domain/imageFeatureApi.js';
 
+const SKU_HIT_MAIN_PHYSICS_RULES = [
+  'All tools, scrapers, brushes, and applicators must be physically supported: held by a natural visible hand applying pressure, resting on a surface, or actively contacting the repair surface.',
+  'Never show floating scrapers, hovering spatulas, unsupported putty blobs, or objects without believable grip, contact, or cast shadow.',
+  'Keep one coherent light direction; shadows, highlights, and reflections must agree across product, hands, tools, walls, furniture, and table surfaces.',
+  'Keep realistic product scale relative to hands, walls, furniture, and repair areas; the SKU may be prominent but must not become an oversized hero jar that breaks room perspective.',
+  'Putty, paste, cream, and gel must behave realistically: spread from contact points, follow gravity, level fill in open jars, and avoid impossible stiff whipped-cream peaks or floating clumps.',
+  'Before/after inset patches must match the wall material and lighting of the main scene; the final image must read as one believable photograph, not pasted layers.',
+] as const;
+
 const SKU_HIT_MAIN_ANTI_TEMPLATE_FORBIDDEN = [
   'Never use the generic AI ecommerce template: a horizontal row of three hexagonal or circular icon badges, each with a short benefit slogan underneath.',
   'Do not add new 3-icon feature rows, hex badge grids, or equivalent small-icon selling-point modules unless Image 1 clearly already uses that exact module.',
@@ -15,10 +24,12 @@ export interface SkuHitMainConstraintSpec {
   must_preserve: string[];
   product_replacement: string[];
   usage_scene_policy: string[];
+  physics_realism: string[];
   differentiation: string[];
   copy_overrides: string[];
   forbidden: string[];
   output_target: string[];
+  final_check: string[];
   user_fields: {
     brand?: string;
     product_name?: string;
@@ -58,6 +69,7 @@ export function buildSkuHitMainConstraintSpec(request: ImageTaskRequest): SkuHit
       'Image 1 provides headline text, subheadline, selling angle, and before/after marketing structure only.',
       'Do not copy Image 1 literal scene objects, camera angle, layout, props, or composition.',
     ],
+    physics_realism: [...SKU_HIT_MAIN_PHYSICS_RULES],
     differentiation: buildDifferentiationLines(request),
     copy_overrides: buildCopyOverrideLines({ brand, productName, capacity }),
     forbidden: [
@@ -65,6 +77,7 @@ export function buildSkuHitMainConstraintSpec(request: ImageTaskRequest): SkuHit
       'Never redesign Image 2 packaging or label artwork.',
       'Never use recolor-only, mirror/flip, or headline-only nudge variants.',
       'Never let reference literal object category override Image 2 product category in the usage scene.',
+      'Never show floating tools, unsupported product clumps, impossible material physics, or inconsistent scale.',
       ...SKU_HIT_MAIN_ANTI_TEMPLATE_FORBIDDEN,
     ],
     output_target: [
@@ -72,6 +85,7 @@ export function buildSkuHitMainConstraintSpec(request: ImageTaskRequest): SkuHit
       'Inherit Image 1 selling points, never inherit Image 1 layout.',
       'Return only the final image, not analysis.',
     ],
+    final_check: buildFinalCheckLines(),
     user_fields: {
       ...(brand ? { brand } : {}),
       ...(productName ? { product_name: productName } : {}),
@@ -92,6 +106,7 @@ export function renderSkuHitMainExecutionPrompt(
     ['MUST PRESERVE:', ...spec.must_preserve].join('\n'),
     ['PRODUCT REPLACEMENT (HIGHEST PRIORITY):', ...spec.product_replacement].join('\n'),
     ['USAGE SCENE POLICY:', ...spec.usage_scene_policy].join('\n'),
+    ['PHYSICS REALISM:', ...spec.physics_realism].join('\n'),
     ['MAJOR DIFFERENTIATION:', ...spec.differentiation].join('\n'),
     ['COPY AND FIELD OVERRIDES:', ...spec.copy_overrides].join('\n'),
     spec.user_supplement
@@ -102,6 +117,8 @@ export function renderSkuHitMainExecutionPrompt(
       : '',
     `MAIN IMAGE DESIGN PLAN:\n${creativePlan.trim()}`,
     ['FORBIDDEN:', ...spec.forbidden].join('\n'),
+    spec.batch_slot ? spec.batch_slot : '',
+    ['FINAL CHECK:', ...spec.final_check].join('\n'),
     ['OUTPUT TARGET:', ...spec.output_target].join('\n'),
   ];
 
@@ -112,7 +129,7 @@ function buildDifferentiationLines(request: ImageTaskRequest): string[] {
   const lines = [
     'Change at least 3 dimensions in every output: product placement, product scale, headline placement, scene composition, camera angle, depth, before/after presentation, info-block layout, background structure, and product-to-scene relationship.',
     'Regenerate concrete scene assets, angles, and composition; do not reuse Image 1 objects or viewpoint.',
-    'The product must have strong exposure and must not appear too small.',
+    'Keep the SKU clearly visible and readable, but preserve realistic scale relative to hands, furniture, walls, and repair areas; never use an oversized foreground jar that breaks room perspective.',
   ];
 
   if (request.variantTotal && request.variantTotal > 1) {
@@ -154,6 +171,14 @@ function resolveBatchSlotDirective(request: ImageTaskRequest): string | undefine
     return undefined;
   }
   return `This is batch output ${index}/${total}. Use a visibly different composition from the other outputs while keeping the same marketing promise.`;
+}
+
+function buildFinalCheckLines(): string[] {
+  return [
+    'Every tool or applicator must have a visible hand, surface support, or believable contact with the repair surface.',
+    'No floating scrapers, hovering product clumps, impossible jar peaks, or mismatched lighting between foreground product and background scene.',
+    'Physics realism and packaging lock override any conflicting design plan wording.',
+  ];
 }
 
 function quoted(value: string) {

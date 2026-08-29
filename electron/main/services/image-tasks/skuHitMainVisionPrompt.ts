@@ -37,6 +37,8 @@ export function buildSkuHitMainVisionSystemPrompt(): string {
     'Never plan only recoloring, mirroring, swapping left/right, moving the title slightly, or reusing the same scene objects and camera angle from Image 1.',
     'Keep Image 1 before/after marketing logic when present, but redesign the comparison format.',
     'Change at least 3 differentiation dimensions such as product placement, product scale, headline placement, scene composition, camera angle, depth, before/after layout, info-block layout, background structure, or product-scene relationship.',
+    'Plan physically believable usage scenes: scrapers and spatulas must be held by a visible hand against the repair surface; no floating tools, hovering putty, stiff whipped-cream jar peaks, or unsupported product clumps.',
+    'Keep one coherent light direction and realistic scale between the SKU, hands, tools, furniture, and repair surfaces; avoid oversized foreground jars.',
     'Keep core English marketing copy from Image 1 unless structured user fields override matching words.',
     'Every visible capacity in the planned output must use the exact prefix "NET:".',
     'Return every creative plan in English only.',

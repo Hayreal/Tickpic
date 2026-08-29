@@ -31,4 +31,31 @@ describe('skuPromptAssembler', () => {
       spec,
     )).toBe(false);
   });
+
+  it('rejects weak sku_replica assembled prompts that omit reference fidelity rules', () => {
+    const spec = buildSkuLabelConstraintSpec({
+      feature: 'sku_replica',
+      brand: 'wkau',
+      productName: 'HEADLIGHT RESTORE',
+      capacity: '45ML',
+      images: [
+        { role: 'source', path: '/tmp/sku.png' },
+        { role: 'reference', path: '/tmp/reference.png' },
+      ],
+    }, {
+      brand: 'wkau',
+      productName: 'HEADLIGHT RESTORE',
+      capacity: 'NET: 45ML',
+    });
+
+    expect(validateAssembledPrompt(
+      'Edit Image 1 label using a white and blue palette. Show wkau, HEADLIGHT RESTORE, and NET: 45ML. Do not copy source-label icons.',
+      spec,
+    )).toBe(false);
+
+    expect(validateAssembledPrompt(
+      'Replace the entire source label with the reference label design system on Images 2+. Reproduce the reference layout, band structure, hero graphic, and decorative language faithfully. Never keep source-label icons or category imagery. Display wkau, HEADLIGHT RESTORE, and NET: 45ML on the redesigned label while preserving Image 1 outside the label.',
+      spec,
+    )).toBe(true);
+  });
 });

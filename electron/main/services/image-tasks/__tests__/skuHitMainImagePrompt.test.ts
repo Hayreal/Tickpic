@@ -31,7 +31,8 @@ describe('skuHitMainImagePrompt', () => {
     expect(prompt).toContain('product-to-scene relationship');
     expect(prompt).toContain('must not reuse the exact same objects, angle, and composition');
     expect(prompt).toContain('preserve that marketing logic but redesign the presentation');
-    expect(prompt).toContain('must not appear too small');
+    expect(prompt).toContain('realistic scale, not an oversized hero jar');
+    expect(prompt).toContain('PHYSICS REALISM:');
     expect(prompt).toContain('never rewrite core headlines, add fake English');
     expect(prompt).toContain('Return only the final image, not analysis');
 

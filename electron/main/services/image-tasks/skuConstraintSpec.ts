@@ -84,9 +84,7 @@ export function buildSkuLabelConstraintSpec(
       image_1: 'Fixed SKU product canvas. Only redesign the printed label on the primary SKU front printable area.',
       ...(hasReference
         ? {
-          reference_images: request.feature === 'sku_variation'
-            ? 'Images 2+ control the label-design reference system. Never copy their container shape, crop, scene, copy, or secondary objects. Reference design system overrides conflicting creative plan wording.'
-            : 'Images 2+ are label-design references only. Never copy their container shape, crop, scene, or secondary objects.',
+          reference_images: resolveReferenceImagesLine(request.feature),
         }
         : {}),
     },
@@ -111,20 +109,36 @@ export function renderSkuLabelExecutionPrompt(
   spec: SkuLabelConstraintSpec,
   creativePlan: string,
 ): string {
+  const referenceSection = spec.reference_policy?.length
+    ? ['REFERENCE ROLE:', ...spec.reference_policy].join('\n')
+    : '';
+  const modeAuthoritySection = ['MODE AUTHORITY:', ...spec.mode_authority, ...(spec.batch_slot ? [spec.batch_slot] : [])].join('\n');
+  const designPlanHeading = spec.feature === 'sku_replica'
+    ? 'LABEL DESIGN NOTES (subordinate to reference authority; do not restyle away from the reference label):'
+    : 'LABEL DESIGN PLAN:';
+
   const sections = [
     'NON-NEGOTIABLE SOURCE LOCK:',
     ...spec.source_lock,
-    spec.reference_policy?.length
-      ? ['REFERENCE ROLE:', ...spec.reference_policy].join('\n')
-      : '',
-    `LABEL DESIGN PLAN:\n${creativePlan.trim()}`,
-    ['MODE AUTHORITY:', ...spec.mode_authority, ...(spec.batch_slot ? [spec.batch_slot] : [])].join('\n'),
+    referenceSection,
+    modeAuthoritySection,
+    `${designPlanHeading}\n${creativePlan.trim()}`,
     ['FINAL VISIBLE-COPY AUTHORITY:', ...spec.copy_rules].join('\n'),
     ['FORBIDDEN:', ...spec.forbidden].join('\n'),
     ['FINAL CHECK:', ...spec.final_check].join('\n'),
   ];
 
   return sections.filter(Boolean).join('\n\n');
+}
+
+function resolveReferenceImagesLine(feature: SkuLabelConstraintSpec['feature']): string {
+  if (feature === 'sku_replica') {
+    return 'Images 2+ define the exact label artwork to transplant onto Image 1. Reproduce reference layout, bands, hero graphic, logo zone, typography hierarchy, and decorative language at the highest practical fidelity. Never copy reference container shape, crop, scene, or secondary objects.';
+  }
+  if (feature === 'sku_variation') {
+    return 'Images 2+ control the label-design reference system. Never copy their container shape, crop, scene, copy, or secondary objects. Reference design system overrides conflicting creative plan wording.';
+  }
+  return 'Images 2+ are label-design references only. Never copy their container shape, crop, scene, or secondary objects.';
 }
 
 function assertSkuLabelFeature(feature: ImageFeature): asserts feature is SkuLabelConstraintSpec['feature'] {
@@ -145,6 +159,15 @@ function buildSourceLockLines(request: ImageTaskRequest): string[] {
 }
 
 function buildReferencePolicyLines(request: ImageTaskRequest): string[] {
+  if (request.feature === 'sku_replica') {
+    return [
+      'Images 2+ are the sole visual authority for the new label design.',
+      'Reproduce the reference label layout, hierarchy, palette, typography proportions, band structure, logo placement, hero graphic, decorative language, and supporting graphics at the highest practical fidelity on Image 1 printable area.',
+      'Map the reference label structure onto the source bottle printable area without keeping any source-label palette, bands, icons, or category imagery.',
+      'locked_copy overrides only matching reference text fields (brand, product name, capacity); it never preserves source-label visuals.',
+      'Never copy reference container shape, crop, scene, or secondary objects.',
+    ];
+  }
   if (request.feature === 'sku_variation') {
     return [
       'The reference label design system overrides any conflicting creative plan wording.',
@@ -160,7 +183,8 @@ function buildModeAuthorityLines(request: ImageTaskRequest): string[] {
   switch (request.feature) {
     case 'sku_replica':
       return [
-        'Reproduce the reference label design on Image 1 at the highest practical visual fidelity while fitting the unchanged source container.',
+        'Replace the entire source label with the reference label design system mapped to the unchanged source container.',
+        'Reproduce reference palette, band structure, logo lockup, hero graphic, typography hierarchy, and decorative language at the highest practical fidelity.',
         'Preserve the full Image 1 product set composition, including bundle accessories and secondary products; only redesign the primary SKU label.',
       ];
     case 'sku_variation':
@@ -202,6 +226,9 @@ function buildCopyRules(request: ImageTaskRequest, copy: SkuLockedCopy): string[
     lines.push('When Image 1 primary label shows any net weight or volume, read it from the image and display it on the new label with the exact "NET:" prefix.');
   }
   lines.push('Use each locked value exactly and consistently. Do not show a synonym, alternate spelling, category replacement, or second product name.');
+  if (request.feature === 'sku_replica') {
+    lines.push('locked_copy text overrides matching reference words only; all label visuals must come from the reference label, including hero graphic, bands, palette, and decorative motifs.');
+  }
   return lines;
 }
 
@@ -214,8 +241,13 @@ function buildForbiddenLines(request: ImageTaskRequest): string[] {
   ];
   if (request.feature === 'sku_original') {
     lines.push('Never copy promotional slogans, icons, or benefit modules from Image 1 source label unless the user explicitly requests them.');
+    lines.push('Never use source-label category imagery such as vehicles, headlights, engines, or other source-product icons on the new label.');
   } else {
-    lines.push('Never reproduce source-label slogans, icons, banners, or promotional overlay graphics unless the user explicitly requests them.');
+    lines.push('Never reproduce source-label slogans, icons, banners, promotional overlay graphics, palette bands, or category imagery unless the user explicitly requests them.');
+    lines.push('Never keep source-label category icons or hero graphics (for example car or headlight icons) when they are absent from the reference label.');
+    if (request.feature === 'sku_replica') {
+      lines.push('Never approximate the reference as a similar color mood; match the reference label structure, hero graphic, and decorative language faithfully.');
+    }
     lines.push(
       'When reproducing a reference label, preserve its actual layout; do not add a new 3-hex icon selling-point row unless that exact module already exists on the reference label.',
     );
@@ -229,6 +261,9 @@ function buildFinalCheckLines(request: ImageTaskRequest, lockedCopy: SkuLockedCo
     : ['If Image 1 primary label shows any net weight or volume, display it on the new label with the exact "NET:" prefix.'];
 
   lines.push('Return Image 1 unchanged except for the primary SKU printed label. Preserve every non-label element exactly as uploaded.');
+  if (request.feature === 'sku_replica') {
+    lines.push('The output label must visibly match the reference label design system on Image 2+; no source-label palette, icons, or category imagery may remain.');
+  }
 
   lines.push('Source container geometry and all locked visible copy override any conflicting creative plan wording.');
   return lines;
@@ -240,7 +275,10 @@ function resolveBatchSlotDirective(request: ImageTaskRequest): string | undefine
   if (!index || !total || total <= 1) {
     return undefined;
   }
-  return `This is batch output ${index}/${total}. It must be visibly different from the other outputs in label layout, hierarchy, typography scale, color blocking, decorative motifs, and graphic placement while staying within the same reference design language; never satisfy batch diversity by adding a 3-hex icon selling-point template.`;
+  const diversityAxes = request.feature === 'sku_variation'
+    ? 'layout axis, hero graphic placement, band structure, typography hierarchy, color blocking, and decorative framing'
+    : 'label layout, hierarchy, typography scale, color blocking, decorative motifs, and graphic placement';
+  return `This is batch output ${index}/${total}. It must be immediately distinguishable from every other output in the same batch at thumbnail size through a different ${diversityAxes}; recolor-only or same-layout variants are forbidden; never satisfy batch diversity by adding a 3-hex icon selling-point template.`;
 }
 
 function normalizeNetCapacity(value: string) {

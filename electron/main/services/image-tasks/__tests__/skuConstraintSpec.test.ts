@@ -65,7 +65,6 @@ describe('skuConstraintSpec', () => {
 
     expect(prompt).toContain('NON-NEGOTIABLE SOURCE LOCK:');
     expect(prompt).toContain('LABEL DESIGN PLAN:');
-    expect(prompt).toContain('Use a bold diagonal label layout.');
     expect(prompt).toContain('The exact capacity is "NET: 50ML".');
     expect(prompt).toContain('FORBIDDEN:');
     expect(prompt).toContain('3-icon feature rows');
@@ -107,5 +106,60 @@ describe('skuConstraintSpec', () => {
       expect(sourceLock).not.toContain('Output only the primary SKU container on a clean background');
       expect(spec.final_check.join(' ')).toContain('Return Image 1 unchanged except for the primary SKU printed label');
     }
+  });
+
+  it('requires high-fidelity reference replication for sku_replica', () => {
+    const spec = buildSkuLabelConstraintSpec({
+      feature: 'sku_replica',
+      images: [
+        { role: 'source', path: '/tmp/sku.png' },
+        { role: 'reference', path: '/tmp/reference.png' },
+      ],
+    }, {
+      brand: 'wkau',
+      productName: 'HEADLIGHT RESTORE',
+      capacity: 'NET: 45ML',
+    });
+
+    expect(spec.reference_policy?.join(' ')).toContain('sole visual authority');
+    expect(spec.forbidden.join(' ')).toContain('Never keep source-label category icons');
+    expect(spec.mode_authority.join(' ')).toContain('Replace the entire source label');
+    expect(spec.image_roles.reference_images).toContain('exact label artwork to transplant');
+  });
+
+  it('renders replica authority before subordinate design notes', () => {
+    const spec = buildSkuLabelConstraintSpec({
+      feature: 'sku_replica',
+      brand: 'wkau',
+      images: [
+        { role: 'source', path: '/tmp/sku.png' },
+        { role: 'reference', path: '/tmp/reference.png' },
+      ],
+    }, {
+      brand: 'wkau',
+      productName: 'HEADLIGHT RESTORE',
+      capacity: 'NET: 45ML',
+    });
+    const prompt = renderSkuLabelExecutionPrompt(spec, 'Use a blue tube-style label layout.');
+
+    expect(prompt.indexOf('MODE AUTHORITY:')).toBeLessThan(prompt.indexOf('LABEL DESIGN NOTES'));
+    expect(prompt).toContain('match the reference label design system');
+  });
+
+  it('requires stronger batch diversity axes for sku_variation', () => {
+    const spec = buildSkuLabelConstraintSpec({
+      feature: 'sku_variation',
+      count: 2,
+      variantIndex: 2,
+      variantTotal: 2,
+      images: [{ role: 'source', path: '/tmp/sku.png' }],
+    }, {
+      brand: 'wkau',
+      productName: 'HEADLIGHT RESTORE',
+      capacity: 'NET: 45ML',
+    });
+
+    expect(spec.batch_slot).toContain('immediately distinguishable');
+    expect(spec.batch_slot).toContain('layout axis');
   });
 });

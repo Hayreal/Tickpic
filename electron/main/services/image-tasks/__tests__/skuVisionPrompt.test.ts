@@ -63,8 +63,8 @@ describe('skuVisionPrompt', () => {
   it('uses the reference label copy by default in replica mode', () => {
     const prompt = buildSkuVisionSystemPrompt('sku_replica');
 
-    expect(prompt).toContain('Replica mode: treat the reference product label as the default source of label copy');
-    expect(prompt).toContain('Do not reinterpret, modernize, simplify, or merely approximate');
+    expect(prompt).toContain('Replica mode: treat the reference product label on Images 2+ as the sole visual authority');
+    expect(prompt).toContain('Replace the entire source label design instead of mixing source palette');
   });
 
   it('keeps every variation inside the reference label design system', () => {
@@ -125,7 +125,7 @@ describe('skuVisionPrompt', () => {
     });
 
     expect(prompt).toContain('This is batch output 2/2.');
-    expect(prompt).toContain('visibly different from the other outputs');
+    expect(prompt).toContain('immediately distinguishable from every other output');
   });
 
   it('parses one shared visible-copy lock for the whole batch', () => {

@@ -31,7 +31,7 @@ export async function assembleSkuExecutionPrompt(
 
   try {
     const messages = [
-      { role: 'system' as const, content: buildAssemblerSystemPrompt() },
+      { role: 'system' as const, content: buildAssemblerSystemPrompt(options.feature) },
       {
         role: 'user' as const,
         content: buildAssemblerUserText(options.creativePlan, options.constraints),
@@ -108,6 +108,9 @@ export function validateAssembledPrompt(
     if (lockedCopy.product_name && !prompt.includes(lockedCopy.product_name)) {
       return false;
     }
+    if (constraints.feature === 'sku_replica' && !validateReplicaAssembledPrompt(prompt)) {
+      return false;
+    }
   } else {
     const fields = constraints.user_fields;
     if (fields.capacity && !prompt.includes(fields.capacity)) {
@@ -121,18 +124,36 @@ export function validateAssembledPrompt(
   return prompt.length >= 120;
 }
 
-function buildAssemblerSystemPrompt(): string {
-  return [
+function validateReplicaAssembledPrompt(prompt: string): boolean {
+  const normalized = prompt.toLowerCase();
+  const hasReferenceAuthority = /reference label|images 2\+|reference artwork|sole visual authority|reference design system/.test(normalized);
+  const forbidsSourceLabel = /source-label|source label|never keep source|replace the entire source label|no source-label/.test(normalized);
+  const requiresReferenceStructure = /hero graphic|band structure|decorative language|reference layout|reference palette/.test(normalized);
+  return hasReferenceAuthority && forbidsSourceLabel && requiresReferenceStructure;
+}
+
+function buildAssemblerSystemPrompt(feature: string): string {
+  const lines = [
     'You are the execution-prompt assembler for a US ecommerce image-edit task.',
     'You receive a creative plan plus non-negotiable constraints.',
     'Return ONLY one JSON object: {"execution_prompt":"..."}.',
     'Merge them into one concise English instruction for an image editing model.',
     'Constraints always override conflicting creative plan wording.',
     'Remove duplicate rules, forbidden actions, and analysis language.',
-    'Do not add new creative requirements beyond the creative plan.',
-    'Preserve every locked brand, product name, capacity, packaging lock, and source-lock rule from constraints.',
+    'Preserve every locked brand, product name, capacity, packaging lock, physics realism rule, and source-lock rule from constraints.',
     'Return English only.',
-  ].join('\n');
+  ];
+
+  if (feature === 'sku_replica') {
+    lines.push(
+      'For sku_replica, the execution prompt MUST state that Images 2+ are the sole visual authority for the new label.',
+      'It MUST require replacing the entire source label design, reproducing the reference label layout, band structure, hero graphic, and decorative language faithfully.',
+      'It MUST forbid keeping any source-label icons, palette bands, or category imagery.',
+      'locked_copy overrides only text fields; all label visuals must come from the reference label.',
+    );
+  }
+
+  return lines.join('\n');
 }
 
 function buildAssemblerUserText(

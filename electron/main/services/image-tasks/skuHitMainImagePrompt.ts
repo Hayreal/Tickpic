@@ -9,6 +9,7 @@ export function buildSkuHitMainImagePrompt(request: ImageTaskRequest, designPlan
     buildImageRolesSection(),
     buildKeepSection(),
     buildProductReplaceSection(),
+    buildPhysicsSection(),
     buildDifferentiationSection(request),
     buildCopySection(request),
     buildBoundedUserInputSection(request),
@@ -62,6 +63,16 @@ function buildProductReplaceSection() {
   ].join('\n');
 }
 
+function buildPhysicsSection() {
+  return [
+    'PHYSICS REALISM:',
+    'All tools, scrapers, brushes, and applicators must be held by a visible hand, rest on a surface, or contact the repair surface with believable pressure and shadow.',
+    'Never show floating scrapers, hovering putty, stiff whipped-cream jar peaks, or product clumps without support.',
+    'Keep one coherent light direction and realistic scale between the SKU, hands, tools, furniture, walls, and repair areas.',
+    'The final image must read as one believable photograph, not pasted layers with mismatched lighting.',
+  ].join('\n');
+}
+
 function buildDifferentiationSection(request: ImageTaskRequest) {
   const lines = [
     'MAJOR DIFFERENTIATION:',
@@ -70,7 +81,7 @@ function buildDifferentiationSection(request: ImageTaskRequest) {
     'Never do recolor-only, mirror/flip, left-right swap, headline-only nudge, scene-for-scene copy, or paste-SKU-onto-original-layout.',
     'Keep Image 1 usage-scene type, but regenerate concrete assets, angles, and composition.',
     'The new scene must not reuse the exact same objects, angle, and composition as Image 1.',
-    'If Image 1 includes before/after repair logic, preserve that marketing logic but redesign the presentation; the product must have strong exposure and must not appear too small.',
+    'If Image 1 includes before/after repair logic, preserve that marketing logic but redesign the presentation; keep the SKU clearly visible with realistic scale, not an oversized hero jar.',
   ];
 
   if (request.variantTotal && request.variantTotal > 1) {
