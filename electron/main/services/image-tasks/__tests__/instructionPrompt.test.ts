@@ -147,7 +147,8 @@ describe('instructionPrompt', () => {
     expect(text).not.toContain(ENGLISH_ONLY_VISIBLE_TEXT_RULE);
     expect(text).toContain('Use the supplied SKU as the only product identity reference.');
     expect(text).toContain('Show a natural hand directly using or holding the SKU beside the actual use target.');
-    expect(text).toContain('When showing product action, it must originate from the SKU’s real actuator');
+    expect(text).toContain('Show the SKU’s real category-appropriate use action or visible after-use result on the actual use target.');
+    expect(text).toContain('spray origin: real nozzle orifice only');
     expect(text).toContain('User scene direction: fixative spray.');
     expect(text).toContain('Additional direction: premium look.');
     expect(text).toContain('Avoid: extra bottles.');
@@ -170,7 +171,7 @@ describe('instructionPrompt', () => {
 
   it.each(['auto', 'show', 'hide'] as const)('maps main-image effect mode %s into JSON', (productEffectMode) => {
     const spec = productSetSpec({ feature: 'product_main_image', productEffectMode });
-    expect(spec.effect.mode).toBe(productEffectMode);
+    expect(spec.effect.mode).toBe(productEffectMode === 'show' ? 'show' : 'hide');
     if (productEffectMode === 'show') {
       expect(spec.spray_physics.nozzle_must_match_sku).toBe(true);
     } else {

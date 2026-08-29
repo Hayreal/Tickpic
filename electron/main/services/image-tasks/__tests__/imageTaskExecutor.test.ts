@@ -339,7 +339,10 @@ describe('imageTaskExecutor', () => {
         generateSkuInstructions: async () => ({
           visionModel: 'gpt-5.4-mini',
           rawContent: '{"instructions":[{"index":1,"prompt":"Edit the supplied SKU image; only redesign its label."}]}',
-          batch: { instructions: [{ index: 1, prompt: 'Edit the supplied SKU image; only redesign its label.' }] },
+          batch: {
+            lockedCopy: { brand: '', productName: '', capacity: '' },
+            instructions: [{ index: 1, prompt: 'Edit the supplied SKU image; only redesign its label.' }],
+          },
           executionPrompts: ['Edit the supplied SKU image; only redesign its label.'],
         }),
       },
@@ -379,6 +382,137 @@ describe('imageTaskExecutor', () => {
     expect(prompts).toEqual(['Edit the supplied SKU image; only redesign its label.']);
     expect(executionImageCounts).toEqual([2]);
   });
+
+  it('shares one full vision plan across split tasks in the same SKU batch', async () => {
+    const plannedCounts: number[] = [];
+    const prompts: string[] = [];
+    const executor = createImageTaskExecutor({
+      runtimeConfig,
+      visionInstructionClient: {
+        generateReplaceProductInstruction: async () => {
+          throw new Error('not used');
+        },
+        generateProductSetInstructions: async () => {
+          throw new Error('not used');
+        },
+        generateSkuInstructions: async ({ plan }) => {
+          plannedCounts.push(plan.count);
+          const instructions = Array.from({ length: plan.count }, (_, index) => ({
+            index: index + 1,
+            prompt: `batch-prompt-${index + 1}`,
+          }));
+          return {
+            visionModel: 'gpt-5.4-mini',
+            rawContent: JSON.stringify({ instructions }),
+            batch: {
+              lockedCopy: { brand: '', productName: '', capacity: '' },
+              instructions,
+            },
+            executionPrompts: instructions.map((instruction) => instruction.prompt),
+          };
+        },
+      },
+      modelGateway: {
+        executeImage: async () => {
+          throw new Error('executeImage should not be called');
+        },
+        executeSingleImage: async ({ finalPrompt }) => {
+          prompts.push(finalPrompt);
+          return {
+            images: [{
+              fileName: 'result-1.png',
+              buffer: new Uint8Array([1]),
+              mimeType: 'image/png',
+            }],
+          };
+        },
+      },
+      artifactStore: {
+        begin: async ({ task }) => createMockArtifactSession(task.taskId, { fixedResultIndex: 1 }),
+        save: async () => {
+          throw new Error('save should not be called directly');
+        },
+      },
+    });
+    const sharedRequest = {
+      feature: 'sku_variation' as const,
+      count: 1,
+      variantTotal: 2,
+      outputBatchId: 'sku-batch-1',
+      images: [{ role: 'source' as const, path: '/authorized/input/sku.png' }],
+    };
+
+    await Promise.all([
+      executor(createTask({ ...sharedRequest, variantIndex: 1 }), new AbortController().signal),
+      executor({
+        ...createTask({ ...sharedRequest, variantIndex: 2 }),
+        taskId: 'task-2',
+      }, new AbortController().signal),
+    ]);
+
+    expect(plannedCounts).toEqual([2]);
+    expect(prompts).toEqual(['batch-prompt-1', 'batch-prompt-2']);
+  });
+
+  it.each(['sku_variation', 'sku_original'] as const)(
+    'passes source and reference images to final %s editing',
+    async (feature) => {
+      const executionImageCounts: number[] = [];
+      const executor = createImageTaskExecutor({
+        runtimeConfig,
+        visionInstructionClient: {
+          generateReplaceProductInstruction: async () => {
+            throw new Error('not used');
+          },
+          generateProductSetInstructions: async () => {
+            throw new Error('not used');
+          },
+          generateSkuInstructions: async () => ({
+            visionModel: 'gpt-5.4-mini',
+            rawContent: '{"instructions":[{"index":1,"prompt":"label prompt"}]}',
+            batch: {
+              lockedCopy: { brand: '', productName: '', capacity: '' },
+              instructions: [{ index: 1, prompt: 'label prompt' }],
+            },
+            executionPrompts: ['label prompt'],
+          }),
+        },
+        modelGateway: {
+          executeImage: async () => {
+            throw new Error('executeImage should not be called');
+          },
+          executeSingleImage: async ({ plan }) => {
+            executionImageCounts.push(plan.executionImages.length);
+            return {
+              images: [{
+                fileName: 'result-1.png',
+                buffer: new Uint8Array([1]),
+                mimeType: 'image/png',
+              }],
+            };
+          },
+        },
+        artifactStore: {
+          begin: async ({ task }) => createMockArtifactSession(task.taskId, { fixedResultIndex: 1 }),
+          save: async () => {
+            throw new Error('save should not be called directly');
+          },
+        },
+      });
+
+      await executor(createTask({
+        feature,
+        count: 1,
+        productName: feature === 'sku_original' ? 'Heavy Oil Eliminator' : undefined,
+        images: [
+          { role: 'source', path: '/authorized/input/sku.png' },
+          { role: 'reference', path: '/authorized/input/reference.png' },
+        ],
+      }), new AbortController().signal);
+
+      expect(executionImageCounts).toEqual([2]);
+    },
+  );
 
   it('passes the handheld reference only to variants that require it', async () => {
     const executionImageCounts: number[] = [];

@@ -23,6 +23,7 @@ import {
 import {
   buildSkuVisionSystemPrompt,
   buildSkuVisionUserText,
+  finalizeSkuVisionInstruction,
   parseSkuVisionBatch,
 } from './skuVisionPrompt.js';
 import { isSkuFeature } from './skuExecutionPrompt.js';
@@ -312,7 +313,9 @@ export function createVisionInstructionClient(
         visionModel,
         rawContent: content,
         batch,
-        executionPrompts: batch.instructions.map((instruction) => instruction.prompt),
+        executionPrompts: batch.instructions.map((instruction) => (
+          finalizeSkuVisionInstruction(task.request, instruction.prompt, batch.lockedCopy)
+        )),
       };
     },
   };
