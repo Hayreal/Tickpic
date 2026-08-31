@@ -57,6 +57,11 @@ function makeTask(index: number, updatedAt: string): TaskRecord {
   };
 }
 
+function clickTaskFeatureInTable(feature: string) {
+  const tableBody = document.getElementById('tasks-table-body')!;
+  fireEvent.click(within(tableBody).getByText(feature));
+}
+
 describe('Profile', () => {
   it('shows application process logs instead of task metrics', () => {
     render(<Profile tasks={[]} onRefresh={vi.fn()} onRestoreTask={vi.fn()} />);
@@ -80,6 +85,30 @@ describe('Profile', () => {
     expect(rows).toHaveLength(10);
     expect(rows[0]).toHaveTextContent('功能 12');
     expect(rows[9]).toHaveTextContent('功能 3');
+  });
+
+  it('filters tasks by feature and jumps to a specific page', () => {
+    const tasks = Array.from({ length: 12 }, (_, index) => ({
+      ...makeTask(index + 1, `2026-06-${String(index + 1).padStart(2, '0')}T10:00:00.000Z`),
+      feature: index % 2 === 0 ? 'SKU 复刻' : 'SKU 裂变',
+    }));
+
+    render(<Profile tasks={tasks} onRefresh={vi.fn()} onRestoreTask={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText('跳转页码'), {
+      target: { value: '2' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '跳转' }));
+    expect(screen.getByText('显示 11-12 / 12')).toBeInTheDocument();
+
+    fireEvent.change(document.getElementById('tasks-feature-filter')!, {
+      target: { value: 'SKU 复刻' },
+    });
+
+    const tableBody = document.getElementById('tasks-table-body')!;
+    expect(within(tableBody).getAllByRole('row')).toHaveLength(6);
+    expect(within(tableBody).queryByText('SKU 裂变')).not.toBeInTheDocument();
+    expect(screen.getByText('显示 1-6 / 6')).toBeInTheDocument();
   });
 
   it('clears opening directory state when closing the drawer during an open request', async () => {
@@ -113,7 +142,7 @@ describe('Profile', () => {
 
     render(<Profile tasks={[task]} onRefresh={vi.fn()} onRestoreTask={vi.fn()} />);
 
-    fireEvent.click(screen.getByText('贴纸复刻'));
+    clickTaskFeatureInTable('贴纸复刻');
     fireEvent.click(screen.getByText('打开输出目录'));
     expect(screen.getByText('打开中...')).toBeInTheDocument();
 
@@ -164,7 +193,7 @@ describe('Profile', () => {
 
     render(<Profile tasks={[task]} onRefresh={vi.fn()} onRestoreTask={vi.fn()} />);
 
-    fireEvent.click(screen.getByText('贴纸复刻'));
+    clickTaskFeatureInTable('贴纸复刻');
 
     expect(screen.getByText('任务详情')).toBeInTheDocument();
     expect(screen.getByText('复刻贴纸风格')).toBeInTheDocument();
@@ -207,7 +236,7 @@ describe('Profile', () => {
 
     render(<Profile tasks={[task]} onRefresh={vi.fn()} onRestoreTask={vi.fn()} />);
 
-    fireEvent.click(screen.getByText('贴纸复刻'));
+    clickTaskFeatureInTable('贴纸复刻');
 
     const copyButtons = screen.getAllByTitle('复制图片');
     expect(copyButtons).toHaveLength(2);
@@ -260,7 +289,7 @@ describe('Profile', () => {
     );
 
     expect(screen.getByText('批量任务 · 2 项')).toBeInTheDocument();
-    expect(screen.getAllByText('贴纸裂变')).toHaveLength(1);
+    expect(within(document.getElementById('tasks-table-body')!).getAllByText('贴纸裂变')).toHaveLength(1);
 
     fireEvent.click(screen.getByText('批量任务 · 2 项'));
 

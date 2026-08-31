@@ -30,6 +30,39 @@ import { getFeatureRoute } from '../shared/view/featureRoutes';
 
 const ITEMS_PER_PAGE = 10;
 
+function buildPageNumbers(current: number, total: number): Array<number | 'ellipsis'> {
+  if (total <= 9) {
+    return Array.from({ length: total }, (_, index) => index + 1);
+  }
+
+  const pages = new Set<number>([
+    1,
+    total,
+    current,
+    current - 1,
+    current + 1,
+    current - 2,
+    current + 2,
+  ]);
+  const sorted = [...pages].filter((page) => page >= 1 && page <= total).sort((left, right) => left - right);
+  const result: Array<number | 'ellipsis'> = [];
+  for (let index = 0; index < sorted.length; index += 1) {
+    const page = sorted[index]!;
+    if (index > 0 && page - sorted[index - 1]! > 1) {
+      result.push('ellipsis');
+    }
+    result.push(page);
+  }
+  return result;
+}
+
+function clampPage(page: number, totalPages: number) {
+  if (totalPages <= 0) {
+    return 1;
+  }
+  return Math.min(Math.max(1, page), totalPages);
+}
+
 function canRestoreGroup(group: TaskListGroup): boolean {
   const feature = group.representative.request?.feature;
   if (!feature) {
@@ -54,8 +87,10 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
   const logsEndRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Running' | 'Completed' | 'Failed'>('All');
+  const [featureFilter, setFeatureFilter] = useState('All');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageJumpValue, setPageJumpValue] = useState('');
   const [openingTaskId, setOpeningTaskId] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<TaskListGroup | null>(null);
   const selectedTask = selectedGroup?.representative ?? null;
@@ -111,6 +146,16 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
     }
   }, [logs]);
 
+  const featureOptions = useMemo(() => {
+    const features = new Set<string>();
+    for (const task of tasks) {
+      if (task.feature.trim()) {
+        features.add(task.feature);
+      }
+    }
+    return [...features].sort((left, right) => left.localeCompare(right, 'zh-CN'));
+  }, [tasks]);
+
   const filteredGroups = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return groupTasksForDisplay(tasks).filter((group) => {
@@ -123,23 +168,34 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
         ...item.taskIds,
       ].some((value) => value.toLowerCase().includes(query));
       const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      const matchesFeature = featureFilter === 'All' || item.feature === featureFilter;
+      return matchesSearch && matchesStatus && matchesFeature;
     });
-  }, [tasks, searchQuery, statusFilter]);
+  }, [tasks, searchQuery, statusFilter, featureFilter]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter]);
+  }, [searchQuery, statusFilter, featureFilter]);
 
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedGroups = filteredGroups.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   const totalPages = Math.ceil(filteredGroups.length / ITEMS_PER_PAGE);
+  const visiblePages = buildPageNumbers(currentPage, totalPages);
 
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
+
+  const handlePageJump = () => {
+    const parsed = Number.parseInt(pageJumpValue.trim(), 10);
+    if (!Number.isFinite(parsed)) {
+      return;
+    }
+    setCurrentPage(clampPage(parsed, totalPages));
+    setPageJumpValue('');
+  };
 
   const statusBadge = (status: TaskRecord['status']) => {
     switch (status) {
@@ -221,6 +277,20 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
               />
+            </div>
+            <div className="relative">
+              <select
+                id="tasks-feature-filter"
+                value={featureFilter}
+                onChange={(e) => setFeatureFilter(e.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring appearance-none pr-8 max-w-[10rem]"
+              >
+                <option value="All">全部功能</option>
+                {featureOptions.map((feature) => (
+                  <option key={feature} value={feature}>{feature}</option>
+                ))}
+              </select>
+              <Filter className="absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             </div>
             <div className="relative">
               <select
@@ -347,42 +417,66 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
             显示 {filteredGroups.length === 0 ? 0 : Math.min(startIndex + 1, filteredGroups.length)}-
             {Math.min(startIndex + ITEMS_PER_PAGE, filteredGroups.length)} / {filteredGroups.length}
           </span>
-          <div className="flex items-center gap-1" id="profile-pagination">
+          <div className="flex flex-wrap items-center justify-end gap-2" id="profile-pagination">
             <Button
               id="pagination-prev"
               variant="outline"
               size="icon"
               className="h-7 w-7"
               disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            {Array.from({ length: totalPages || 1 }).map((_, idx) => {
-              const p = idx + 1;
-              return (
+            {visiblePages.map((page, index) => (
+              page === 'ellipsis' ? (
+                <span key={`ellipsis-${index}`} className="px-1 text-xs text-muted-foreground">…</span>
+              ) : (
                 <Button
-                  key={p}
-                  id={`pagination-page-${p}`}
-                  variant={currentPage === p ? 'default' : 'ghost'}
+                  key={page}
+                  id={`pagination-page-${page}`}
+                  variant={currentPage === page ? 'default' : 'ghost'}
                   size="icon"
                   className="h-7 w-7 text-xs"
-                  onClick={() => setCurrentPage(p)}
+                  onClick={() => setCurrentPage(page)}
                 >
-                  {p}
+                  {page}
                 </Button>
-              );
-            })}
+              )
+            ))}
             <Button
               id="pagination-next"
               variant="outline"
               size="icon"
               className="h-7 w-7"
               disabled={currentPage === totalPages || totalPages === 0}
-              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+              onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
+            <form
+              className="flex items-center gap-1.5 pl-1"
+              onSubmit={(event) => {
+                event.preventDefault();
+                handlePageJump();
+              }}
+            >
+              <span className="text-xs text-muted-foreground whitespace-nowrap">跳至</span>
+              <Input
+                id="pagination-jump-input"
+                type="number"
+                min={1}
+                max={Math.max(totalPages, 1)}
+                value={pageJumpValue}
+                onChange={(event) => setPageJumpValue(event.target.value)}
+                className="h-7 w-14 px-2 text-xs"
+                aria-label="跳转页码"
+              />
+              <span className="text-xs text-muted-foreground whitespace-nowrap">页</span>
+              <Button id="pagination-jump-submit" type="submit" variant="outline" size="sm" className="h-7 px-2 text-xs">
+                跳转
+              </Button>
+            </form>
           </div>
         </div>
       </Card>
