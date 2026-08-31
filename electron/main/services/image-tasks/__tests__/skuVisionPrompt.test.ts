@@ -135,6 +135,10 @@ describe('skuVisionPrompt', () => {
         product_name: 'Heavy Oil Eliminator',
         capacity: 'NET: 50ML',
       },
+      container_lock: {
+        form: 'bottle',
+        shape_description: 'tall cylindrical squeeze bottle with flip cap',
+      },
       instructions: [
         { index: 1, prompt: 'Use a bold diagonal label layout.' },
         { index: 2, prompt: 'Use a centered modular label layout.' },
@@ -146,6 +150,55 @@ describe('skuVisionPrompt', () => {
       productName: 'Heavy Oil Eliminator',
       capacity: 'NET: 50ML',
     });
+  });
+
+  it('parses container_lock for squat paste jars', () => {
+    const batch = parseSkuVisionBatch(JSON.stringify({
+      locked_copy: {
+        brand: 'JOKJOK',
+        product_name: 'PLASTIC RENOVATION',
+        capacity: 'NET: 40G',
+      },
+      container_lock: {
+        form: 'jar',
+        height_tier: 'low',
+        shape_description: 'squat wide-mouth open jar, diameter greater than height, threaded neck without lid, visible black paste with swirled peak',
+      },
+      instructions: [{ index: 1, prompt: 'Use a bold premium label layout.' }],
+    }), 1);
+
+    expect(batch.containerLock).toEqual({
+      form: 'jar',
+      heightTier: 'low',
+      shapeDescription: 'squat wide-mouth open jar, diameter greater than height, threaded neck without lid, visible black paste with swirled peak',
+    });
+  });
+
+  it('injects container lock lines into the execution prompt', () => {
+    const prompt = finalizeSkuVisionInstruction({
+      feature: 'sku_replica',
+      images: [{ role: 'source', path: '/authorized/input/sku.png' }],
+    }, 'Reproduce the reference label faithfully.', {
+      brand: 'JOKJOK',
+      productName: 'PLASTIC RENOVATION',
+      capacity: 'NET: 40G',
+    }, {
+      form: 'jar',
+      heightTier: 'low',
+      shapeDescription: 'squat wide-mouth open jar, diameter greater than height, threaded neck without lid, visible black paste with swirled peak',
+    });
+
+    expect(prompt).toContain('Jar height tier: low');
+    expect(prompt).toContain('squat wide-mouth open jar, diameter greater than height');
+    expect(prompt).toContain('Never elongate a low jar');
+  });
+
+  it('requires jar height tier guidance in the vision system prompt', () => {
+    const prompt = buildSkuVisionSystemPrompt('sku_replica');
+
+    expect(prompt).toContain('container_lock');
+    expect(prompt).toContain('height_tier');
+    expect(prompt).toContain('low (矮罐): visible diameter is equal to or greater than body height');
   });
 
   it.each(['sku_replica', 'sku_variation', 'sku_original'] as const)(
@@ -272,9 +325,16 @@ describe('skuVisionPrompt', () => {
     expect(executionPrompt).toContain('do not show cars, vehicles, headlights, engines, dashboards, wheels, or other automotive imagery');
   });
 
+  it('rejects a vision batch missing container_lock', () => {
+    expect(() => parseSkuVisionBatch(
+      '{"locked_copy":{"brand":"","product_name":"","capacity":""},"instructions":[{"index":1,"prompt":"Use a bold label."}]}',
+      1,
+    )).toThrow('container_lock');
+  });
+
   it('rejects a vision batch with Chinese execution text', () => {
     expect(() => parseSkuVisionBatch(
-      '{"locked_copy":{"brand":"","product_name":"","capacity":""},"instructions":[{"index":1,"prompt":"只改标签"}]}',
+      '{"locked_copy":{"brand":"","product_name":"","capacity":""},"container_lock":{"form":"jar","height_tier":"low","shape_description":"squat jar"},"instructions":[{"index":1,"prompt":"只改标签"}]}',
       1,
     )).toThrow('English-only');
   });

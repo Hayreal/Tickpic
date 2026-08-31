@@ -8,6 +8,12 @@ import type { ImageTaskRuntimeConfig } from '../../../../../src/shared/domain/im
 
 const TEST_OUTPUT_ROOT = path.join(os.tmpdir(), 'tickpic-image-task-executor-test');
 
+const DEFAULT_SKU_CONTAINER_LOCK = {
+  form: 'jar' as const,
+  heightTier: 'low' as const,
+  shapeDescription: 'squat wide-mouth open jar, diameter greater than height',
+};
+
 function outputPaths(taskId: string) {
   const outputDir = path.join(TEST_OUTPUT_ROOT, taskId);
   return {
@@ -341,6 +347,7 @@ describe('imageTaskExecutor', () => {
           rawContent: '{"instructions":[{"index":1,"prompt":"Edit the supplied SKU image; only redesign its label."}]}',
           batch: {
             lockedCopy: { brand: '', productName: '', capacity: '' },
+            containerLock: DEFAULT_SKU_CONTAINER_LOCK,
             instructions: [{ index: 1, prompt: 'Edit the supplied SKU image; only redesign its label.' }],
           },
           executionPrompts: ['Edit the supplied SKU image; only redesign its label.'],
@@ -380,7 +387,7 @@ describe('imageTaskExecutor', () => {
     }), new AbortController().signal);
 
     expect(prompts).toEqual(['Edit the supplied SKU image; only redesign its label.']);
-    expect(executionImageCounts).toEqual([2]);
+    expect(executionImageCounts).toEqual([1]);
   });
 
   it('plans a hit-main prompt before editing the reference and SKU images', async () => {
@@ -470,6 +477,7 @@ describe('imageTaskExecutor', () => {
             }),
             batch: {
               lockedCopy: { brand: '', productName: '', capacity: '' },
+              containerLock: DEFAULT_SKU_CONTAINER_LOCK,
               instructions,
             },
             executionPrompts: instructions.map((instruction) => instruction.prompt),
@@ -510,7 +518,7 @@ describe('imageTaskExecutor', () => {
   });
 
   it.each(['sku_variation', 'sku_original'] as const)(
-    'passes source and reference images to final %s editing',
+    'passes only the source image to final %s editing so reference label art cannot reshape the container',
     async (feature) => {
       const executionImageCounts: number[] = [];
       const executor = createImageTaskExecutor({
@@ -527,6 +535,7 @@ describe('imageTaskExecutor', () => {
             rawContent: '{"instructions":[{"index":1,"prompt":"label prompt"}]}',
             batch: {
               lockedCopy: { brand: '', productName: '', capacity: '' },
+              containerLock: DEFAULT_SKU_CONTAINER_LOCK,
               instructions: [{ index: 1, prompt: 'label prompt' }],
             },
             executionPrompts: ['label prompt'],
@@ -565,7 +574,7 @@ describe('imageTaskExecutor', () => {
         ],
       }), new AbortController().signal);
 
-      expect(executionImageCounts).toEqual([2]);
+      expect(executionImageCounts).toEqual([1]);
     },
   );
 

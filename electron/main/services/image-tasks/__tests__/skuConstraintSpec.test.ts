@@ -108,6 +108,25 @@ describe('skuConstraintSpec', () => {
     }
   });
 
+  it('locks low jar geometry when container lock is provided', () => {
+    const spec = buildSkuLabelConstraintSpec({
+      feature: 'sku_replica',
+      images: [{ role: 'source', path: '/tmp/sku.png' }],
+    }, {
+      brand: 'JOKJOK',
+      productName: 'PLASTIC RENOVATION',
+      capacity: 'NET: 40G',
+    }, {
+      form: 'jar',
+      heightTier: 'low',
+      shapeDescription: 'squat wide-mouth open jar, diameter greater than height',
+    });
+    const prompt = renderSkuLabelExecutionPrompt(spec, 'Use a bold label layout.');
+
+    expect(prompt).toContain('Jar height tier: low');
+    expect(prompt).toContain('squat wide-mouth open jar, diameter greater than height');
+  });
+
   it('requires high-fidelity reference replication for sku_replica', () => {
     const spec = buildSkuLabelConstraintSpec({
       feature: 'sku_replica',

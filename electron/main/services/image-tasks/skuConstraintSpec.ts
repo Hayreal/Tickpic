@@ -1,4 +1,5 @@
 import type { ImageFeature, ImageTaskRequest } from '../../../../src/shared/domain/imageFeatureApi.js';
+import { buildContainerLockLines, type SkuContainerLock } from './skuContainerLock.js';
 
 const HAN_CHARACTER_PATTERN = /\p{Script=Han}/u;
 
@@ -73,6 +74,7 @@ export function sanitizePlannedInstructionForLockedCopy(
 export function buildSkuLabelConstraintSpec(
   request: ImageTaskRequest,
   lockedCopy: SkuLockedCopy,
+  containerLock?: SkuContainerLock,
 ): SkuLabelConstraintSpec {
   assertSkuLabelFeature(request.feature);
   const hasReference = request.images?.some((image) => image.role === 'reference') ?? false;
@@ -88,7 +90,7 @@ export function buildSkuLabelConstraintSpec(
         }
         : {}),
     },
-    source_lock: buildSourceLockLines(request),
+    source_lock: buildSourceLockLines(request, containerLock),
     ...(hasReference ? { reference_policy: buildReferencePolicyLines(request) } : {}),
     mode_authority: buildModeAuthorityLines(request),
     locked_copy: {
@@ -97,8 +99,8 @@ export function buildSkuLabelConstraintSpec(
       ...(lockedCopy.capacity ? { capacity: lockedCopy.capacity } : {}),
     },
     copy_rules: buildCopyRules(request, lockedCopy),
-    forbidden: buildForbiddenLines(request),
-    final_check: buildFinalCheckLines(request, lockedCopy),
+    forbidden: buildForbiddenLines(request, containerLock),
+    final_check: buildFinalCheckLines(request, lockedCopy, containerLock),
     ...(resolveBatchSlotDirective(request) ? { batch_slot: resolveBatchSlotDirective(request) } : {}),
     ...(request.prompt?.trim() ? { user_supplement: request.prompt.trim() } : {}),
     ...(request.negativePrompt?.trim() ? { user_negative: request.negativePrompt.trim() } : {}),
@@ -147,11 +149,12 @@ function assertSkuLabelFeature(feature: ImageFeature): asserts feature is SkuLab
   }
 }
 
-function buildSourceLockLines(request: ImageTaskRequest): string[] {
+function buildSourceLockLines(request: ImageTaskRequest, containerLock?: SkuContainerLock): string[] {
   return [
     'Image 1 is the fixed source canvas, not a visual reference to regenerate.',
     'Preserve exactly the canvas composition, crop, whitespace, background, primary SKU pixel position, outer silhouette, bottle height-to-width ratio, cap-to-body ratio, shoulders, neck, base, material, camera angle, perspective, lighting, reflections, and shadows.',
     'Never redraw, resize, stretch, compress, zoom, recenter, crop, or replace the container.',
+    ...(containerLock ? buildContainerLockLines(containerLock) : []),
     ...SKU_LABEL_ONLY_EDIT_RULES,
     'If Image 1 is a dimension diagram, preserve all dimension lines, arrows, numbers, and units exactly; never move, cover, translate, or redraw them.',
     'If Image 1 is a blank package render, add the label only inside its front printable area without changing the blank container geometry.',
@@ -232,13 +235,20 @@ function buildCopyRules(request: ImageTaskRequest, copy: SkuLockedCopy): string[
   return lines;
 }
 
-function buildForbiddenLines(request: ImageTaskRequest): string[] {
+function buildForbiddenLines(request: ImageTaskRequest, containerLock?: SkuContainerLock): string[] {
   const lines = [
     'Never alter the SKU container, crop, camera angle, perspective, silhouette, cap, proportions, material, transparency, lighting, background, or any non-label object.',
     'Never omit locked capacity when locked_copy.capacity is set.',
     'Never merge or duplicate brand marks from multiple images.',
     ...SKU_ANTI_AI_LABEL_TEMPLATE_FORBIDDEN,
   ];
+  if (containerLock?.form === 'jar' && containerLock.heightTier === 'low') {
+    lines.push('Never elongate, stretch, or slim the squat jar; never convert a low jar into a medium or tall jar.');
+    lines.push('Never increase body height relative to diameter.');
+  }
+  if (containerLock?.form === 'jar' && containerLock.heightTier === 'high') {
+    lines.push('Never compress or shorten the tall jar into a squat or medium jar.');
+  }
   if (request.feature === 'sku_original') {
     lines.push('Never copy promotional slogans, icons, or benefit modules from Image 1 source label unless the user explicitly requests them.');
     lines.push('Never use source-label category imagery such as vehicles, headlights, engines, or other source-product icons on the new label.');
@@ -255,7 +265,11 @@ function buildForbiddenLines(request: ImageTaskRequest): string[] {
   return lines;
 }
 
-function buildFinalCheckLines(request: ImageTaskRequest, lockedCopy: SkuLockedCopy): string[] {
+function buildFinalCheckLines(
+  request: ImageTaskRequest,
+  lockedCopy: SkuLockedCopy,
+  containerLock?: SkuContainerLock,
+): string[] {
   const lines = lockedCopy.capacity
     ? [`The redesigned label must visibly show ${JSON.stringify(lockedCopy.capacity)}.`]
     : ['If Image 1 primary label shows any net weight or volume, display it on the new label with the exact "NET:" prefix.'];
@@ -266,6 +280,12 @@ function buildFinalCheckLines(request: ImageTaskRequest, lockedCopy: SkuLockedCo
   }
 
   lines.push('Source container geometry and all locked visible copy override any conflicting creative plan wording.');
+  if (containerLock) {
+    lines.push(`The output container must still match Image 1 ${containerLock.form} geometry: ${containerLock.shapeDescription}`);
+    if (containerLock.form === 'jar' && containerLock.heightTier) {
+      lines.push(`Jar height tier must remain ${containerLock.heightTier}; changing the height-to-diameter ratio is invalid.`);
+    }
+  }
   return lines;
 }
 

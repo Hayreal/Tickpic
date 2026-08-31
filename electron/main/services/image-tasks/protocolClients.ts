@@ -194,7 +194,7 @@ function captionForExecutionImage(image: ImageInput, index: number): string {
     case 'reference':
       return `Image ${index}: handheld grip/pose reference — match hand pose and grip exactly when handheld.required is true`;
     case 'source':
-      return `Image ${index}: source scene`;
+      return `Image ${index}: fixed SKU source canvas — preserve exact container geometry, crop, proportions, and every non-label pixel; edit only the printed label area`;
     default:
       return `Image ${index}: ${image.role}`;
   }

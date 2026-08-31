@@ -229,7 +229,9 @@ export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions)
           )
           : isHitMain
             ? orderHitMainExecutionImages(plan.executionImages)
-            : plan.executionImages;
+            : isSku
+              ? filterSkuLabelExecutionImages(plan.executionImages)
+              : plan.executionImages;
         const variantPlan = plan.count > 1
           ? { ...plan, request: variantRequest, count: 1, executionImages }
           : { ...plan, executionImages };
@@ -423,6 +425,13 @@ async function resolveProductSetVisionResult(input: {
   });
 
   return result;
+}
+
+function filterSkuLabelExecutionImages(
+  executionImages: ImageTaskPlan['executionImages'],
+) {
+  const sourceImages = executionImages.filter((image) => image.role === 'source');
+  return sourceImages.length > 0 ? sourceImages : executionImages.slice(0, 1);
 }
 
 function filterProductSetExecutionImages(

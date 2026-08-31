@@ -43,6 +43,7 @@ import {
   renderSkuHitMainExecutionPrompt,
 } from './skuHitMainConstraintSpec.js';
 import { assembleSkuExecutionPrompt } from './skuPromptAssembler.js';
+import { appendSkuContainerLockSuffix } from './skuContainerLock.js';
 import { isSkuHitMainImageFeature } from './skuHitMainImagePrompt.js';
 import { isSkuFeature } from './skuExecutionPrompt.js';
 import {
@@ -466,7 +467,7 @@ async function assembleSkuLabelExecutionPrompts(input: {
     };
     const lockedCopy = resolveLockedCopy(variantRequest, input.batch.lockedCopy);
     const creativePlan = sanitizePlannedInstructionForLockedCopy(instruction.prompt, lockedCopy);
-    const spec = buildSkuLabelConstraintSpec(variantRequest, lockedCopy);
+    const spec = buildSkuLabelConstraintSpec(variantRequest, lockedCopy, input.batch.containerLock);
     const { prompt } = await assembleSkuExecutionPrompt({
       openai: input.openai,
       model: input.visionModel,
@@ -477,7 +478,7 @@ async function assembleSkuLabelExecutionPrompts(input: {
       renderFallback: () => renderSkuLabelExecutionPrompt(spec, creativePlan),
       abortSignal: input.abortSignal,
     });
-    prompts.push(prompt);
+    prompts.push(appendSkuContainerLockSuffix(prompt, input.batch.containerLock));
   }
   return prompts;
 }

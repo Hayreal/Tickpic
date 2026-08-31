@@ -111,6 +111,9 @@ export function validateAssembledPrompt(
     if (constraints.feature === 'sku_replica' && !validateReplicaAssembledPrompt(prompt)) {
       return false;
     }
+    if (!validateContainerLockAssembledPrompt(prompt, constraints)) {
+      return false;
+    }
   } else {
     const fields = constraints.user_fields;
     if (fields.capacity && !prompt.includes(fields.capacity)) {
@@ -132,6 +135,29 @@ function validateReplicaAssembledPrompt(prompt: string): boolean {
   return hasReferenceAuthority && forbidsSourceLabel && requiresReferenceStructure;
 }
 
+function validateContainerLockAssembledPrompt(
+  prompt: string,
+  constraints: SkuLabelConstraintSpec,
+): boolean {
+  const lockLine = constraints.source_lock.find((line) => line.startsWith('Image 1 container form is locked to'));
+  if (!lockLine) {
+    return true;
+  }
+
+  const normalized = prompt.toLowerCase();
+  if (/jar height tier:\s*low|squat wide-mouth|diameter must remain equal to or greater than height/.test(normalized)) {
+    return true;
+  }
+  if (/jar height tier:\s*medium|jar height tier:\s*high/.test(normalized)) {
+    return true;
+  }
+  if (/container form is locked|preserve.*container geometry|never elongate/.test(normalized)) {
+    return true;
+  }
+
+  return false;
+}
+
 function buildAssemblerSystemPrompt(feature: string): string {
   const lines = [
     'You are the execution-prompt assembler for a US ecommerce image-edit task.',
@@ -140,7 +166,7 @@ function buildAssemblerSystemPrompt(feature: string): string {
     'Merge them into one concise English instruction for an image editing model.',
     'Constraints always override conflicting creative plan wording.',
     'Remove duplicate rules, forbidden actions, and analysis language.',
-    'Preserve every locked brand, product name, capacity, packaging lock, physics realism rule, and source-lock rule from constraints.',
+    'Preserve every locked brand, product name, capacity, container geometry lock, packaging lock, physics realism rule, and source-lock rule from constraints.',
     'Return English only.',
   ];
 

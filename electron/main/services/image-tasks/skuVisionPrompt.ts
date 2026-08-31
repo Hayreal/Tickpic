@@ -9,14 +9,21 @@ import {
   normalizeNetCapacity,
   type SkuLockedCopy,
 } from './skuConstraintSpec.js';
+import {
+  parseSkuContainerLock,
+  SKU_CONTAINER_LOCK_JSON_SHAPE,
+  SKU_CONTAINER_LOCK_VISION_RULES,
+  type SkuContainerLock,
+} from './skuContainerLock.js';
 import { isSkuFeature } from './skuExecutionPrompt.js';
 
-export type { SkuLockedCopy };
+export type { SkuLockedCopy, SkuContainerLock };
 
 const HAN_CHARACTER_PATTERN = /\p{Script=Han}/u;
 
 export interface SkuVisionBatch {
   lockedCopy: SkuLockedCopy;
+  containerLock: SkuContainerLock;
   instructions: Array<{
     index: number;
     prompt: string;
@@ -32,7 +39,8 @@ export function buildSkuVisionSystemPrompt(feature: ImageFeature): string {
     'You are the visual prompt planner for a US Temu SKU label-edit task.',
     'This task changes only the printed label on the primary SKU. Preserve every non-label pixel in Image 1, including bundle accessories, secondary products, and promotional callouts.',
     'Inspect the supplied SKU product image and optional packaging-design reference images.',
-    'Return ONLY one JSON object with this exact shape: {"locked_copy":{"brand":"","product_name":"","capacity":""},"instructions":[{"index":1,"prompt":"..."}]}.',
+    `Return ONLY one JSON object with this exact shape: ${SKU_CONTAINER_LOCK_JSON_SHAPE}.`,
+    SKU_CONTAINER_LOCK_VISION_RULES,
     'The instructions array length must equal requested_count and indexes must start at 1 and be consecutive.',
     'Resolve locked_copy once for the entire batch from Image 1 primary label only: brand, product_name, and capacity. Ignore promotional slogans, icons, banners, accessory callouts, gift badges, bundle stickers, and any other ecommerce overlay graphics on Image 1.',
     'Every instruction must use those exact locked_copy values without synonyms, category substitutions, alternate spellings, or additional product names.',
@@ -161,12 +169,20 @@ export function parseSkuVisionBatch(raw: string, expectedCount: number): SkuVisi
     }
   }
 
+  const containerLock = parseSkuContainerLock(
+    (parsed as { container_lock?: unknown }).container_lock,
+  );
+  if (!containerLock) {
+    throw new Error('vision model returned invalid or missing SKU container_lock');
+  }
+
   return {
     lockedCopy: {
       brand: lockedCopy.brand.trim(),
       productName: lockedCopy.product_name.trim(),
       capacity: normalizeNetCapacity(lockedCopy.capacity.trim()),
     },
+    containerLock,
     instructions: instructions.map((instruction) => ({
       index: instruction.index,
       prompt: instruction.prompt.trim(),
@@ -178,10 +194,11 @@ export function finalizeSkuVisionInstruction(
   request: ImageTaskRequest,
   plannedInstruction: string,
   plannedCopy: SkuLockedCopy,
+  containerLock?: SkuContainerLock,
 ): string {
   const lockedCopy = resolveLockedCopy(request, plannedCopy);
   const creativePlan = sanitizePlannedInstructionForLockedCopy(plannedInstruction, lockedCopy);
-  const spec = buildSkuLabelConstraintSpec(request, lockedCopy);
+  const spec = buildSkuLabelConstraintSpec(request, lockedCopy, containerLock);
   return renderSkuLabelExecutionPrompt(spec, creativePlan);
 }
 
