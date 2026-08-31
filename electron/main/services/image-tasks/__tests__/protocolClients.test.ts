@@ -309,7 +309,7 @@ describe('protocolClients', () => {
               text: `final prompt${MULTI_IMAGE_GEMINI_PROMPT_SUFFIX}`,
             }),
             expect.objectContaining({
-              text: 'Image 1: source scene',
+              text: 'Image 1: fixed SKU source canvas — preserve exact container geometry, crop, proportions, and every non-label pixel; edit only the printed label area',
             }),
             expect.objectContaining({
               inlineData: expect.objectContaining({ mimeType: 'image/png' }),
