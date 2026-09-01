@@ -15,6 +15,13 @@ const SKU_LABEL_ONLY_EDIT_RULES = [
   'Do not remove, recenter, recrop, or isolate the primary SKU container from its original scene.',
 ] as const;
 
+const SKU_LABEL_SURFACE_RULES = [
+  'Make the redesigned label conform naturally to the existing printable surface on Image 1: follow the visible container curvature, wrap perspective, edge foreshortening, and label boundary.',
+  'The label must look physically printed on the container, not pasted as a flat frontal rectangle.',
+  'Match label-area highlights, shadows, gloss, and material interaction with the underlying jar or bottle surface.',
+  'Label top and bottom edges must follow the container perspective curve; text and graphics must share the same perspective distortion as the source label area.',
+] as const;
+
 export interface SkuLockedCopy {
   brand: string;
   productName: string;
@@ -170,6 +177,7 @@ function buildSourceLockLines(request: ImageTaskRequest, containerLock?: SkuCont
     'Never redraw, resize, stretch, compress, zoom, recenter, crop, or replace the container.',
     ...(containerLock ? buildContainerLockLines(containerLock) : []),
     ...SKU_LABEL_ONLY_EDIT_RULES,
+    ...SKU_LABEL_SURFACE_RULES,
     'If Image 1 is a dimension diagram, preserve all dimension lines, arrows, numbers, and units exactly; never move, cover, translate, or redraw them.',
     'If Image 1 is a blank package render, add the label only inside its front printable area without changing the blank container geometry.',
   ];
@@ -301,6 +309,7 @@ function buildFinalCheckLines(
     : [lockedCopyFallbackLine(request, 'capacity') || 'If a locked capacity is set, display it on the new label with the exact "NET:" prefix.'];
 
   lines.push('Return Image 1 unchanged except for the primary SKU printed label. Preserve every non-label element exactly as uploaded.');
+  lines.push('The redesigned label must conform naturally to the Image 1 printable surface curvature, perspective, highlights, shadows, and gloss; never output a flat pasted rectangle.');
   if (request.feature === 'sku_replica' && hasReference) {
     lines.push('The output label must visibly match the reference label design system on Image 2+; no source-label palette, icons, category imagery, or layout may remain.');
   } else if ((request.feature === 'sku_variation' || request.feature === 'sku_original') && hasReference) {

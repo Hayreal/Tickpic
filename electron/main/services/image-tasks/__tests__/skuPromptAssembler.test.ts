@@ -58,4 +58,30 @@ describe('skuPromptAssembler', () => {
       spec,
     )).toBe(true);
   });
+
+  it('rejects weak sku_original assembled prompts that omit reference-driven layout rules', () => {
+    const spec = buildSkuLabelConstraintSpec({
+      feature: 'sku_original',
+      brand: 'wkau',
+      productName: 'Ceramic Cleaner',
+      images: [
+        { role: 'source', path: '/tmp/sku.png' },
+        { role: 'reference', path: '/tmp/reference.png' },
+      ],
+    }, {
+      brand: 'wkau',
+      productName: 'Ceramic Cleaner',
+      capacity: 'NET: 500G',
+    });
+
+    expect(validateAssembledPrompt(
+      'Create a clean label with a strong upper logo zone for wkau, centered Ceramic Cleaner, and NET: 500G.',
+      spec,
+    )).toBe(false);
+
+    expect(validateAssembledPrompt(
+      'Use Images 2+ as the label design system. Replace the entire source label and never preserve Image 1 source label layout, band structure, logo zone, headline placement, palette bands, hero graphics, or decorative arrangement. Display wkau, Ceramic Cleaner, and NET: 500G.',
+      spec,
+    )).toBe(true);
+  });
 });

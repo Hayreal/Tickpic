@@ -285,7 +285,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   sku_original: {
     feature: 'sku_original',
-    mainPrompt: '在 SKU 包材上原创设计产品标签，输出整瓶 SKU 产品图。按用户提供的产品信息自由发挥；参考图只借包装设计气质；除非用户明确要求改包材形态，否则保持 SKU 图的瓶型、盖子、比例与材质一致。',
+    mainPrompt: '在 SKU 包材上原创设计产品标签，输出整瓶 SKU 产品图。按用户提供的产品信息自由发挥；有参考图时版式、层级、色系与装饰语言均从参考图推导，不得沿用 SKU 源图标签排版；除非用户明确要求改包材形态，否则保持 SKU 图的瓶型、盖子、比例与材质一致。',
     acceptedImageRoles: ['source', 'reference'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',

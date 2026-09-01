@@ -187,6 +187,27 @@ describe('skuConstraintSpec', () => {
     expect(prompt).toContain('must not retain any source-label layout');
   });
 
+  it('requires label surface conformity in execution prompts', () => {
+    const spec = buildSkuLabelConstraintSpec({
+      feature: 'sku_original',
+      brand: 'wkau',
+      productName: 'Ceramic Cleaner',
+      images: [
+        { role: 'source', path: '/tmp/sku.png' },
+        { role: 'reference', path: '/tmp/reference.png' },
+      ],
+    }, {
+      brand: 'wkau',
+      productName: 'Ceramic Cleaner',
+      capacity: 'NET: 500G',
+    });
+    const prompt = renderSkuLabelExecutionPrompt(spec, 'Use a blue bathroom-care label from the reference system.');
+
+    expect(prompt).toContain('conform naturally to the existing printable surface');
+    expect(prompt).toContain('not pasted as a flat frontal rectangle');
+    expect(prompt).toContain('perspective curve');
+  });
+
   it('locks low jar geometry when container lock is provided', () => {
     const spec = buildSkuLabelConstraintSpec({
       feature: 'sku_replica',

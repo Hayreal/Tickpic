@@ -29,6 +29,7 @@ describe('skuExecutionImageRoles', () => {
 
     expect(prompt).toContain('EXECUTION IMAGE ROLES:');
     expect(prompt).toContain('forbidden visual input');
+    expect(prompt).toContain('printable-surface curvature');
     expect(prompt).toContain('never reuse Image 1 label structure');
   });
 

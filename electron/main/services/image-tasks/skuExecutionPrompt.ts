@@ -35,6 +35,7 @@ function buildOutputTargetSection(request: ImageTaskRequest) {
     '输出目标:',
     ratioRule,
     '输出一张完整的 SKU 产品图：保持源图构图，只替换主 SKU 标签区域的设计与文字。',
+    '新标签必须贴合包材曲面与透视，跟随源图标签区域的高光、阴影与边界，不得贴成平整矩形。',
     '标签只覆盖产品标签区域，不得溢出到背景；不要输出 2D 平面展开图或纯贴纸稿。',
   ].join('\n');
 }
