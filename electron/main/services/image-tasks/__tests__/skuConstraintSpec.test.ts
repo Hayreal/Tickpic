@@ -108,6 +108,85 @@ describe('skuConstraintSpec', () => {
     }
   });
 
+  it('uses planned reference copy for original mode when the user omits product name', () => {
+    const lockedCopy = resolveLockedCopy({
+      feature: 'sku_original',
+      images: [
+        { role: 'source', path: '/tmp/sku.png' },
+        { role: 'reference', path: '/tmp/reference.png' },
+      ],
+    }, {
+      brand: 'Reference Brand',
+      productName: 'Reference Product',
+      capacity: 'NET: 100ML',
+    });
+
+    expect(lockedCopy.brand).toBe('');
+    expect(lockedCopy.productName).toBe('Reference Product');
+    expect(lockedCopy.capacity).toBe('NET: 100ML');
+  });
+
+  it('reads capacity from reference label fallback when locked copy is empty', () => {
+    const spec = buildSkuLabelConstraintSpec({
+      feature: 'sku_variation',
+      images: [
+        { role: 'source', path: '/tmp/sku.png' },
+        { role: 'reference', path: '/tmp/reference.png' },
+      ],
+    }, {
+      brand: 'wkau',
+      productName: '2-IN-1 RUST REFORM & SEAL',
+      capacity: '',
+    });
+
+    expect(spec.copy_rules.join(' ')).toContain('read it from the reference label');
+    expect(spec.copy_rules.join(' ')).toContain('never copy capacity from Image 1 source label');
+  });
+
+  it('forbids preserving source label layout for sku_variation', () => {
+    const spec = buildSkuLabelConstraintSpec({
+      feature: 'sku_variation',
+      images: [
+        { role: 'source', path: '/tmp/sku.png' },
+        { role: 'reference', path: '/tmp/reference.png' },
+      ],
+    }, {
+      brand: 'wkau',
+      productName: 'Effervescent tablets',
+      capacity: '',
+    }, {
+      form: 'jar',
+      heightTier: 'high',
+      shapeDescription: 'tall cylindrical jar, height clearly greater than diameter',
+    });
+    const prompt = renderSkuLabelExecutionPrompt(spec, 'Use a bold industrial label layout from the reference system.');
+
+    expect(prompt).toContain('Never preserve Image 1 source label layout');
+    expect(prompt).toContain('Derive palette, typography mood, band language, hero graphic language, and decorative identity from Images 2+ only');
+    expect(prompt).toContain('must not retain any source-label layout');
+  });
+
+  it('forbids preserving source label layout for sku_original with reference', () => {
+    const spec = buildSkuLabelConstraintSpec({
+      feature: 'sku_original',
+      productName: 'Porcelain Cleaner',
+      images: [
+        { role: 'source', path: '/tmp/sku.png' },
+        { role: 'reference', path: '/tmp/reference.png' },
+      ],
+    }, {
+      brand: 'wkau',
+      productName: 'Porcelain Cleaner',
+      capacity: 'NET: 500G',
+    });
+    const prompt = renderSkuLabelExecutionPrompt(spec, 'Use a blue bathroom-care label from the reference system.');
+
+    expect(prompt).toContain('Images 2+ define the label design system for this original label');
+    expect(prompt).toContain('Derive layout, hierarchy, palette bands, hero graphic language, typography mood, and decorative identity from Images 2+ only');
+    expect(prompt).toContain('Never preserve Image 1 source label layout');
+    expect(prompt).toContain('must not retain any source-label layout');
+  });
+
   it('locks low jar geometry when container lock is provided', () => {
     const spec = buildSkuLabelConstraintSpec({
       feature: 'sku_replica',

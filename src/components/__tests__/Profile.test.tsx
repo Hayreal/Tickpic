@@ -87,6 +87,55 @@ describe('Profile', () => {
     expect(rows[9]).toHaveTextContent('功能 3');
   });
 
+  it('supports page size selection of 10, 20, and 50', () => {
+    const tasks = Array.from({ length: 25 }, (_, index) =>
+      makeTask(index + 1, `2026-06-${String(index + 1).padStart(2, '0')}T10:00:00.000Z`),
+    );
+
+    render(<Profile tasks={tasks} onRefresh={vi.fn()} onRestoreTask={vi.fn()} />);
+
+    expect(within(document.getElementById('tasks-table-body')!).getAllByRole('row')).toHaveLength(10);
+    expect(screen.getByText('显示 1-10 / 25')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('每页条数'), { target: { value: '20' } });
+    expect(within(document.getElementById('tasks-table-body')!).getAllByRole('row')).toHaveLength(20);
+    expect(screen.getByText('显示 1-20 / 25')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('每页条数'), { target: { value: '50' } });
+    expect(within(document.getElementById('tasks-table-body')!).getAllByRole('row')).toHaveLength(25);
+    expect(screen.getByText('显示 1-25 / 25')).toBeInTheDocument();
+  });
+
+  it('shows the first input image as the task preview thumbnail', () => {
+    const task: TaskRecord = {
+      ...makeTask(1, '2026-06-03T10:00:00.000Z'),
+      feature: 'SKU 裂变',
+      imports: [
+        {
+          id: 'import-1',
+          fileName: 'source.png',
+          filePath: '/tmp/source.png',
+          fileSize: 1,
+          mimeType: 'image/png',
+          createdAt: '2026-06-03T10:00:00.000Z',
+        },
+        {
+          id: 'import-2',
+          fileName: 'reference.png',
+          filePath: '/tmp/reference.png',
+          fileSize: 1,
+          mimeType: 'image/png',
+          createdAt: '2026-06-03T10:00:00.000Z',
+        },
+      ],
+    };
+
+    render(<Profile tasks={[task]} onRefresh={vi.fn()} onRestoreTask={vi.fn()} />);
+
+    const preview = screen.getByAltText('source.png');
+    expect(preview).toHaveAttribute('src', 'tickpic-file://image/%2Ftmp%2Fsource.png');
+  });
+
   it('filters tasks by feature and jumps to a specific page', () => {
     const tasks = Array.from({ length: 12 }, (_, index) => ({
       ...makeTask(index + 1, `2026-06-${String(index + 1).padStart(2, '0')}T10:00:00.000Z`),
@@ -197,7 +246,7 @@ describe('Profile', () => {
 
     expect(screen.getByText('任务详情')).toBeInTheDocument();
     expect(screen.getByText('复刻贴纸风格')).toBeInTheDocument();
-    expect(screen.getByAltText('source.png')).toBeInTheDocument();
+    expect(screen.getAllByAltText('source.png')).toHaveLength(2);
     expect(screen.getByAltText('result.png')).toBeInTheDocument();
   });
 

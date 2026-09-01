@@ -51,9 +51,23 @@ export function resolveLockedCopy(request: ImageTaskRequest, plannedCopy: SkuLoc
     brand: request.brand?.trim() || (original ? '' : plannedCopy.brand),
     productName: requestedProductName
       ? (HAN_CHARACTER_PATTERN.test(requestedProductName) ? plannedCopy.productName : requestedProductName)
-      : (original ? '' : plannedCopy.productName),
+      : plannedCopy.productName,
     capacity: normalizeNetCapacity(request.capacity?.trim() || plannedCopy.capacity),
   };
+}
+
+function hasReferenceImages(request: ImageTaskRequest): boolean {
+  return request.images?.some((image) => image.role === 'reference') ?? false;
+}
+
+function lockedCopyFallbackLine(request: ImageTaskRequest, field: 'capacity'): string {
+  if (field === 'capacity') {
+    if (hasReferenceImages(request)) {
+      return 'When Images 2+ reference label shows any net weight or volume, read it from the reference label and display it on the new label with the exact "NET:" prefix; never copy capacity from Image 1 source label.';
+    }
+    return 'Do not copy capacity from Image 1 source label unless the user explicitly provided it.';
+  }
+  return '';
 }
 
 export function sanitizePlannedInstructionForLockedCopy(
@@ -173,13 +187,20 @@ function buildReferencePolicyLines(request: ImageTaskRequest): string[] {
   }
   if (request.feature === 'sku_variation') {
     return [
-      'The reference label design system overrides any conflicting creative plan wording.',
-      'Keep the reference dominant palette, material and texture treatment, typography mood, signature graphics, and decorative language recognizable in every output.',
-      'Vary layout and element placement only within that reference design system.',
+      'Images 2+ define the label design system for this variation.',
+      'Derive palette, typography mood, band language, hero graphic language, and decorative identity from Images 2+ only.',
+      'Create a visibly different layout axis inside that reference design system.',
+      'Never preserve Image 1 source label layout, band structure, logo zone, headline placement, palette bands, hero graphics, or decorative arrangement.',
       'Never introduce source-label styling or category-native graphics unless that visual language is clearly present in the reference.',
     ];
   }
-  return ['Use reference label style as instructed, but never copy reference container shape, crop, scene, or secondary objects.'];
+  return [
+    'Images 2+ define the label design system for this original label.',
+    'Derive layout, hierarchy, palette bands, hero graphic language, typography mood, and decorative identity from Images 2+ only.',
+    'Never preserve Image 1 source label layout, band structure, logo zone, headline placement, palette bands, hero graphics, or decorative arrangement.',
+    'Do not copy reference brand, product name, or literal promotional text unless locked_copy requires those exact fields.',
+    'Never copy reference container shape, crop, scene, or secondary objects.',
+  ];
 }
 
 function buildModeAuthorityLines(request: ImageTaskRequest): string[] {
@@ -226,7 +247,7 @@ function buildCopyRules(request: ImageTaskRequest, copy: SkuLockedCopy): string[
   }
   lines.push('Every visible capacity must start with the exact prefix "NET:".');
   if (!copy.capacity) {
-    lines.push('When Image 1 primary label shows any net weight or volume, read it from the image and display it on the new label with the exact "NET:" prefix.');
+    lines.push(lockedCopyFallbackLine(request, 'capacity'));
   }
   lines.push('Use each locked value exactly and consistently. Do not show a synonym, alternate spelling, category replacement, or second product name.');
   if (request.feature === 'sku_replica') {
@@ -252,8 +273,12 @@ function buildForbiddenLines(request: ImageTaskRequest, containerLock?: SkuConta
   if (request.feature === 'sku_original') {
     lines.push('Never copy promotional slogans, icons, or benefit modules from Image 1 source label unless the user explicitly requests them.');
     lines.push('Never use source-label category imagery such as vehicles, headlights, engines, or other source-product icons on the new label.');
+    lines.push('Never preserve Image 1 source label layout, band structure, logo zone, headline placement, palette bands, hero graphics, or decorative arrangement.');
+    lines.push('The visible label on Image 1 is replace-only; zero source-label design elements may remain in the output.');
   } else {
     lines.push('Never reproduce source-label slogans, icons, banners, promotional overlay graphics, palette bands, or category imagery unless the user explicitly requests them.');
+    lines.push('Never preserve Image 1 source label layout, band structure, logo zone, headline placement, palette bands, hero graphics, or decorative arrangement.');
+    lines.push('The visible label on Image 1 is replace-only; zero source-label design elements may remain in the output.');
     lines.push('Never keep source-label category icons or hero graphics (for example car or headlight icons) when they are absent from the reference label.');
     if (request.feature === 'sku_replica') {
       lines.push('Never approximate the reference as a similar color mood; match the reference label structure, hero graphic, and decorative language faithfully.');
@@ -270,13 +295,16 @@ function buildFinalCheckLines(
   lockedCopy: SkuLockedCopy,
   containerLock?: SkuContainerLock,
 ): string[] {
+  const hasReference = request.images?.some((image) => image.role === 'reference') ?? false;
   const lines = lockedCopy.capacity
     ? [`The redesigned label must visibly show ${JSON.stringify(lockedCopy.capacity)}.`]
-    : ['If Image 1 primary label shows any net weight or volume, display it on the new label with the exact "NET:" prefix.'];
+    : [lockedCopyFallbackLine(request, 'capacity') || 'If a locked capacity is set, display it on the new label with the exact "NET:" prefix.'];
 
   lines.push('Return Image 1 unchanged except for the primary SKU printed label. Preserve every non-label element exactly as uploaded.');
-  if (request.feature === 'sku_replica') {
-    lines.push('The output label must visibly match the reference label design system on Image 2+; no source-label palette, icons, or category imagery may remain.');
+  if (request.feature === 'sku_replica' && hasReference) {
+    lines.push('The output label must visibly match the reference label design system on Image 2+; no source-label palette, icons, category imagery, or layout may remain.');
+  } else if ((request.feature === 'sku_variation' || request.feature === 'sku_original') && hasReference) {
+    lines.push('The output label must follow the reference design system from Image 2+ and must not retain any source-label layout or decorative structure from Image 1.');
   }
 
   lines.push('Source container geometry and all locked visible copy override any conflicting creative plan wording.');

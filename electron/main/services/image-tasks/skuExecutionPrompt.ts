@@ -54,7 +54,7 @@ function buildModeSection(request: ImageTaskRequest) {
       '只修改 SKU 包材上主产品的贴纸/标签；包材本体、配件、组合陈列、背景与构图保持不变。',
       '将参考图中的标签版式、排版结构、色系与装饰气质复刻到 SKU 包材的标签区域。',
       '所有参考图同时影响标签的版式与风格；融合参考信息时保持与 SKU 瓶身比例协调。',
-      '用户指定的品牌、容量、产品名称覆盖参考图中的对应文案；未指定的文案可从参考图或 SKU 源图继承。',
+      '用户指定的品牌、容量、产品名称覆盖参考图中的对应文案；未指定的产品名称与容量从参考图主标签识别，不得从 SKU 源图标签提取。',
     ].join('\n');
   }
 
@@ -63,7 +63,7 @@ function buildModeSection(request: ImageTaskRequest) {
       '模式: SKU 裂变。',
       '只修改 SKU 包材上主产品的贴纸/标签；包材本体、配件、组合陈列、背景与构图保持不变。',
       '在 SKU 现有标签基础上做明显差异化：至少同时改变风格、排版、色系中的两个维度。',
-      '品牌、容量、产品名称等核心文案默认保持不变，除非用户在附加要求中明确修改。',
+      '用户明确提供的品牌、容量、产品名称优先；未提供的产品名称与容量从参考图主标签识别，不得从 SKU 源图标签提取。',
       '若 SKU 源图为无标签空白包材，先依据参考图与用户提供的文案建立标签，再执行裂变。',
       '同一批次的多张输出之间版式、色系、视觉结构必须有明显差异，不得只做轻微换色。',
     ].join('\n');
@@ -73,7 +73,7 @@ function buildModeSection(request: ImageTaskRequest) {
     '模式: SKU 原创。',
     '只修改 SKU 包材上主产品的贴纸/标签；包材本体、配件、组合陈列、背景与构图保持不变。',
     '依据用户提供的结构化产品信息，在 SKU 包材上从零设计标签。',
-    '参考图只借包装设计、排版气质与色系方向，不复制其他品牌、产品名或字面文字。',
+    '参考图提供标签设计系统：版式结构、信息层级、色系、装饰语言均从参考图推导；不得沿用 SKU 源图标签排版。',
     '保持 SKU 源图完整构图，包括配件、赠品标注、组合陈列等非标签元素。',
     '同一批次的多张输出之间版式、色系、视觉结构必须有明显差异。',
   ].join('\n');
@@ -103,7 +103,7 @@ function buildContentSection(request: ImageTaskRequest) {
   if (brand) {
     lines.push(`品牌: ${quoted(brand)}`);
   } else if (request.feature !== 'sku_original') {
-    lines.push('品牌: 从 SKU 源图或参考图可靠识别后保留；无法识别时省略。');
+    lines.push('品牌: 用户未提供时，从参考图主标签识别；不得从 SKU 源图标签提取；无法识别时省略。');
   }
 
   if (productName) {
@@ -113,28 +113,28 @@ function buildContentSection(request: ImageTaskRequest) {
       lines.push(`产品名称: ${quoted(productName)}`);
     }
   } else if (request.feature === 'sku_original') {
-    lines.push('产品名称: 用户未提供，不得自行编造标题。');
+    lines.push('产品名称: 用户未提供时，从参考图主标签识别；不得从 SKU 源图标签提取。');
   } else {
-    lines.push('产品名称: 从 SKU 源图或参考图可靠识别后保留；无法识别时省略。');
+    lines.push('产品名称: 用户未提供时，从参考图主标签识别；不得从 SKU 源图标签提取。');
   }
 
   if (capacity) {
     lines.push(`容量/规格: ${quoted(capacity)}（逐字显示，必须保留 NET: 前缀）`);
   } else {
-    lines.push('容量/规格: 从 SKU 源图主标签识别；识别后必须在标签上显示，且以 "NET:" 开头。');
+    lines.push('容量/规格: 用户未提供时，从参考图主标签识别；不得从 SKU 源图标签提取；识别后必须在标签上显示，且以 "NET:" 开头。');
   }
 
   if (request.feature === 'sku_variation') {
     lines.push('裂变模式下除用户明确修改外，不得擅自改写品牌、容量与产品名称。');
-    lines.push('SKU 源图贴纸仅提取品牌、产品名称、容量三项信息；不得沿用源图促销语、图标、配件标注或其他贴纸视觉元素。');
+    lines.push('不得沿用 SKU 源图标签的促销语、图标、配件标注或其他贴纸视觉元素。');
   }
 
   if (request.feature === 'sku_replica') {
-    lines.push('SKU 源图贴纸仅提取品牌、产品名称、容量三项信息；不得沿用源图促销语、图标、配件标注或其他贴纸视觉元素。');
+    lines.push('不得沿用 SKU 源图标签的促销语、图标、配件标注或其他贴纸视觉元素。');
   }
 
   lines.push('标签上的可见文字优先使用自然英文；中文来源需翻译成对应英文。');
-  lines.push('所有可见容量必须以 "NET:" 开头；源图或用户已提供容量时，出图标签不得缺少容量。');
+    lines.push('所有可见容量必须以 "NET:" 开头；用户已提供或从参考图识别的容量，出图标签不得缺少容量。');
   lines.push('不得添加用户未提供的促销语、假英文、乱码或无意义小字。');
 
   return lines.join('\n');

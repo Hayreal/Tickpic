@@ -34,7 +34,8 @@ describe('skuExecutionPrompt', () => {
     });
 
     expect(locked).toContain('必须锁定 SKU 源图的瓶型');
-    expect(locked).toContain('SKU 源图贴纸仅提取品牌、产品名称、容量三项信息');
+    expect(locked).toContain('用户未提供时，从参考图主标签识别');
+    expect(locked).not.toContain('SKU 源图贴纸仅提取品牌、产品名称、容量三项信息');
     expect(unlocked).toContain('明确请求改变包材形态');
   });
 

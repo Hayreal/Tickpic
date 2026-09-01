@@ -83,14 +83,40 @@ describe('skuVisionPrompt', () => {
 
     expect(plannerPrompt).toContain('All batch variants must remain unmistakably derived from the same reference label design system');
     expect(plannerPrompt).toContain('Never use the source label design or product category aesthetics as visual direction');
-    expect(executionPrompt).toContain('The reference label design system overrides any conflicting creative plan wording');
-    expect(executionPrompt).toContain('Vary layout and element placement only within that reference design system');
+    expect(executionPrompt).toContain('Images 2+ define the label design system for this variation');
+    expect(executionPrompt).toContain('Never preserve Image 1 source label layout');
     expect(executionPrompt).toContain('This is a label-only edit');
     expect(executionPrompt).toContain('Preserve every non-label element in Image 1 exactly as uploaded');
     expect(executionPrompt).toContain('bundle accessories and secondary products');
   });
 
-  it('extracts only brand, product name, and capacity from the source label in variation mode', () => {
+  it('uses reference-label product name and capacity when the user omits them', () => {
+    const plannerPrompt = buildSkuVisionSystemPrompt('sku_variation');
+
+    expect(plannerPrompt).toContain('read product_name from the reference product label on Images 2+ only');
+    expect(plannerPrompt).toContain('read capacity from the reference product label on Images 2+ only');
+    expect(plannerPrompt).not.toContain('from Image 1 primary label only');
+
+    const executionPrompt = finalizeSkuVisionInstruction({
+      feature: 'sku_variation',
+      brand: 'wkau',
+      images: [
+        { role: 'source', path: '/authorized/input/sku.png' },
+        { role: 'reference', path: '/authorized/input/reference.png' },
+      ],
+    }, 'Use the reference label design system.', {
+      brand: 'IHENGUDE',
+      productName: '2-IN-1 RUST REFORM & SEAL',
+      capacity: 'NET: 100ML',
+    });
+
+    expect(executionPrompt).toContain('The exact brand is "wkau".');
+    expect(executionPrompt).toContain('The exact product name is "2-IN-1 RUST REFORM & SEAL".');
+    expect(executionPrompt).toContain('The exact capacity is "NET: 100ML".');
+    expect(executionPrompt).not.toContain('Effervescent tablets');
+  });
+
+  it('locks user-provided copy in variation mode without reading from source label', () => {
     const executionPrompt = finalizeSkuVisionInstruction({
       feature: 'sku_variation',
       images: [{ role: 'source', path: '/authorized/input/sku.png' }],
@@ -283,7 +309,7 @@ describe('skuVisionPrompt', () => {
     expect(prompt).toContain('accessories, bundle items, gift items');
     expect(prompt).not.toContain('Remove ecommerce overlay graphics from Image 1');
     expect(prompt).toContain('blank package render');
-    expect(prompt).toContain('Use reference label style as instructed');
+    expect(prompt).toContain('Images 2+ define the label design system for this original label');
     expect(prompt).toContain('The exact product name is "Heavy Oil Eliminator"');
     expect(prompt).not.toContain('Planner Product Name');
     expect(prompt).toContain('Ignore every existing label design on Image 1');

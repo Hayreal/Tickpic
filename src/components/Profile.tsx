@@ -27,8 +27,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/ca
 import { cn } from '@/src/lib/utils';
 import { UI } from '../shared/view/design';
 import { getFeatureRoute } from '../shared/view/featureRoutes';
+import { toDisplaySrc } from '../lib/fileUrl';
 
-const ITEMS_PER_PAGE = 10;
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
+type PageSize = typeof PAGE_SIZE_OPTIONS[number];
 
 function buildPageNumbers(current: number, total: number): Array<number | 'ellipsis'> {
   if (total <= 9) {
@@ -63,6 +65,10 @@ function clampPage(page: number, totalPages: number) {
   return Math.min(Math.max(1, page), totalPages);
 }
 
+function getTaskPreviewImage(task: TaskRecord) {
+  return task.imports[0] ?? null;
+}
+
 function canRestoreGroup(group: TaskListGroup): boolean {
   const feature = group.representative.request?.feature;
   if (!feature) {
@@ -90,6 +96,7 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
   const [featureFilter, setFeatureFilter] = useState('All');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSize>(10);
   const [pageJumpValue, setPageJumpValue] = useState('');
   const [openingTaskId, setOpeningTaskId] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<TaskListGroup | null>(null);
@@ -175,11 +182,11 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, featureFilter]);
+  }, [searchQuery, statusFilter, featureFilter, pageSize]);
 
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedGroups = filteredGroups.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  const totalPages = Math.ceil(filteredGroups.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedGroups = filteredGroups.slice(startIndex, startIndex + pageSize);
+  const totalPages = Math.ceil(filteredGroups.length / pageSize);
   const visiblePages = buildPageNumbers(currentPage, totalPages);
 
   useEffect(() => {
@@ -321,6 +328,7 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
                   <th className="py-3 px-4">导入/出图</th>
                   <th className="py-3 px-4">状态</th>
                   <th className="py-3 px-4">时间</th>
+                  <th className="py-3 px-4 w-16">预览</th>
                   <th className="py-3 px-4 text-right">操作</th>
                 </tr>
               </thead>
@@ -332,6 +340,7 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
                     const canOpenDirectory = item.status === 'Completed' && item.outputCount > 0;
                     const isOpening = openingTaskId === representative.taskId;
                     const isSelected = selectedGroup?.key === group.key;
+                    const previewImage = getTaskPreviewImage(representative);
 
                     return (
                       <tr
@@ -365,6 +374,20 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
                         </td>
                         <td className="py-3 px-4">{statusBadge(item.status)}</td>
                         <td className="py-3 px-4 text-sm text-muted-foreground">{item.time}</td>
+                        <td className="py-3 px-4">
+                          {previewImage ? (
+                            <div className="size-10 overflow-hidden rounded border bg-muted/30">
+                              <img
+                                src={toDisplaySrc(previewImage.filePath)}
+                                alt={previewImage.fileName}
+                                className="size-full object-cover"
+                                loading="lazy"
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </td>
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Button
@@ -402,7 +425,7 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
                   })
                 ) : (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                    <td colSpan={8} className="py-12 text-center text-muted-foreground">
                       暂无符合过滤条件的任务
                     </td>
                   </tr>
@@ -415,9 +438,24 @@ export default function Profile({ tasks, onRefresh, onRestoreTask }: ProfileProp
         <div className="flex items-center justify-between border-t px-4 py-3 bg-muted/20" id="tasks-table-footer">
           <span className="text-xs text-muted-foreground">
             显示 {filteredGroups.length === 0 ? 0 : Math.min(startIndex + 1, filteredGroups.length)}-
-            {Math.min(startIndex + ITEMS_PER_PAGE, filteredGroups.length)} / {filteredGroups.length}
+            {Math.min(startIndex + pageSize, filteredGroups.length)} / {filteredGroups.length}
           </span>
           <div className="flex flex-wrap items-center justify-end gap-2" id="profile-pagination">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">每页</span>
+              <select
+                id="pagination-page-size"
+                value={pageSize}
+                onChange={(event) => setPageSize(Number(event.target.value) as PageSize)}
+                className="h-7 rounded-md border border-input bg-background px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="每页条数"
+              >
+                {PAGE_SIZE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">条</span>
+            </div>
             <Button
               id="pagination-prev"
               variant="outline"

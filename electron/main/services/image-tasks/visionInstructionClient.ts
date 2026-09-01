@@ -44,6 +44,7 @@ import {
 } from './skuHitMainConstraintSpec.js';
 import { assembleSkuExecutionPrompt } from './skuPromptAssembler.js';
 import { appendSkuContainerLockSuffix } from './skuContainerLock.js';
+import { appendSkuExecutionImageRoles } from './skuExecutionImageRoles.js';
 import { isSkuHitMainImageFeature } from './skuHitMainImagePrompt.js';
 import { isSkuFeature } from './skuExecutionPrompt.js';
 import {
@@ -478,7 +479,11 @@ async function assembleSkuLabelExecutionPrompts(input: {
       renderFallback: () => renderSkuLabelExecutionPrompt(spec, creativePlan),
       abortSignal: input.abortSignal,
     });
-    prompts.push(appendSkuContainerLockSuffix(prompt, input.batch.containerLock));
+    prompts.push(appendSkuExecutionImageRoles(
+      appendSkuContainerLockSuffix(prompt, input.batch.containerLock),
+      input.task.feature as 'sku_replica' | 'sku_variation' | 'sku_original',
+      (input.task.request.images ?? []).some((image) => image.role === 'reference'),
+    ));
   }
   return prompts;
 }

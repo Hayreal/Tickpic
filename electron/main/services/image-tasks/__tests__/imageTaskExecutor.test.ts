@@ -387,7 +387,7 @@ describe('imageTaskExecutor', () => {
     }), new AbortController().signal);
 
     expect(prompts).toEqual(['Edit the supplied SKU image; only redesign its label.']);
-    expect(executionImageCounts).toEqual([1]);
+    expect(executionImageCounts).toEqual([2]);
   });
 
   it('plans a hit-main prompt before editing the reference and SKU images', async () => {
@@ -518,7 +518,7 @@ describe('imageTaskExecutor', () => {
   });
 
   it.each(['sku_variation', 'sku_original'] as const)(
-    'passes only the source image to final %s editing so reference label art cannot reshape the container',
+    'passes source and reference images to final %s editing so label design can follow the reference without reshaping the container',
     async (feature) => {
       const executionImageCounts: number[] = [];
       const executor = createImageTaskExecutor({
@@ -574,7 +574,7 @@ describe('imageTaskExecutor', () => {
         ],
       }), new AbortController().signal);
 
-      expect(executionImageCounts).toEqual([1]);
+      expect(executionImageCounts).toEqual([2]);
     },
   );
 

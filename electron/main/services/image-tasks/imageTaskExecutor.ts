@@ -4,6 +4,7 @@ import { buildImageTaskPlan } from '../../../../src/shared/domain/imageTaskPlan.
 import { buildExecutionPrompt } from './instructionPrompt.js';
 import { isProductSetFeature } from './productSetJsonPrompt.js';
 import { isSkuFeature } from './skuExecutionPrompt.js';
+import { filterSkuLabelExecutionImages } from './skuExecutionImageRoles.js';
 import { isSkuHitMainImageFeature, orderHitMainExecutionImages } from './skuHitMainImagePrompt.js';
 import type {
   VisionInstructionClient,
@@ -425,13 +426,6 @@ async function resolveProductSetVisionResult(input: {
   });
 
   return result;
-}
-
-function filterSkuLabelExecutionImages(
-  executionImages: ImageTaskPlan['executionImages'],
-) {
-  const sourceImages = executionImages.filter((image) => image.role === 'source');
-  return sourceImages.length > 0 ? sourceImages : executionImages.slice(0, 1);
 }
 
 function filterProductSetExecutionImages(
