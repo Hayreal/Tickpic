@@ -129,6 +129,9 @@ export function validateAssembledPrompt(
     if (fields.brand && !prompt.toLowerCase().includes(fields.brand.toLowerCase())) {
       return false;
     }
+    if (!validateHitMainAssembledPrompt(prompt)) {
+      return false;
+    }
   }
 
   return prompt.length >= 120;
@@ -198,9 +201,29 @@ function buildAssemblerSystemPrompt(feature: string): string {
       'Do NOT invent a fresh band-stack layout (for example top brand bar, centered headline block, bottom capacity strip) unless that exact structure is clearly visible on the reference label.',
       'Describe concrete layout elements copied from Images 2+ such as reference band structure, hero graphic placement, typography hierarchy, and decorative motifs.',
     );
+  } else if (feature === 'sku_hit_main_image') {
+    lines.push(
+      'For sku_hit_main_image, headlines must match Image 2 SKU product category and visible label copy.',
+      'Rewrite Image 1 headline wording when the literal object/category conflicts with Image 2; never keep appliance/metal copy for a wall-cleaning SKU.',
+      'The final image must contain exactly one Image 2 SKU instance.',
+      'Never plan both a hand-use demo and a second countertop, vanity, sink-ledges, table, or lower-right foreground product display.',
+    );
   }
 
   return lines.join('\n');
+}
+
+function validateHitMainAssembledPrompt(prompt: string): boolean {
+  const normalized = prompt.toLowerCase();
+  const hasConflictingHeadline = /(?:keep the core headline|without rewriting|never rewrite core headline)/.test(normalized)
+    && /(?:appliance|metal wear|radiator|furniture surface)/.test(normalized)
+    && /(?:wall|tile|mildew|mold|grout|black spot)/.test(normalized);
+  const hasHandUse = /(?:hand.*(?:using|holding)|using the product|applicator on|applicator against)/.test(normalized);
+  const hasForegroundDisplay = /(?:lower-right foreground|countertop|on the (?:counter|vanity|sink ledge|table)|upright in the (?:lower-right|foreground))/.test(normalized);
+  if (hasConflictingHeadline || (hasHandUse && hasForegroundDisplay)) {
+    return false;
+  }
+  return true;
 }
 
 function buildAssemblerUserText(

@@ -1,5 +1,11 @@
 import type { ImageTaskRequest } from '../../../../src/shared/domain/imageFeatureApi.js';
 
+const SKU_HIT_MAIN_SINGLE_PRODUCT_RULES = [
+  'Show exactly one Image 2 SKU instance in the final image.',
+  'When the SKU is visible in the demo action (hand holding the applicator, pen, brush, or bottle while using it), do not also place a second copy on a countertop, sink ledge, vanity, table, pedestal, or lower-right foreground display.',
+  'Do not add a countertop, vanity, table, or foreground product display just to showcase the bottle when the product is already visible in the usage action.',
+] as const;
+
 const SKU_HIT_MAIN_PHYSICS_RULES = [
   'All tools, scrapers, brushes, and applicators must be physically supported: held by a natural visible hand applying pressure, resting on a surface, or actively contacting the repair surface.',
   'Never show floating scrapers, hovering spatulas, unsupported putty blobs, or objects without believable grip, contact, or cast shadow.',
@@ -53,8 +59,8 @@ export function buildSkuHitMainConstraintSpec(request: ImageTaskRequest): SkuHit
       image_2: 'New SKU product image. The only allowed product identity. Must fully replace the original product in Image 1.',
     },
     must_preserve: [
-      'Preserve Image 1 core English headline/subheadline and explicit marketing copy whenever compatible with Image 2 SKU category.',
-      'Preserve Image 1 selling promise and before/after repair logic when present, but redesign the presentation.',
+      'Inherit Image 1 before/after marketing structure and general selling angle, not Image 1 literal headline object or repair-target category when it conflicts with Image 2.',
+      'Preserve Image 1 comparison intent and repair-result promise, but redesign the presentation.',
     ],
     product_replacement: [
       'Remove the original product from Image 1 and insert the Image 2 SKU.',
@@ -62,6 +68,7 @@ export function buildSkuHitMainConstraintSpec(request: ImageTaskRequest): SkuHit
       'Never stretch, compress, slim, widen, or redesign Image 2.',
       'Derive overall ad palette primarily from Image 2 label colors.',
       'This is not a plain white-background full-bottle SKU shot.',
+      ...SKU_HIT_MAIN_SINGLE_PRODUCT_RULES,
     ],
     usage_scene_policy: [
       'Build the demo/usage scene from Image 2 SKU product category and visible label copy, not from Image 1 literal repair object.',
@@ -77,6 +84,8 @@ export function buildSkuHitMainConstraintSpec(request: ImageTaskRequest): SkuHit
       'Never redesign Image 2 packaging or label artwork.',
       'Never use recolor-only, mirror/flip, or headline-only nudge variants.',
       'Never let reference literal object category override Image 2 product category in the usage scene.',
+      'Never keep Image 1 literal headline wording when it names a different object/category than Image 2 (for example appliance/metal copy with a wall-cleaning SKU).',
+      'Never duplicate the same SKU on a countertop, vanity, sink ledge, table, pedestal, or lower-right foreground display.',
       'Never show floating tools, unsupported product clumps, impossible material physics, or inconsistent scale.',
       ...SKU_HIT_MAIN_ANTI_TEMPLATE_FORBIDDEN,
     ],
@@ -157,10 +166,12 @@ function buildCopyOverrideLines(fields: {
   if (fields.brand || fields.productName || fields.capacity) {
     lines.push('User-filled brand, product name, and capacity override matching words in Image 1, including headline blocks.');
   } else {
-    lines.push('Unfilled brand, product name, or capacity inherit from Image 1; omit if unreadable and never invent values.');
+    lines.push('When the user does not provide product name or capacity, derive headline and category wording from Image 2 visible label copy, not from Image 1 literal headline text.');
   }
+  lines.push('Headlines and subheadlines must match Image 2 product category and visible label copy.');
+  lines.push('When Image 1 headline names a different object or category than Image 2 (for example appliance/metal vs wall mold), rewrite the headline into natural English aligned with Image 2; never keep conflicting literal Image 1 wording.');
   lines.push('Every visible capacity must start with the exact prefix "NET:".');
-  lines.push('Preserve core headlines; allow resizing and repositioning; never rewrite core headlines or add fake English.');
+  lines.push('Allow headline resizing and repositioning; rewrite category-conflicting copy; never add fake English or meaningless icon clutter.');
   return lines;
 }
 
@@ -175,6 +186,9 @@ function resolveBatchSlotDirective(request: ImageTaskRequest): string | undefine
 
 function buildFinalCheckLines(): string[] {
   return [
+    'The final image must contain exactly one Image 2 SKU instance.',
+    'If the SKU is visible in the demo action, no second copy may appear on a countertop, vanity, sink ledge, table, or lower-right foreground display.',
+    'Headline and subheadline wording must match Image 2 product category; conflicting Image 1 literal object/category copy is invalid.',
     'Every tool or applicator must have a visible hand, surface support, or believable contact with the repair surface.',
     'No floating scrapers, hovering product clumps, impossible jar peaks, or mismatched lighting between foreground product and background scene.',
     'Physics realism and packaging lock override any conflicting design plan wording.',

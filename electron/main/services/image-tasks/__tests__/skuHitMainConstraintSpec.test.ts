@@ -50,6 +50,9 @@ describe('skuHitMainConstraintSpec', () => {
     });
 
     expect(spec.physics_realism.join(' ')).toContain('floating scrapers');
-    expect(spec.final_check.join(' ')).toContain('Physics realism and packaging lock override');
+    expect(spec.product_replacement.join(' ')).toContain('exactly one Image 2 SKU instance');
+    expect(spec.forbidden.join(' ')).toContain('Never duplicate the same SKU');
+    expect(spec.final_check.join(' ')).toContain('exactly one Image 2 SKU instance');
+    expect(spec.copy_overrides.join(' ')).toContain('rewrite the headline into natural English aligned with Image 2');
   });
 });

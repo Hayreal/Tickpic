@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { buildSkuHitMainConstraintSpec } from '../skuHitMainConstraintSpec';
+import { validateAssembledPrompt } from '../skuPromptAssembler';
 import {
   buildHitMainVisionImageParts,
   buildSkuHitMainVisionSystemPrompt,
@@ -22,6 +24,7 @@ describe('skuHitMainVisionPrompt', () => {
     const parts = buildHitMainVisionImageParts(baseRequest.images);
 
     expect(systemPrompt).toContain('Image 1 = viral main-image reference');
+    expect(systemPrompt).toContain('exactly one Image 2 SKU instance');
     expect(systemPrompt).toContain('inherit Image 1 selling points, never inherit Image 1 layout');
     expect(userText).toContain('"requested_count": 2');
     expect(userText).toContain('"batch_diversity_plan"');

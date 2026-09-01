@@ -33,7 +33,8 @@ describe('skuHitMainImagePrompt', () => {
     expect(prompt).toContain('preserve that marketing logic but redesign the presentation');
     expect(prompt).toContain('realistic scale, not an oversized hero jar');
     expect(prompt).toContain('PHYSICS REALISM:');
-    expect(prompt).toContain('never rewrite core headlines, add fake English');
+    expect(prompt).toContain('exactly one Image 2 SKU instance');
+    expect(prompt).toContain('rewrite category-conflicting copy');
     expect(prompt).toContain('Return only the final image, not analysis');
 
     const swapped = buildSkuHitMainImagePrompt({
@@ -47,7 +48,7 @@ describe('skuHitMainImagePrompt', () => {
     expect(swapped).toContain('Image 2 = source = new SKU product image');
   });
 
-  it('overrides filled brand/product/capacity including titles, and inherits blank fields from image 1', () => {
+  it('overrides filled brand/product/capacity including titles, and derives blank fields from image 2 label', () => {
     const filled = buildSkuHitMainImagePrompt({
       ...baseRequest,
       brand: 'wkau',
@@ -61,8 +62,8 @@ describe('skuHitMainImagePrompt', () => {
     expect(filled).toContain('including words that appear in headline blocks');
 
     const inherited = buildSkuHitMainImagePrompt(baseRequest);
-    expect(inherited).toContain('Unfilled brand, product name, or capacity inherit from Image 1');
-    expect(inherited).not.toContain('Brand: "');
+    expect(inherited).toContain('derive headline and category wording from Image 2 visible label copy');
+    expect(inherited).not.toContain('inherit from Image 1');
   });
 
   it('bounds additional prompt and requires batch composition diversity', () => {

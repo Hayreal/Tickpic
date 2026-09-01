@@ -45,9 +45,8 @@ function buildImageRolesSection() {
 function buildKeepSection() {
   return [
     'MUST PRESERVE:',
-    'Preserve Image 1 marketing theme, core English headline/subheadline, and explicit marketing copy; keep original wording whenever possible.',
-    'Preserve Image 1 product use case and usage-scene type; do not change the problem being solved.',
-    'If Image 1 targets a specific object, every output must stay on that object category.',
+    'Preserve Image 1 before/after marketing structure and general selling angle.',
+    'Do not preserve Image 1 literal headline object/category when it conflicts with Image 2 SKU category.',
   ].join('\n');
 }
 
@@ -60,6 +59,7 @@ function buildProductReplaceSection() {
     'Packaging lock applies only to the SKU itself; it does not block rebuilding the scene or layout.',
     'Never stretch, compress, slim, widen, or redesign Image 2.',
     'Derive overall ad palette primarily from Image 2 label colors. This is not a plain white-background full-bottle SKU shot.',
+    'Show exactly one Image 2 SKU instance. When the product is visible in the demo action, do not also place a second copy on a countertop, vanity, sink ledge, table, or lower-right foreground display.',
   ].join('\n');
 }
 
@@ -112,12 +112,12 @@ function buildCopySection(request: ImageTaskRequest) {
   }
 
   if (!brand || !productName || !capacity) {
-    lines.push('Unfilled brand, product name, or capacity inherit from Image 1; omit if unreadable and never invent values.');
+    lines.push('When the user does not provide product name or capacity, derive headline and category wording from Image 2 visible label copy, not from Image 1 literal headline text.');
   }
 
+  lines.push('Headlines must match Image 2 product category; rewrite Image 1 headline wording when the object/category conflicts.');
   lines.push('Every visible capacity must start with the exact prefix "NET:".');
-  lines.push('Preserve core headlines; resizing and repositioning are allowed; never rewrite core headlines, add fake English, or add meaningless icon clutter.');
-  lines.push('All visible marketing copy should read as natural English; translate any non-English source copy into equivalent English.');
+  lines.push('Allow headline resizing and repositioning; rewrite category-conflicting copy; never add fake English or meaningless icon clutter.');
   return lines.join('\n');
 }
 
