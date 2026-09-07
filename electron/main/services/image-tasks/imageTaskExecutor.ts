@@ -1,6 +1,7 @@
 import type { ImageTaskRecord } from '../../../../src/shared/domain/imageFeatureApi.js';
 import type { ImageTaskPlan, ImageTaskRuntimeConfig } from '../../../../src/shared/domain/imageTaskPlan.js';
 import { buildImageTaskPlan } from '../../../../src/shared/domain/imageTaskPlan.js';
+import { appendNoGarbledTextRule } from '../../../../src/shared/domain/imageOutputRules.js';
 import { buildExecutionPrompt } from './instructionPrompt.js';
 import { isProductSetFeature } from './productSetJsonPrompt.js';
 import { isSkuFeature } from './skuExecutionPrompt.js';
@@ -128,13 +129,19 @@ export function createImageTaskExecutor(options: CreateImageTaskExecutorOptions)
         logger,
       })
       : undefined;
+    // Apply the shared rule before saving artifacts or sending any per-image prompt.
+    for (const result of [productSetVisionResult, skuVisionResult, skuHitMainVisionResult]) {
+      if (result) {
+        result.executionPrompts = result.executionPrompts.map(appendNoGarbledTextRule);
+      }
+    }
     const visionPrompts = productSetVisionResult?.executionPrompts
       ?? skuVisionResult?.executionPrompts
       ?? skuHitMainVisionResult?.executionPrompts;
     const isVisionPromptTask = isProductSet || isSku || isHitMain;
     const finalPrompt = isVisionPromptTask
       ? visionPrompts!.join('\n\n--- NEXT OUTPUT ---\n\n')
-      : buildExecutionPrompt(task.request, plan.mainPrompt);
+      : appendNoGarbledTextRule(buildExecutionPrompt(task.request, plan.mainPrompt));
 
     logger.info('image-task', '图片执行提示词已组装', {
       taskId: task.taskId,

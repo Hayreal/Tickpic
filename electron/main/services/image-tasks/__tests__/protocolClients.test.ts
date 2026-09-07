@@ -14,6 +14,24 @@ const TEST_BASE_URL = 'https://api.n1n.ai';
 const MULTI_IMAGE_OPENAI_PROMPT_SUFFIX = '\n\nAPI parameter n=2 already requests 2 separate image files. Each file must be exactly ONE single-scene photograph — never a triptych, split-screen, or multi-panel collage inside one file. Diversity is across files, not panels within a file. Do not collage, stack, or layer multiple scenes inside a single image canvas. Headline-only variations of the same physical scene are invalid.';
 const MULTI_IMAGE_GEMINI_PROMPT_SUFFIX = '\n\nAPI batch size is 2: return 2 separate image parts in this response. Each part must be exactly ONE single-scene photograph — never a triptych, split-screen, or multi-panel collage inside one part. Diversity is across parts, not panels within a part. Do not collage, stack, or layer multiple scenes inside a single image canvas. Headline-only variations of the same physical scene are invalid.';
 
+function createOpenAIMock(options: {
+  generateResult?: { data: Array<{ b64_json: string }> };
+  editResult?: { data: Array<{ b64_json: string }> };
+} = {}) {
+  return {
+    chat: { completions: { create: vi.fn() } },
+    images: {
+      generate: vi.fn().mockResolvedValue(options.generateResult ?? {
+        data: [{ b64_json: Buffer.from('generated').toString('base64') }],
+      }),
+      edit: vi.fn(),
+    },
+    post: vi.fn().mockResolvedValue(options.editResult ?? {
+      data: [{ b64_json: Buffer.from('edited').toString('base64') }],
+    }),
+  };
+}
+
 describe('protocolClients', () => {
   let tempDir: string;
   let imagePath: string;
@@ -29,15 +47,7 @@ describe('protocolClients', () => {
   });
 
   it('uses OpenAI image generation without unsupported output parameters', async () => {
-    const openai = {
-      chat: { completions: { create: vi.fn() } },
-      images: {
-        generate: vi.fn().mockResolvedValue({
-          data: [{ b64_json: Buffer.from('generated').toString('base64') }],
-        }),
-        edit: vi.fn(),
-      },
-    };
+    const openai = createOpenAIMock();
     const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
 
     const result = await client.executeImage({
@@ -62,20 +72,15 @@ describe('protocolClients', () => {
     );
     expect(openai.images.generate.mock.calls[0][0]).not.toHaveProperty('background');
     expect(openai.images.generate.mock.calls[0][0]).not.toHaveProperty('output_format');
+    expect(openai.post).not.toHaveBeenCalled();
     expect(openai.images.edit).not.toHaveBeenCalled();
     expect(Buffer.from(result.images[0].buffer).toString()).toBe('generated');
   });
 
   it('passes size auto to OpenAI image edit when aspectRatio is auto', async () => {
-    const openai = {
-      chat: { completions: { create: vi.fn() } },
-      images: {
-        generate: vi.fn(),
-        edit: vi.fn().mockResolvedValue({
-          data: [{ b64_json: Buffer.from('edited-auto').toString('base64') }],
-        }),
-      },
-    };
+    const openai = createOpenAIMock({
+      editResult: { data: [{ b64_json: Buffer.from('edited-auto').toString('base64') }] },
+    });
     const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
 
     await client.executeImage({
@@ -84,14 +89,12 @@ describe('protocolClients', () => {
       aspectRatio: 'auto',
     });
 
-    expect(openai.images.edit).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(openai.post).toHaveBeenCalledWith('/images/edits', expect.objectContaining({
+      body: expect.objectContaining({
         size: 'auto',
       }),
-      expect.objectContaining({
-        signal: expect.any(AbortSignal),
-      }),
-    );
+      signal: expect.any(AbortSignal),
+    }));
   });
 
   it('passes aspectRatio auto to Gemini image execution', async () => {
@@ -133,50 +136,33 @@ describe('protocolClients', () => {
   });
 
   it('uses OpenAI image edit without unsupported optional parameters', async () => {
-    const openai = {
-      chat: { completions: { create: vi.fn() } },
-      images: {
-        generate: vi.fn(),
-        edit: vi.fn().mockResolvedValue({
-          data: [{ b64_json: Buffer.from('edited').toString('base64') }],
-        }),
-      },
-    };
+    const openai = createOpenAIMock();
     const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
 
     const result = await client.executeImage(createExecutionInput(imagePath));
 
-    expect(openai.images.edit).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(openai.post).toHaveBeenCalledWith('/images/edits', expect.objectContaining({
+      body: expect.objectContaining({
         model: 'gpt-image-2',
         prompt: `final prompt${MULTI_IMAGE_OPENAI_PROMPT_SUFFIX}`,
         n: 2,
         size: '1024x1536',
       }),
-      expect.objectContaining({
-        signal: expect.any(AbortSignal),
-      }),
-    );
-    expect(openai.images.edit.mock.calls[0][0]).not.toHaveProperty('input_fidelity');
-    expect(openai.images.edit.mock.calls[0][0]).not.toHaveProperty('background');
-    expect(openai.images.edit.mock.calls[0][0]).not.toHaveProperty('output_format');
+      signal: expect.any(AbortSignal),
+    }));
+    expect(openai.post.mock.calls[0][1].body).not.toHaveProperty('input_fidelity');
+    expect(openai.post.mock.calls[0][1].body).not.toHaveProperty('background');
+    expect(openai.post.mock.calls[0][1].body).not.toHaveProperty('output_format');
     expect(openai.images.generate).not.toHaveBeenCalled();
+    expect(openai.images.edit).not.toHaveBeenCalled();
     expect(Buffer.from(result.images[0].buffer).toString()).toBe('edited');
   });
 
-  it('uploads OpenAI edit images as File with image MIME type, not octet-stream', async () => {
+  it('uploads OpenAI edit images as JSON data URLs with image MIME type, not octet-stream', async () => {
     const jpegPath = path.join(tempDir, 'input.jpg');
     await writeFile(jpegPath, Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
 
-    const openai = {
-      chat: { completions: { create: vi.fn() } },
-      images: {
-        generate: vi.fn(),
-        edit: vi.fn().mockResolvedValue({
-          data: [{ b64_json: Buffer.from('edited').toString('base64') }],
-        }),
-      },
-    };
+    const openai = createOpenAIMock();
     const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
 
     await client.executeImage({
@@ -187,33 +173,56 @@ describe('protocolClients', () => {
       ],
     });
 
-    const editArgs = openai.images.edit.mock.calls[0]?.[0] as {
-      image: Array<{ name: string; type: string }>;
+    const editArgs = openai.post.mock.calls[0]?.[1] as {
+      body: { images: Array<{ image_url: string; url: string }> };
     };
-    expect(editArgs.image).toHaveLength(2);
-    for (const file of editArgs.image) {
-      expect(file).toBeInstanceOf(File);
-      expect(file.name).toBe('input.jpg');
-      expect(file.type).toBe('image/jpeg');
+    expect(editArgs.body.images).toHaveLength(2);
+    for (const image of editArgs.body.images) {
+      expect(image.image_url.startsWith('data:image/jpeg;base64,')).toBe(true);
+      expect(image.url).toBe(image.image_url);
     }
+  });
+
+  it('uses images[].image_url for single-image OpenAI edits', async () => {
+    const openai = createOpenAIMock();
+    const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
+
+    await client.executeImage({
+      ...createExecutionInput(imagePath),
+      images: [{ role: 'source', path: imagePath, mimeType: 'image/png' }],
+    });
+
+    const editArgs = openai.post.mock.calls[0]?.[1] as {
+      body: { images: Array<{ image_url: string; url: string }> };
+    };
+    expect(editArgs.body.images).toHaveLength(1);
+    expect(editArgs.body.images[0]?.image_url.startsWith('data:image/png;base64,')).toBe(true);
+    expect(editArgs.body.images[0]?.url).toBe(editArgs.body.images[0]?.image_url);
+  });
+
+  it('uses low quality for grok-imagine JSON image edits', async () => {
+    const openai = createOpenAIMock();
+    const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
+
+    await client.executeImage({
+      ...createExecutionInput(imagePath),
+      model: 'grok-imagine-image-2.0',
+    });
+
+    expect(openai.post.mock.calls[0]?.[1].body.quality).toBe('low');
   });
 
   it('rejects AVIF inputs locally with a conversion hint', async () => {
     const avifPath = path.join(tempDir, 'input.avif');
     await writeFile(avifPath, Buffer.from('avif'));
-    const openai = {
-      chat: { completions: { create: vi.fn() } },
-      images: {
-        generate: vi.fn(),
-        edit: vi.fn(),
-      },
-    };
+    const openai = createOpenAIMock();
     const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
 
     await expect(client.executeImage({
       ...createExecutionInput(avifPath),
       images: [{ role: 'product', path: avifPath }],
     })).rejects.toThrow('AVIF 输入，请先转换为 PNG、JPG 或 WEBP');
+    expect(openai.post).not.toHaveBeenCalled();
     expect(openai.images.edit).not.toHaveBeenCalled();
   });
 
@@ -253,20 +262,14 @@ describe('protocolClients', () => {
   });
 
   it('omits input fidelity for sticker variation edits', async () => {
-    const openai = {
-      chat: { completions: { create: vi.fn() } },
-      images: {
-        generate: vi.fn(),
-        edit: vi.fn().mockResolvedValue({
-          data: [{ b64_json: Buffer.from('varied').toString('base64') }],
-        }),
-      },
-    };
+    const openai = createOpenAIMock({
+      editResult: { data: [{ b64_json: Buffer.from('varied').toString('base64') }] },
+    });
     const client = createOpenAIProtocolClient(openai, { baseUrl: TEST_BASE_URL });
 
     await client.executeImage(createStickerVariationExecutionInput(imagePath));
 
-    expect(openai.images.edit.mock.calls[0][0]).not.toHaveProperty('input_fidelity');
+    expect(openai.post.mock.calls[0][1].body).not.toHaveProperty('input_fidelity');
   });
 
   it('extracts multiple Gemini image parts from one response', async () => {

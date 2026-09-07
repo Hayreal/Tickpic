@@ -51,7 +51,7 @@ describe('skuHitMainVisionPrompt', () => {
     expect(prompt).toContain('Brand: "wkau"');
   });
 
-  it('parses one instruction batch and rejects Chinese execution text', () => {
+  it('parses one instruction batch and repairs Chinese execution text', () => {
     const batch = parseSkuHitMainVisionBatch(JSON.stringify({
       instructions: [
         { index: 1, prompt: 'Rebuild the scene with a new diagonal layout and larger SKU exposure.' },
@@ -60,9 +60,11 @@ describe('skuHitMainVisionPrompt', () => {
 
     expect(batch.instructions).toHaveLength(1);
 
-    expect(() => parseSkuHitMainVisionBatch(
+    const repaired = parseSkuHitMainVisionBatch(
       '{"instructions":[{"index":1,"prompt":"只改主图"}]}',
       1,
-    )).toThrow('English-only');
+    );
+    expect(repaired.instructions[0]?.prompt).toContain('English-only main-image design plan');
+    expect(repaired.instructions[0]?.prompt).not.toMatch(/\p{Script=Han}/u);
   });
 });

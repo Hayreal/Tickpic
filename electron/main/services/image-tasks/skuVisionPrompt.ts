@@ -164,9 +164,6 @@ export function parseSkuVisionBatch(raw: string, expectedCount: number): SkuVisi
     if (!instruction || instruction.index !== index + 1 || typeof instruction.prompt !== 'string' || !instruction.prompt.trim()) {
       throw new Error(`vision model missing SKU prompt for index ${index + 1}`);
     }
-    if (HAN_CHARACTER_PATTERN.test(instruction.prompt)) {
-      throw new Error('vision model must return English-only SKU execution prompts');
-    }
   }
 
   const containerLock = parseSkuContainerLock(
@@ -185,9 +182,18 @@ export function parseSkuVisionBatch(raw: string, expectedCount: number): SkuVisi
     containerLock,
     instructions: instructions.map((instruction) => ({
       index: instruction.index,
-      prompt: instruction.prompt.trim(),
+      prompt: normalizeSkuPlannerPrompt(instruction.prompt, instruction.index),
     })),
   };
+}
+
+function normalizeSkuPlannerPrompt(prompt: string, index: number) {
+  const trimmed = prompt.trim();
+  if (!HAN_CHARACTER_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `Create an English-only label design plan for batch output ${index}. Use a clearly distinct label layout, hierarchy, palette, typography, and decorative placement while preserving the locked product identity.`;
 }
 
 export function finalizeSkuVisionInstruction(

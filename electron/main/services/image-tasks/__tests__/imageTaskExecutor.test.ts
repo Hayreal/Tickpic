@@ -3,6 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ENGLISH_ONLY_VISIBLE_TEXT_RULE } from '../../../../../src/shared/domain/imageOutputRules';
 import { createImageTaskExecutor } from '../imageTaskExecutor';
+import { getImageFeatureDefinition } from '../../../../../src/shared/domain/imageFeatureApi';
 import type { ImageTaskRecord } from '../../../../../src/shared/domain/imageFeatureApi';
 import type { ImageTaskRuntimeConfig } from '../../../../../src/shared/domain/imageTaskPlan';
 
@@ -49,8 +50,14 @@ function createMockArtifactSession(taskId: string, options?: { fixedResultIndex?
   };
 }
 
+const TEXT_QUALITY_RULE = 'Text quality constraint: All visible text must be clear, legible, correctly spelled, and composed of valid characters. Do not render garbled text, fake letters, random symbols, or meaningless pseudo-text.';
+
+function withTextQualityRule(prompt: string) {
+  return `${prompt}\n${TEXT_QUALITY_RULE}`;
+}
+
 function withEnglishOnlyRule(...lines: string[]) {
-  return [...lines, ENGLISH_ONLY_VISIBLE_TEXT_RULE].join('\n');
+  return withTextQualityRule([...lines, ENGLISH_ONLY_VISIBLE_TEXT_RULE].join('\n'));
 }
 
 describe('imageTaskExecutor', () => {
@@ -63,6 +70,51 @@ describe('imageTaskExecutor', () => {
     defaultCount: 4,
     maxCount: 4,
   };
+
+  it.each([
+    'sticker_replica', 'sticker_variation', 'sticker_original',
+    'remove_product', 'replace_product', 'replace_logo',
+    'main_image_asset_variation', 'scene_variation', 'create_new_scene', 'prompt_only_main_asset',
+  ] as const)('adds text quality constraints to every %s output and its saved prompt', async (feature) => {
+    let savedPrompt = '';
+    const prompts: string[] = [];
+    const executor = createImageTaskExecutor({
+      runtimeConfig,
+      modelGateway: {
+        executeSingleImage: async ({ finalPrompt }) => {
+          prompts.push(finalPrompt);
+          return { images: [{ fileName: 'result.png', buffer: new Uint8Array([1]), mimeType: 'image/png' }] };
+        },
+        executeImage: async () => { throw new Error('not used'); },
+      },
+      artifactStore: {
+        begin: async ({ task, finalPrompt }) => {
+          savedPrompt = finalPrompt;
+          return createMockArtifactSession(task.taskId);
+        },
+        save: async () => { throw new Error('not used'); },
+      },
+    });
+
+    await executor(createTask({
+      feature,
+      count: 2,
+      images: getImageFeatureDefinition(feature).requiredImageRoles.map((role) => ({
+        role, path: `/authorized/input/${role}.png`,
+      })),
+    }), new AbortController().signal);
+
+    expect(prompts).toHaveLength(2);
+    for (const prompt of prompts) {
+      expect(prompt).toContain(TEXT_QUALITY_RULE);
+      expect(prompt.match(/Do not render garbled text/g)).toHaveLength(1);
+      expect(prompt).toBe(savedPrompt);
+      if (feature === 'main_image_asset_variation') {
+        expect(prompt).toContain('不要出现小卖点');
+        expect(prompt).toContain('小图标');
+      }
+    }
+  });
 
   it('assembles the execution prompt locally and runs image execution', async () => {
     const calls: string[] = [];
@@ -279,7 +331,7 @@ describe('imageTaskExecutor', () => {
     }), new AbortController().signal);
 
     expect(singleCalls).toBe(3);
-    expect(variantPrompts).toEqual(['vision-prompt-1', 'vision-prompt-2', 'vision-prompt-3']);
+    expect(variantPrompts).toEqual(['vision-prompt-1', 'vision-prompt-2', 'vision-prompt-3'].map(withTextQualityRule));
     expect(result.images).toHaveLength(3);
   });
 
@@ -327,7 +379,7 @@ describe('imageTaskExecutor', () => {
       images: [{ role: 'product', path: '/authorized/input/product.png' }],
     }), new AbortController().signal);
 
-    expect(prompts).toEqual(['vision-single-prompt']);
+    expect(prompts).toEqual([withTextQualityRule('vision-single-prompt')]);
   });
 
   it('plans an English SKU prompt before editing the SKU image', async () => {
@@ -386,7 +438,7 @@ describe('imageTaskExecutor', () => {
       ],
     }), new AbortController().signal);
 
-    expect(prompts).toEqual(['Edit the supplied SKU image; only redesign its label.']);
+    expect(prompts).toEqual([withTextQualityRule('Edit the supplied SKU image; only redesign its label.')]);
     expect(executionImageCounts).toEqual([2]);
   });
 
@@ -447,7 +499,7 @@ describe('imageTaskExecutor', () => {
       ],
     }), new AbortController().signal);
 
-    expect(prompts[0]).toBe('Rebuild the scene with a diagonal layout and larger SKU exposure.');
+    expect(prompts[0]).toBe(withTextQualityRule('Rebuild the scene with a diagonal layout and larger SKU exposure.'));
     expect(executionImageRoles).toEqual([['reference', 'source']]);
   });
 
@@ -514,7 +566,7 @@ describe('imageTaskExecutor', () => {
     }), new AbortController().signal);
 
     expect(plannedCounts).toEqual([2]);
-    expect(prompts).toEqual(['batch-prompt-1', 'batch-prompt-2']);
+    expect(prompts).toEqual(['batch-prompt-1', 'batch-prompt-2'].map(withTextQualityRule));
   });
 
   it.each(['sku_variation', 'sku_original'] as const)(

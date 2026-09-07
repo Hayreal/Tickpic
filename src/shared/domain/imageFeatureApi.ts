@@ -208,7 +208,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   main_image_asset_variation: {
     feature: 'main_image_asset_variation',
-    mainPrompt: '基于输入图生成跨境电商主图。若输入是白底/孤立产品图，保留原产品外观、品牌、标签和关键文字，并补充生活方式场景、英文标题、卖点卡片、图标与商业光影；若输入已是主图/场景图，则生成明显不同的场景、标题排版或主视觉构图。画面高清干净，适合商品主图/广告素材。',
+    mainPrompt: '基于输入图生成跨境电商主图。若输入是白底/孤立产品图，保留原产品外观、品牌、标签和关键文字，并补充生活方式场景、英文标题与商业光影；若输入已是主图/场景图，则生成明显不同的场景、标题排版或主视觉构图。画面文案仅保留主标题和必要的副标题，不要出现小卖点、卖点卡片、功能列表、小图标、圆形或六边形徽章、图标加短文案的卖点模块，参考图中已有的此类模块也不要保留。用户提供的卖点仅用于指导场景和主标题表达，不得排成独立的小卖点模块；产品本身的包装标签不受此版式限制。画面高清干净，适合商品主图/广告素材。',
     acceptedImageRoles: ['source', 'reference'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',

@@ -498,7 +498,7 @@ describe('instructionPrompt', () => {
   });
 
   it('builds main image asset variation prompt with selling points and showProduct', () => {
-    const mainPrompt = '基于输入图生成跨境电商主图。若输入是白底/孤立产品图，保留原产品外观、品牌、标签和关键文字，并补充生活方式场景、英文标题、卖点卡片、图标与商业光影。';
+    const mainPrompt = getImageFeatureDefinition('main_image_asset_variation').mainPrompt;
     const text = buildExecutionPrompt(
       {
         feature: 'main_image_asset_variation',
@@ -586,4 +586,3 @@ describe('instructionPrompt', () => {
     expect(prompt).not.toContain('short main prompt that should not be concatenated');
   });
 });
-

@@ -358,10 +358,32 @@ describe('skuVisionPrompt', () => {
     )).toThrow('container_lock');
   });
 
-  it('rejects a vision batch with Chinese execution text', () => {
-    expect(() => parseSkuVisionBatch(
+  it('repairs Chinese planner text into an English fallback instead of failing the batch', () => {
+    const batch = parseSkuVisionBatch(
       '{"locked_copy":{"brand":"","product_name":"","capacity":""},"container_lock":{"form":"jar","height_tier":"low","shape_description":"squat jar"},"instructions":[{"index":1,"prompt":"只改标签"}]}',
       1,
-    )).toThrow('English-only');
+    );
+
+    expect(batch.instructions[0]?.prompt).toContain('English-only label design plan');
+    expect(batch.instructions[0]?.prompt).not.toMatch(/\p{Script=Han}/u);
+  });
+
+  it('keeps every slot in a mixed-language multi-count batch usable', () => {
+    const batch = parseSkuVisionBatch(JSON.stringify({
+      locked_copy: { brand: '', product_name: '', capacity: '' },
+      container_lock: { form: 'bottle', shape_description: 'tall bottle' },
+      instructions: [
+        { index: 1, prompt: 'Use a bold diagonal label layout.' },
+        { index: 2, prompt: '使用居中的标签布局' },
+        { index: 3, prompt: 'Use a horizontal band layout.' },
+      ],
+    }), 3);
+
+    expect(batch.instructions).toHaveLength(3);
+    expect(batch.instructions.map((item) => item.prompt)).toEqual([
+      'Use a bold diagonal label layout.',
+      expect.stringContaining('batch output 2'),
+      'Use a horizontal band layout.',
+    ]);
   });
 });

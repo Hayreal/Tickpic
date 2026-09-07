@@ -34,7 +34,8 @@ export function createOpenAIProtocolClient(
       const executionPayload = input.images.length > 0
         ? {
           operation: 'edit',
-          image: input.images.map((image) => ({
+          contentType: 'application/json',
+          images: input.images.map((image) => ({
             role: image.role,
             path: image.path,
             mimeType: image.mimeType,
@@ -62,16 +63,7 @@ export function createOpenAIProtocolClient(
       });
 
       const response = input.images.length > 0
-        ? await openai.images.edit({
-          image: await Promise.all(input.images.map((image) => buildOpenAIImageFile(image))),
-          model: input.model,
-          prompt: buildOpenAIExecutionPrompt(input.finalPrompt, input.count),
-          n: input.count,
-          ...(input.size ? { size: input.size } : {}),
-          quality: 'auto',
-        }, {
-          signal: input.abortSignal,
-        })
+        ? await editOpenAIImagesViaJson(openai, input)
         : await openai.images.generate({
           model: input.model,
           prompt: buildOpenAIExecutionPrompt(input.finalPrompt, input.count),
@@ -165,11 +157,36 @@ export function createGeminiProtocolClient(
   };
 }
 
-async function buildOpenAIImageFile(image: ImageInput): Promise<File> {
-  const buffer = await readFile(image.path);
-  return new File([buffer], path.basename(image.path), {
-    type: resolveImageMimeType(image),
+async function editOpenAIImagesViaJson(openai: any, input: ModelExecutionClientInput) {
+  const imageDataUrls = await Promise.all(input.images.map((image) => buildOpenAIImageDataUrl(image)));
+  return openai.post('/images/edits', {
+    body: {
+      model: input.model,
+      prompt: buildOpenAIExecutionPrompt(input.finalPrompt, input.count),
+      images: buildOpenAIEditImageRefs(imageDataUrls),
+      n: input.count,
+      ...(input.size ? { size: input.size } : {}),
+      quality: resolveOpenAIEditQuality(input.model),
+    },
+    signal: input.abortSignal,
   });
+}
+
+function buildOpenAIEditImageRefs(dataUrls: string[]) {
+  return dataUrls.map((dataUrl) => ({ image_url: dataUrl, url: dataUrl }));
+}
+
+function resolveOpenAIEditQuality(model: string) {
+  if (/grok-imagine/i.test(model)) {
+    return 'low';
+  }
+  return 'auto';
+}
+
+async function buildOpenAIImageDataUrl(image: ImageInput): Promise<string> {
+  const buffer = await readFile(image.path);
+  const mimeType = resolveImageMimeType(image);
+  return `data:${mimeType};base64,${buffer.toString('base64')}`;
 }
 
 async function buildGeminiParts(text: string, images: ImageInput[]) {

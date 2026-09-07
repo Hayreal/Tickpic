@@ -103,17 +103,23 @@ export function parseSkuHitMainVisionBatch(raw: string, expectedCount: number): 
     if (!instruction || instruction.index !== index + 1 || typeof instruction.prompt !== 'string' || !instruction.prompt.trim()) {
       throw new Error(`vision model missing hit-main prompt for index ${index + 1}`);
     }
-    if (HAN_CHARACTER_PATTERN.test(instruction.prompt)) {
-      throw new Error('vision model must return English-only hit-main execution prompts');
-    }
   }
 
   return {
     instructions: instructions.map((instruction) => ({
       index: instruction.index,
-      prompt: instruction.prompt.trim(),
+      prompt: normalizeHitMainPlannerPrompt(instruction.prompt, instruction.index),
     })),
   };
+}
+
+function normalizeHitMainPlannerPrompt(prompt: string, index: number) {
+  const trimmed = prompt.trim();
+  if (!HAN_CHARACTER_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `Create an English-only main-image design plan for batch output ${index}. Use a clearly distinct scene composition, product placement, headline hierarchy, and camera angle while preserving the SKU identity and marketing promise.`;
 }
 
 export function finalizeSkuHitMainVisionInstruction(
