@@ -158,6 +158,7 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
   // TAB 4: THEME VARIATION state
   const [themeRefBatch, setThemeRefBatch] = useState<ImportBatch | null>(null);
   const [themePrompt, setThemePrompt] = useState('');
+  const [themeNegativePrompt, setThemeNegativePrompt] = useState('');
   const [themeSellingPoints, setThemeSellingPoints] = useState('');
   const [themeColorScheme, setThemeColorScheme] = useState('');
   const [themeAspectRatio, setThemeAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
@@ -227,6 +228,7 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
     setLogoAspectRatio(restored.logoAspectRatio);
     setThemeRefBatch(restored.themeRefBatch);
     setThemePrompt(restored.themePrompt);
+    setThemeNegativePrompt(restored.themeNegativePrompt);
     setThemeSellingPoints(restored.themeSellingPoints);
     setThemeColorScheme(restored.themeColorScheme);
     setThemeAspectRatio(restored.themeAspectRatio);
@@ -384,6 +386,7 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
             images: [{ role: 'source', path: source.filePath }],
             count: 1,
             prompt: themePrompt || undefined,
+            negativePrompt: themeNegativePrompt || undefined,
             sellingPoints: sellingPointsFrom(themeSellingPoints),
             colorScheme: themeColorScheme || undefined,
             aspectRatio: themeAspectRatio,
@@ -776,6 +779,16 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
                       />
                     </div>
                     <ShowProductToggle value={themeShowProduct} onChange={setThemeShowProduct} />
+                    <div className="space-y-2 sm:col-span-2">
+                      <label className="ui-label" htmlFor="theme-negative-prompt">反向提示词</label>
+                      <textarea
+                        id="theme-negative-prompt"
+                        value={themeNegativePrompt}
+                        onChange={(e) => setThemeNegativePrompt(e.target.value)}
+                        placeholder="例如：不要出现小卖点图标、额外产品、乱码或无意义文字"
+                        className="ui-textarea h-16 text-xs"
+                      />
+                    </div>
                   </>
                 )}
               />

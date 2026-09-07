@@ -28,6 +28,7 @@ export interface ProductRestoreState {
   logoAspectRatio: ImageAspectRatioValue;
   themeRefBatch: ImportBatch | null;
   themePrompt: string;
+  themeNegativePrompt: string;
   themeSellingPoints: string;
   themeColorScheme: string;
   themeAspectRatio: ImageAspectRatioValue;
@@ -98,6 +99,7 @@ export function applyProductRestore(task: TaskRecord): ProductRestoreState | nul
     logoAspectRatio: 'auto',
     themeRefBatch: null,
     themePrompt: '',
+    themeNegativePrompt: '',
     themeSellingPoints: '',
     themeColorScheme: '',
     themeAspectRatio: 'auto',
@@ -166,6 +168,7 @@ export function applyProductRestore(task: TaskRecord): ProductRestoreState | nul
         subTab: 'theme',
         themeRefBatch: batchFromRole(request, 'source', 'product', 'main_image_asset_variation'),
         themePrompt: request.prompt ?? '',
+        themeNegativePrompt: request.negativePrompt ?? '',
         themeSellingPoints: request.sellingPoints?.join(', ') ?? '',
         themeColorScheme: request.colorScheme ?? '',
         themeAspectRatio: aspectRatioFrom(request.aspectRatio),
