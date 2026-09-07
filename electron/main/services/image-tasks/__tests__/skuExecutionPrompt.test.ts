@@ -53,4 +53,19 @@ describe('skuExecutionPrompt', () => {
     expect(prompt).toContain('产品名称来源: "墙面修补膏"');
     expect(prompt).toContain('与同批其他输出相比');
   });
+
+  it('keeps original reference images inspirational in the legacy prompt path', () => {
+    const prompt = buildSkuExecutionPrompt({
+      feature: 'sku_original',
+      productName: 'Ceramic Cleaner',
+      images: [
+        { role: 'source', path: '/tmp/sku.png' },
+        { role: 'reference', path: '/tmp/reference.png' },
+      ],
+    });
+
+    expect(prompt).toContain('可选包装设计灵感图');
+    expect(prompt).toContain('独立原创版式');
+    expect(prompt).not.toContain('同时参考其中的版式结构');
+  });
 });

@@ -18,6 +18,17 @@ describe('skuVisionPrompt', () => {
     },
   );
 
+  it('keeps variation and original reference roles distinct from replica mode', () => {
+    const variationPrompt = buildSkuVisionSystemPrompt('sku_variation');
+    const originalPrompt = buildSkuVisionSystemPrompt('sku_original');
+
+    expect(variationPrompt).toContain('same reference label design system but a new, non-replica layout');
+    expect(variationPrompt).not.toContain('sole visual authority for the new label');
+    expect(originalPrompt).toContain('optional visual inspiration only');
+    expect(originalPrompt).toContain('independent original label layout');
+    expect(originalPrompt).not.toContain('sole layout authority');
+  });
+
   it('passes the existing SKU request fields to the vision planner', () => {
     const text = buildSkuVisionUserText({
       feature: 'sku_replica',
@@ -34,6 +45,26 @@ describe('skuVisionPrompt', () => {
     expect(text).toContain('"requested_count": 1');
     expect(text).toContain('"productName": "珠宝翻新泡腾片"');
     expect(text).toContain('"prompt": "类似风格，参考文案"');
+  });
+
+  it('assigns mode-specific reference roles in the planner input', () => {
+    const variationText = buildSkuVisionUserText({
+      feature: 'sku_variation',
+      images: [
+        { role: 'source', path: '/authorized/input/sku.png' },
+        { role: 'reference', path: '/authorized/input/reference.png' },
+      ],
+    }, 1);
+    const originalText = buildSkuVisionUserText({
+      feature: 'sku_original',
+      images: [
+        { role: 'source', path: '/authorized/input/sku.png' },
+        { role: 'reference', path: '/authorized/input/reference.png' },
+      ],
+    }, 1);
+
+    expect(variationText).toContain('label design-system reference for a new layout');
+    expect(originalText).toContain('optional visual inspiration for an independent label');
   });
 
   it('requests one batch with diversity slots for multi-count SKU planning', () => {
@@ -309,7 +340,7 @@ describe('skuVisionPrompt', () => {
     expect(prompt).toContain('accessories, bundle items, gift items');
     expect(prompt).not.toContain('Remove ecommerce overlay graphics from Image 1');
     expect(prompt).toContain('blank package render');
-    expect(prompt).toContain('Images 2+ define the label design system for this original label');
+    expect(prompt).toContain('Images 2+ are optional visual inspiration for this original label');
     expect(prompt).toContain('The exact product name is "Heavy Oil Eliminator"');
     expect(prompt).not.toContain('Planner Product Name');
     expect(prompt).toContain('Ignore every existing label design on Image 1');

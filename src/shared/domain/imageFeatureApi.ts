@@ -277,7 +277,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   sku_variation: {
     feature: 'sku_variation',
-    mainPrompt: '基于 SKU 产品图对标签做风格、排版、色系裂变，输出整瓶 SKU 产品图。品牌、容量、产品名称等核心文案默认保持不变；除非用户明确要求改包材形态，否则保持 SKU 图的瓶型、盖子、比例与材质一致。',
+    mainPrompt: '基于 SKU 产品图对标签做风格、排版、色系裂变，输出整瓶 SKU 产品图。有参考图时沿用同一设计体系，但必须采用明显不同的新排版，不得复刻参考图完整布局或源图旧标签排版。品牌、容量、产品名称等核心文案默认保持不变；除非用户明确要求改包材形态，否则保持 SKU 图的瓶型、盖子、比例与材质一致。',
     acceptedImageRoles: ['source', 'reference'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',
@@ -285,7 +285,7 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   sku_original: {
     feature: 'sku_original',
-    mainPrompt: '在 SKU 包材上原创设计产品标签，输出整瓶 SKU 产品图。按用户提供的产品信息自由发挥；有参考图时版式、层级、色系与装饰语言均从参考图推导，不得沿用 SKU 源图标签排版；除非用户明确要求改包材形态，否则保持 SKU 图的瓶型、盖子、比例与材质一致。',
+    mainPrompt: '在 SKU 包材上原创设计产品标签，输出整瓶 SKU 产品图。按用户提供的产品信息自由发挥；有参考图时仅借鉴其视觉气质、色系、字体与装饰语言，必须采用独立原创版式和信息层级，不得复刻参考图完整布局，也不得沿用 SKU 源图标签排版；除非用户明确要求改包材形态，否则保持 SKU 图的瓶型、盖子、比例与材质一致。',
     acceptedImageRoles: ['source', 'reference'],
     requiredImageRoles: ['source'],
     executionModel: 'edit',

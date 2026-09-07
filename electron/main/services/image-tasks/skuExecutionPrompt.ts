@@ -74,7 +74,7 @@ function buildModeSection(request: ImageTaskRequest) {
     '模式: SKU 原创。',
     '只修改 SKU 包材上主产品的贴纸/标签；包材本体、配件、组合陈列、背景与构图保持不变。',
     '依据用户提供的结构化产品信息，在 SKU 包材上从零设计标签。',
-    '参考图提供标签设计系统：版式结构、信息层级、色系、装饰语言均从参考图推导；不得沿用 SKU 源图标签排版。',
+    '参考图仅提供可选的视觉灵感：可借鉴色系、字体气质与装饰语言，但必须原创版式与信息层级；不得复刻参考图的完整布局，也不得沿用 SKU 源图标签排版。',
     '保持 SKU 源图完整构图，包括配件、赠品标注、组合陈列等非标签元素。',
     '同一批次的多张输出之间版式、色系、视觉结构必须有明显差异。',
   ].join('\n');
@@ -89,7 +89,13 @@ function buildImageRoleLines(request: ImageTaskRequest) {
   return images.map((image, index) => {
     const prefix = `图片 ${index + 1}`;
     if (image.role === 'reference') {
-      return `${prefix}：包装设计参考图；同时参考其中的版式结构、信息层级、色系与装饰风格。`;
+      if (request.feature === 'sku_replica') {
+        return `${prefix}：包装标签复刻参考图；高保真参考其中的版式结构、信息层级、色系与装饰风格。`;
+      }
+      if (request.feature === 'sku_variation') {
+        return `${prefix}：包装设计体系参考图；借用色系、字体气质与装饰语言，但采用新的版式结构。`;
+      }
+      return `${prefix}：可选包装设计灵感图；仅借用视觉气质、色系、字体与装饰语言，采用独立原创版式。`;
     }
     return `${prefix}：SKU 包材图；作为包材画布与标签承载面，保持瓶身识别一致。`;
   }).join('\n');

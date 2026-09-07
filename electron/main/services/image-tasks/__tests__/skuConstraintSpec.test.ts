@@ -181,10 +181,10 @@ describe('skuConstraintSpec', () => {
     });
     const prompt = renderSkuLabelExecutionPrompt(spec, 'Use a blue bathroom-care label from the reference system.');
 
-    expect(prompt).toContain('Images 2+ define the label design system for this original label');
-    expect(prompt).toContain('Derive layout, hierarchy, palette bands, hero graphic language, typography mood, and decorative identity from Images 2+ only');
+    expect(prompt).toContain('Images 2+ are optional visual inspiration for this original label');
+    expect(prompt).toContain('create an independent original label layout rather than reproducing the reference layout');
     expect(prompt).toContain('Never preserve Image 1 source label layout');
-    expect(prompt).toContain('must not retain any source-label layout');
+    expect(prompt).toContain('must not reproduce the reference layout');
   });
 
   it('requires label surface conformity in execution prompts', () => {

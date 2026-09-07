@@ -429,6 +429,9 @@ describe('image feature API contract', () => {
     expect(replica.executionImageRoles).toEqual(['source', 'reference']);
     expect(variation.executionImageRoles).toEqual(['source', 'reference']);
     expect(original.executionImageRoles).toEqual(['source', 'reference']);
+    expect(variation.mainPrompt).toContain('明显不同的新排版');
+    expect(original.mainPrompt).toContain('独立原创版式');
+    expect(original.mainPrompt).not.toContain('版式、层级、色系与装饰语言均从参考图推导');
   });
 
   it('accepts sku replica requests with source and reference images', () => {

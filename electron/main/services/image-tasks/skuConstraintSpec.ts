@@ -161,7 +161,7 @@ function resolveReferenceImagesLine(feature: SkuLabelConstraintSpec['feature']):
   if (feature === 'sku_variation') {
     return 'Images 2+ control the label-design reference system. Never copy their container shape, crop, scene, copy, or secondary objects. Reference design system overrides conflicting creative plan wording.';
   }
-  return 'Images 2+ are label-design references only. Never copy their container shape, crop, scene, or secondary objects.';
+  return 'Images 2+ are optional visual inspiration for the original label. Use their mood, palette, typography, and decorative language only; never copy their container shape, crop, scene, or secondary objects.';
 }
 
 function assertSkuLabelFeature(feature: ImageFeature): asserts feature is SkuLabelConstraintSpec['feature'] {
@@ -203,8 +203,8 @@ function buildReferencePolicyLines(request: ImageTaskRequest): string[] {
     ];
   }
   return [
-    'Images 2+ define the label design system for this original label.',
-    'Derive layout, hierarchy, palette bands, hero graphic language, typography mood, and decorative identity from Images 2+ only.',
+    'Images 2+ are optional visual inspiration for this original label.',
+    'Use their mood, palette, typography, and decorative language only; create an independent original label layout rather than reproducing the reference layout.',
     'Never preserve Image 1 source label layout, band structure, logo zone, headline placement, palette bands, hero graphics, or decorative arrangement.',
     'Do not copy reference brand, product name, or literal promotional text unless locked_copy requires those exact fields.',
     'Never copy reference container shape, crop, scene, or secondary objects.',
@@ -221,12 +221,12 @@ function buildModeAuthorityLines(request: ImageTaskRequest): string[] {
       ];
     case 'sku_variation':
       return [
-        'Create this batch slot as a visibly distinct layout inside the same reference label design system. Change arrangement, never reference style identity, product identity, or source geometry.',
+        'Create this batch slot as a visibly distinct new layout inside the same reference label design system. Change arrangement while preserving reference style identity, product identity, and source geometry.',
         'Preserve the full Image 1 product set composition, including bundle accessories and secondary products; only redesign the primary SKU label.',
       ];
     case 'sku_original':
       return [
-        'Ignore every existing label design on Image 1. Image 1 provides container geometry only; derive the new visual language from reference images when present.',
+        'Ignore every existing label design on Image 1. Image 1 provides container geometry only; use reference images as optional inspiration and create an independent original label layout when they are present.',
         'Preserve the full Image 1 product set composition, including bundle accessories and secondary products; only redesign the primary SKU label.',
         "The user's product name is the sole semantic authority for product category, usage, and label imagery.",
         'Any source-derived category or usage direction in the creative plan is invalid and must be ignored.',
@@ -312,8 +312,10 @@ function buildFinalCheckLines(
   lines.push('The redesigned label must conform naturally to the Image 1 printable surface curvature, perspective, highlights, shadows, and gloss; never output a flat pasted rectangle.');
   if (request.feature === 'sku_replica' && hasReference) {
     lines.push('The output label must visibly match the reference label design system on Image 2+; no source-label palette, icons, category imagery, or layout may remain.');
-  } else if ((request.feature === 'sku_variation' || request.feature === 'sku_original') && hasReference) {
-    lines.push('The output label must follow the reference design system from Image 2+ and must not retain any source-label layout or decorative structure from Image 1.');
+  } else if (request.feature === 'sku_variation' && hasReference) {
+    lines.push('The output label must use the same reference design system from Image 2+ with a new, non-replica layout; it must not retain any source-label layout or decorative structure from Image 1.');
+  } else if (request.feature === 'sku_original' && hasReference) {
+    lines.push('The output label may use Image 2+ only as optional visual inspiration and must have an independent original layout; it must not reproduce the reference layout or retain any source-label design from Image 1.');
   }
 
   lines.push('Source container geometry and all locked visible copy override any conflicting creative plan wording.');

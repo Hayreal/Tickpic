@@ -24,7 +24,7 @@ export function appendSkuExecutionImageRoles(
     ? 'Image 2+ = sole label design authority. Reproduce the reference label layout, hierarchy, palette, hero graphic, and decorative language faithfully on Image 1 printable area.'
     : feature === 'sku_variation'
       ? 'Image 2+ = label design system reference. Derive palette, typography mood, band language, and decorative identity from Image 2+ only; create a visibly different layout axis and never reuse Image 1 label structure.'
-      : 'Image 2+ = label design system reference. Derive layout, hierarchy, palette, typography mood, band language, and decorative identity from Image 2+ only; never reuse Image 1 label structure or source-label category imagery.';
+      : 'Image 2+ = optional visual inspiration for the original label. Use its mood, palette, typography, and decorative language only; create an independent layout, never reproduce its exact layout, and never reuse Image 1 label structure.';
 
   const block = [
     'EXECUTION IMAGE ROLES:',

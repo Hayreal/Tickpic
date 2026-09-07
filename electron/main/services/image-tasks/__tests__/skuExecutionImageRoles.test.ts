@@ -40,7 +40,8 @@ describe('skuExecutionImageRoles', () => {
       true,
     );
 
-    expect(prompt).toContain('label design system reference');
+    expect(prompt).toContain('optional visual inspiration for the original label');
+    expect(prompt).toContain('create an independent layout');
     expect(prompt).toContain('never reuse Image 1 label structure');
   });
 });

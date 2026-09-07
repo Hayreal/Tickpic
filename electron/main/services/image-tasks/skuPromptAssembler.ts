@@ -111,11 +111,10 @@ export function validateAssembledPrompt(
     if (constraints.feature === 'sku_replica' && !validateReplicaAssembledPrompt(prompt)) {
       return false;
     }
-    if (
-      (constraints.feature === 'sku_variation' || constraints.feature === 'sku_original')
-      && constraints.reference_policy?.length
-      && !validateReferenceDrivenLabelPrompt(prompt)
-    ) {
+    if (constraints.feature === 'sku_variation' && constraints.reference_policy?.length && !validateVariationAssembledPrompt(prompt)) {
+      return false;
+    }
+    if (constraints.feature === 'sku_original' && constraints.reference_policy?.length && !validateOriginalAssembledPrompt(prompt)) {
       return false;
     }
     if (!validateContainerLockAssembledPrompt(prompt, constraints)) {
@@ -142,6 +141,24 @@ function validateReferenceDrivenLabelPrompt(prompt: string): boolean {
   const hasReferenceAuthority = /images 2\+|reference design system|reference label|label design system|reference artwork/.test(normalized);
   const forbidsSourceLayout = /source-label|source label|image 1 label layout|never preserve image 1|replace-only|do not retain any image 1 label|never reuse image 1|zero source-label/.test(normalized);
   return hasReferenceAuthority && forbidsSourceLayout;
+}
+
+function validateVariationAssembledPrompt(prompt: string): boolean {
+  if (!validateReferenceDrivenLabelPrompt(prompt)) {
+    return false;
+  }
+  const normalized = prompt.toLowerCase();
+  return /(?:new|different|distinct|non-replica|vary|change).{0,80}(?:layout|arrangement|hierarchy|placement)|(?:layout|arrangement|hierarchy|placement).{0,80}(?:new|different|distinct|non-replica|vary|change)/.test(normalized);
+}
+
+function validateOriginalAssembledPrompt(prompt: string): boolean {
+  const normalized = prompt.toLowerCase();
+  const forbidsSourceLayout = /source-label|source label|image 1 label layout|never preserve image 1|zero source-label|ignore every existing label/.test(normalized);
+  const independentLayout = /(?:independent|original|new).{0,80}(?:layout|label design)|(?:layout|label design).{0,80}(?:independent|original|new)/.test(normalized);
+  const replicaLanguage = /sole layout authority|reproduce\s+(?:the\s+)?(?:exact\s+)?reference layout|reproduce reference layout|match the reference layout faithfully/.test(normalized);
+  const explicitlyForbidsReplica = /(?:do not|never|must not|avoid).{0,80}(?:sole layout authority|reproduce\s+(?:the\s+)?(?:exact\s+)?reference layout|reproduce reference layout|match the reference layout faithfully)/.test(normalized);
+  const avoidsReplicaLanguage = !replicaLanguage || explicitlyForbidsReplica;
+  return forbidsSourceLayout && independentLayout && avoidsReplicaLanguage;
 }
 
 function validateReplicaAssembledPrompt(prompt: string): boolean {
@@ -194,12 +211,18 @@ function buildAssemblerSystemPrompt(feature: string): string {
       'It MUST forbid keeping any source-label icons, palette bands, or category imagery.',
       'locked_copy overrides only text fields; all label visuals must come from the reference label.',
     );
-  } else if (feature === 'sku_variation' || feature === 'sku_original') {
+  } else if (feature === 'sku_variation') {
     lines.push(
-      'For sku_variation and sku_original, Images 2+ MUST be the sole layout authority when reference images exist.',
+      'For sku_variation, Images 2+ define the reference design system, but the execution prompt MUST require a new, non-replica label layout.',
       'The execution prompt MUST forbid preserving Image 1 source label layout, band structure, logo zone, headline placement, palette bands, hero graphics, or decorative arrangement.',
-      'Do NOT invent a fresh band-stack layout (for example top brand bar, centered headline block, bottom capacity strip) unless that exact structure is clearly visible on the reference label.',
+      'Do not reproduce the exact reference layout; change arrangement, hierarchy, and element placement while keeping the reference design language recognizable.',
       'Describe concrete layout elements copied from Images 2+ such as reference band structure, hero graphic placement, typography hierarchy, and decorative motifs.',
+    );
+  } else if (feature === 'sku_original') {
+    lines.push(
+      'For sku_original, Images 2+ are optional visual inspiration only when reference images exist; the execution prompt MUST require an independent original label layout.',
+      'The execution prompt MUST forbid preserving Image 1 source label design or reproducing the exact reference layout, literal text, or brand identity.',
+      'Use the user product information as semantic authority and create a fresh composition, hierarchy, and graphic arrangement.',
     );
   } else if (feature === 'sku_hit_main_image') {
     lines.push(

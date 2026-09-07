@@ -60,7 +60,7 @@ describe('skuPromptAssembler', () => {
     )).toBe(true);
   });
 
-  it('rejects weak sku_original assembled prompts that omit reference-driven layout rules', () => {
+  it('requires an independent sku_original layout when a reference is present', () => {
     const spec = buildSkuLabelConstraintSpec({
       feature: 'sku_original',
       brand: 'wkau',
@@ -82,6 +82,21 @@ describe('skuPromptAssembler', () => {
 
     expect(validateAssembledPrompt(
       'Use Images 2+ as the label design system. Replace the entire source label and never preserve Image 1 source label layout, band structure, logo zone, headline placement, palette bands, hero graphics, or decorative arrangement. Display wkau, Ceramic Cleaner, and NET: 500G.',
+      spec,
+    )).toBe(false);
+
+    expect(validateAssembledPrompt(
+      'Create an independent original label layout for wkau Ceramic Cleaner with NET: 500G. Use the reference image only for a loose premium mood and color inspiration; do not copy its exact layout, headline lockup, band structure, or decorative arrangement, and do not preserve any Image 1 source-label design.',
+      spec,
+    )).toBe(true);
+
+    expect(validateAssembledPrompt(
+      'Create an independent original label layout but reproduce the exact reference layout faithfully for wkau Ceramic Cleaner with NET: 500G. Never preserve Image 1 source-label design.',
+      spec,
+    )).toBe(false);
+
+    expect(validateAssembledPrompt(
+      'Create an independent original label layout for wkau Ceramic Cleaner with NET: 500G. Do not reproduce the exact reference layout; use only its loose mood and color inspiration, and never preserve Image 1 source-label design.',
       spec,
     )).toBe(true);
   });

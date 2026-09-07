@@ -286,7 +286,11 @@ export function createVisionInstructionClient(
       for (const [index, image] of plan.executionImages.entries()) {
         const caption = image.role === 'source'
           ? `Image ${index + 1}: fixed SKU product canvas`
-          : `Image ${index + 1}: label design reference only`;
+          : task.feature === 'sku_replica'
+            ? `Image ${index + 1}: exact label artwork reference only`
+            : task.feature === 'sku_variation'
+              ? `Image ${index + 1}: label design-system reference for a new layout only`
+              : `Image ${index + 1}: optional visual inspiration for an independent label only`;
         imageParts.push(...await buildOpenAIImageContentParts(image, caption));
       }
 
