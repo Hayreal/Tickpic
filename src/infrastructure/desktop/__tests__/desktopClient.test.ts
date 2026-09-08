@@ -162,7 +162,7 @@ describe('desktopClient', () => {
             },
             defaultCount: 4,
             maxCount: 4,
-            maxConcurrentTasks: 5,
+            maxConcurrentTasks: 1,
             hasApiKey: false,
           };
         },

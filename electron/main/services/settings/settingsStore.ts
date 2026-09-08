@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { AppSettings, RendererAppSettings } from '../../../../src/shared/domain/settings.js';
 import {
   KEEP_EXISTING_API_KEY,
+  MAX_CONCURRENT_TASKS,
   createDefaultAppSettings,
   redactAppSettings,
 } from '../../../../src/shared/domain/settings.js';
@@ -107,6 +108,7 @@ function validateSettings(settings: AppSettings): AppSettings {
   if (!Number.isInteger(settings.maxConcurrentTasks) || settings.maxConcurrentTasks <= 0) {
     throw new Error('maxConcurrentTasks must be a positive integer');
   }
+  const normalizedMaxConcurrentTasks = Math.min(settings.maxConcurrentTasks, MAX_CONCURRENT_TASKS);
 
   if (
     settings.modelProtocol !== undefined
@@ -120,6 +122,7 @@ function validateSettings(settings: AppSettings): AppSettings {
     ...settings,
     defaultCount: normalizedDefaultCount,
     maxCount: normalizedMaxCount,
+    maxConcurrentTasks: normalizedMaxConcurrentTasks,
   };
 }
 

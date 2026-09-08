@@ -34,7 +34,7 @@ export function buildProductSetVisionSystemPrompt(feature: ImageFeature): string
     '5d. before_after 仅在有同一对象和同一区域的可信前后证据时选择，必须带英文 BEFORE/AFTER 标识且 SKU 不遮挡证据。',
     '6. 最终 SKU 锁定与执行提示词由后续渲染器处理；你只需输出本张真实场景、目标对象/状态、构图与差异方向。合并后直接采用你输出的 presentation_mode、handheld_required 与 show_effect。',
     '7. variant_directive 应写清该张图独有的子场景/构图/光线方向，并与 batch 内其他 index 互斥。',
-    '8. 若用户提供 scenePrompt / prompt / negativePrompt，将其要点体现在 environment、composition_directive 或 scene_notes 中。',
+    '8. 若用户提供 scenePrompt / prompt / negativePrompt，将其要点体现在 environment、composition_directive 或 scene_notes 中。冲突时 negativePrompt 优先于 prompt，禁止项不得被附加要求覆盖。',
     '9. 多场景图不得输出产品本体、包装、人物或手部；主图/对比图必须锁定 SKU 身份。',
     '9a. 多场景图若 structured_parameters.multiSceneLayout 为 auto、grid 或 collage：每张输出必须是「带英文标签的多格适用范围信息图」，每格一种真实痛点表面+问题状态；禁止单张连续实拍、清洁工具摆拍、或带毛巾/刷子的细节特写。',
     '9b. 若请求中提供 multi_scene_layout_plan，必须严格遵守对应 index 的 layout、panel_count、headline_treatment；panel_list 的项数必须精确等于 panel_count。批次内不得重复同一种宫格/拼图几何、标题位置与标签条样式组合。',

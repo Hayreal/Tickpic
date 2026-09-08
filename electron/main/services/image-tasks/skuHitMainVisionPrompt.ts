@@ -44,6 +44,7 @@ export function buildSkuHitMainVisionSystemPrompt(): string {
     'Keep one coherent light direction and realistic scale between the SKU, hands, tools, furniture, and repair surfaces; avoid oversized foreground jars.',
     'Headlines must match Image 2 product category and visible label copy unless structured user fields override matching words.',
     'Every visible capacity in the planned output must use the exact prefix "NET:".',
+    'If structured_parameters include both prompt and negativePrompt, negativePrompt outranks prompt on conflict and must appear as forbidden elements in every plan.',
     'Return every creative plan in English only.',
     'For batches, return every instruction in one JSON response and follow batch_diversity_plan when provided.',
   ].join('\n');

@@ -34,7 +34,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           <div className="truncate text-sm font-semibold text-sidebar-foreground">Tickpic</div>
           <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            专业工作区
+            高绘智作
           </div>
         </div>
       </div>

@@ -88,7 +88,7 @@ type MainImageFields = {
 };
 
 const PRODUCT_SET_PRIORITY =
-  'sku_lock > handheld_reference (when provided) > structured controls (handheld/effect/layout) > composition hard rules > variant directive > batch_output > user scene > supplement > avoid > free visual direction within allowed approaches';
+  'sku_lock > handheld_reference (when provided) > structured controls (handheld/effect/layout) > composition hard rules > variant directive > batch_output > user scene > avoid > supplement > free visual direction within allowed approaches';
 
 const SKU_LOCK = {
   source: 'single primary SKU product photo as the only product identity reference',
@@ -606,11 +606,11 @@ function renderProductSetCopyAndUserRequirements(spec: ProductSetJsonSpec) {
   if (headline?.suggested_text) {
     sections.push(`Suggested headline: ${String(headline.suggested_text)}.`);
   }
-  if (overrides?.supplement) {
-    sections.push(`Additional direction: ${String(overrides.supplement)}.`);
-  }
   if (overrides?.avoid) {
-    sections.push(`Avoid: ${String(overrides.avoid)}.`);
+    sections.push(`Avoid (higher priority than additional direction; if they conflict, obey avoid): ${String(overrides.avoid)}.`);
+  }
+  if (overrides?.supplement) {
+    sections.push(`Additional direction (must not contradict avoid): ${String(overrides.supplement)}.`);
   }
 
   return sections.join(' ');

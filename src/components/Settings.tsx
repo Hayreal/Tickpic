@@ -11,7 +11,7 @@ import {
   FolderOpen,
 } from 'lucide-react';
 import type { AppSettings, RendererAppSettings } from '../shared/domain/settings';
-import { KEEP_EXISTING_API_KEY, resolveModelProtocolFromSettings } from '../shared/domain/settings';
+import { KEEP_EXISTING_API_KEY, MAX_CONCURRENT_TASKS, resolveModelProtocolFromSettings } from '../shared/domain/settings';
 import type { ImageModelProtocol } from '../shared/domain/imageFeatureApi';
 import { MAX_IMAGE_COUNT } from '../shared/view/imageCountOptions';
 import { cn } from '@/src/lib/utils';
@@ -36,7 +36,7 @@ export default function Settings() {
   const [visionModel, setVisionModel] = useState('');
   const [workspaceDir, setWorkspaceDir] = useState('');
   const [defaultCount, setDefaultCount] = useState(1);
-  const [maxConcurrentTasks, setMaxConcurrentTasks] = useState(5);
+  const [maxConcurrentTasks, setMaxConcurrentTasks] = useState(1);
 
   const [testState, setTestState] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
   const [testMessage, setTestMessage] = useState('');
@@ -53,7 +53,7 @@ export default function Settings() {
       setVisionModel(settings.defaultModels.vision);
       setWorkspaceDir(settings.workspaceDir);
       setDefaultCount(settings.defaultCount);
-      setMaxConcurrentTasks(settings.maxConcurrentTasks);
+      setMaxConcurrentTasks(Math.min(settings.maxConcurrentTasks, MAX_CONCURRENT_TASKS));
     }).catch(console.error);
   }, [desktopClient]);
 
@@ -268,6 +268,32 @@ export default function Settings() {
                 placeholder={modelProtocol === 'gemini' ? 'gemini-2.5-flash-image' : 'gpt-image-2-all'}
                 className="font-mono text-xs"
               />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label id="settings-max-concurrent-label">任务并发数</Label>
+            <p className="text-xs text-muted-foreground">同时运行的出图任务上限，最大 {MAX_CONCURRENT_TASKS}。</p>
+            <div
+              id="settings-max-concurrent"
+              role="group"
+              aria-labelledby="settings-max-concurrent-label"
+              className="grid grid-cols-3 gap-2"
+            >
+              {Array.from({ length: MAX_CONCURRENT_TASKS }, (_, index) => index + 1).map((value) => (
+                <button
+                  id={`settings-max-concurrent-${value}`}
+                  key={value}
+                  type="button"
+                  onClick={() => setMaxConcurrentTasks(value)}
+                  className={cn(
+                    'cursor-pointer rounded-lg border px-3 py-2 text-center text-sm font-semibold transition-all',
+                    maxConcurrentTasks === value ? 'ui-segment-active' : 'ui-segment-inactive',
+                  )}
+                >
+                  {value}
+                </button>
+              ))}
             </div>
           </div>
 

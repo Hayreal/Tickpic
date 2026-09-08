@@ -58,6 +58,7 @@ export interface ImageTaskController {
   list(): ImageTaskRecord[];
   onStatus(listener: ImageTaskStatusListener): () => void;
   failAllActive(message: string): void;
+  setMaxConcurrency(value: number): void;
 }
 
 export function createImageTaskController(options: ImageTaskControllerOptions = {}): ImageTaskController {
@@ -66,7 +67,7 @@ export function createImageTaskController(options: ImageTaskControllerOptions = 
   const listeners = new Set<ImageTaskStatusListener>();
   const queue: string[] = [];
   const abortControllers = new Map<string, AbortController>();
-  const maxConcurrency = options.maxConcurrency ?? 5;
+  let maxConcurrency = options.maxConcurrency ?? 1;
   let runningCount = 0;
 
   function emit(task: ImageTaskRecord) {
@@ -244,6 +245,14 @@ export function createImageTaskController(options: ImageTaskControllerOptions = 
       return () => {
         listeners.delete(listener);
       };
+    },
+
+    setMaxConcurrency(value) {
+      if (!Number.isInteger(value) || value <= 0) {
+        return;
+      }
+      maxConcurrency = value;
+      pumpQueue();
     },
 
     failAllActive(message) {

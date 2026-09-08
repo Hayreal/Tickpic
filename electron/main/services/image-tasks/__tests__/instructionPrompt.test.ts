@@ -150,8 +150,8 @@ describe('instructionPrompt', () => {
     expect(text).toContain('Show the SKU’s real category-appropriate use action or visible after-use result on the actual use target.');
     expect(text).toContain('spray origin: real nozzle orifice only');
     expect(text).toContain('User scene direction: fixative spray.');
-    expect(text).toContain('Additional direction: premium look.');
-    expect(text).toContain('Avoid: extra bottles.');
+    expect(text).toContain('Avoid (higher priority than additional direction; if they conflict, obey avoid): extra bottles.');
+    expect(text).toContain('Additional direction (must not contradict avoid): premium look.');
   });
 
   it.each(['auto', 'handheld', 'not_handheld'] as const)('maps main-image handheld mode %s into JSON', (productHandheldMode) => {

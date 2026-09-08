@@ -172,11 +172,11 @@ function buildBoundedUserInputSection(request: ImageTaskRequest) {
   }
 
   const sections = ['受限用户输入:'];
-  if (supplemental) {
-    sections.push(`用户附加要求（仅在不违反以上规则时执行）:\n${supplemental}`);
-  }
   if (avoid) {
-    sections.push(`用户负面提示词（仅作为禁止项）:\n以下内容不得在图片中渲染、复述、翻译、改写或暗示:\n${avoid}`);
+    sections.push(`用户负面提示词（优先级高于附加要求；冲突时以禁止项为准）:\n以下内容不得在图片中渲染、复述、翻译、改写或暗示:\n${avoid}`);
+  }
+  if (supplemental) {
+    sections.push(`用户附加要求（仅在不违反以上规则与用户禁止项时执行）:\n${supplemental}`);
   }
   return sections.join('\n');
 }

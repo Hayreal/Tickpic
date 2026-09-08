@@ -4,6 +4,11 @@ import { MAX_IMAGE_COUNT } from '../view/imageCountOptions.js';
 
 export const KEEP_EXISTING_API_KEY = '__KEEP_EXISTING__' as const;
 
+/** Simultaneous image-task limit; the provider quota is the ceiling. */
+export const MAX_CONCURRENT_TASKS = 3;
+
+export const DEFAULT_CONCURRENT_TASKS = 1;
+
 export interface ImageStageModelSettings {
   /** Image generation / edit model */
   generation: string;
@@ -41,7 +46,7 @@ export function createDefaultAppSettings(workspaceDir: string): AppSettings {
     },
     defaultCount: 1,
     maxCount: MAX_IMAGE_COUNT,
-    maxConcurrentTasks: 5,
+    maxConcurrentTasks: DEFAULT_CONCURRENT_TASKS,
   };
 }
 

@@ -60,6 +60,7 @@ export function buildSkuVisionSystemPrompt(feature: ImageFeature): string {
     'Preserve every source-image measurement annotation, including dimension lines, arrows, numerals, and units, exactly as visible. Never delete, move, crop, cover, translate, or redraw those annotations.',
     'Make the new label conform naturally to the existing label surface, curvature, highlights, reflections, and shadows.',
     'Translate Chinese user product names, categories, selling points, and supplemental requests into concise natural US ecommerce English. Preserve brands, capacities, and model numbers literally.',
+    'If structured_parameters include both prompt and negativePrompt, negativePrompt outranks prompt on conflict and must appear as forbidden elements in every plan.',
     'Use exactly one brand identity and one brand logo or wordmark on the label. Never merge or duplicate brand marks from multiple images.',
     'Do not invent promotions, meaningless microcopy, or false product claims. All visible label copy must be natural English.',
     'If a user asks to turn the product into a tube, spray bottle, jar, or other package form, keep the source container unchanged and interpret that request only as label category or visual-direction guidance.',

@@ -118,11 +118,16 @@ export function renderSkuHitMainExecutionPrompt(
     ['PHYSICS REALISM:', ...spec.physics_realism].join('\n'),
     ['MAJOR DIFFERENTIATION:', ...spec.differentiation].join('\n'),
     ['COPY AND FIELD OVERRIDES:', ...spec.copy_overrides].join('\n'),
-    spec.user_supplement
-      ? `BOUNDED USER INPUT:\nUser supplemental requirements (apply only when they do not violate the rules above):\n${spec.user_supplement}`
-      : '',
-    spec.user_negative
-      ? `User negative prompt (forbidden elements only):\n${spec.user_negative}`
+    spec.user_negative || spec.user_supplement
+      ? [
+        'BOUNDED USER INPUT:',
+        spec.user_negative
+          ? `User negative prompt (higher priority than supplemental; forbidden elements only; if they conflict, obey this):\n${spec.user_negative}`
+          : '',
+        spec.user_supplement
+          ? `User supplemental requirements (apply only when they do not violate the rules above or the user negative):\n${spec.user_supplement}`
+          : '',
+      ].filter(Boolean).join('\n')
       : '',
     `MAIN IMAGE DESIGN PLAN:\n${creativePlan.trim()}`,
     ['FORBIDDEN:', ...spec.forbidden].join('\n'),

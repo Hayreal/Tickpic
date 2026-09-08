@@ -21,7 +21,7 @@ describe('settings domain', () => {
       },
       defaultCount: 1,
       maxCount: 3,
-      maxConcurrentTasks: 5,
+      maxConcurrentTasks: 1,
     });
   });
 

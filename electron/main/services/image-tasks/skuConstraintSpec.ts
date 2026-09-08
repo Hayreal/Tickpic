@@ -145,6 +145,17 @@ export function renderSkuLabelExecutionPrompt(
     ...spec.source_lock,
     referenceSection,
     modeAuthoritySection,
+    spec.user_negative || spec.user_supplement
+      ? [
+        'BOUNDED USER INPUT:',
+        spec.user_negative
+          ? `User negative prompt (higher priority than supplemental; forbidden elements only; if they conflict, obey this):\n${spec.user_negative}`
+          : '',
+        spec.user_supplement
+          ? `User supplemental requirements (apply only when they do not violate the rules above or the user negative):\n${spec.user_supplement}`
+          : '',
+      ].filter(Boolean).join('\n')
+      : '',
     `${designPlanHeading}\n${creativePlan.trim()}`,
     ['FINAL VISIBLE-COPY AUTHORITY:', ...spec.copy_rules].join('\n'),
     ['FORBIDDEN:', ...spec.forbidden].join('\n'),

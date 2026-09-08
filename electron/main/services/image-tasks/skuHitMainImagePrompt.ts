@@ -129,11 +129,11 @@ function buildBoundedUserInputSection(request: ImageTaskRequest) {
   }
 
   const sections = ['BOUNDED USER INPUT:'];
-  if (supplemental) {
-    sections.push(`User supplemental requirements (apply only when they do not violate the rules above; must not break Image 2 packaging lock or turn this into a plain white-background SKU shot):\n${supplemental}`);
-  }
   if (avoid) {
-    sections.push(`User negative prompt (forbidden elements only):\n${avoid}`);
+    sections.push(`User negative prompt (higher priority than supplemental; forbidden elements only; if they conflict, obey this):\n${avoid}`);
+  }
+  if (supplemental) {
+    sections.push(`User supplemental requirements (apply only when they do not violate the rules above or the user negative; must not break Image 2 packaging lock or turn this into a plain white-background SKU shot):\n${supplemental}`);
   }
   return sections.join('\n');
 }
