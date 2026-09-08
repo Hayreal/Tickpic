@@ -601,7 +601,10 @@ function renderProductSetCopyAndUserRequirements(spec: ProductSetJsonSpec) {
   const copy = asRecord(spec.copy);
   const headline = asRecord(copy?.headline);
   const overrides = asRecord(spec.user_overrides);
-  const sections = ['Use only concise, readable English visible copy. Do not render any Chinese, Han, or other CJK characters anywhere; omit optional copy rather than use non-English text. Every visible capacity must start with the exact prefix "NET:". Do not add icon rows, price, discount, watermark, or long explanatory text.'];
+  const capacityRule = spec.task === 'product_multi_scene'
+    ? ''
+    : ' Every visible capacity must start with the exact prefix "NET:".';
+  const sections = [`Use only concise, readable English visible copy. Do not render any Chinese, Han, or other CJK characters anywhere; omit optional copy rather than use non-English text.${capacityRule} Do not add icon rows, price, discount, watermark, or long explanatory text.`];
 
   if (headline?.suggested_text) {
     sections.push(`Suggested headline: ${String(headline.suggested_text)}.`);
