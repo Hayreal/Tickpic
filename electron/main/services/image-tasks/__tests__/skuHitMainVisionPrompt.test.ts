@@ -18,20 +18,27 @@ const baseRequest = {
 };
 
 describe('skuHitMainVisionPrompt', () => {
-  it('plans English hit-main prompts with reference as image 1', () => {
+  it('plans English hit-main prompts in page upload order', () => {
     const systemPrompt = buildSkuHitMainVisionSystemPrompt();
     const userText = buildSkuHitMainVisionUserText(baseRequest, +2);
     const parts = buildHitMainVisionImageParts(baseRequest.images);
 
-    expect(systemPrompt).toContain('Image 1 = viral main-image reference');
-    expect(systemPrompt).toContain('exactly one Image 2 SKU instance');
-    expect(systemPrompt).toContain('inherit Image 1 selling points, never inherit Image 1 layout');
+    expect(systemPrompt).toContain('Image 1 = new SKU product image');
+    expect(systemPrompt).toContain('Image 2 = viral main-image reference');
+    expect(systemPrompt).toContain('Image 2 reference image controls the advertised use case');
+    expect(systemPrompt).toContain('Image 1 controls only the exact SKU product identity');
+    expect(systemPrompt).toContain('original language');
+    expect(systemPrompt).toContain('Never borrow, merge, or transplant');
+    expect(systemPrompt).toContain('same localized area');
+    expect(systemPrompt).not.toContain('Headlines must match Image 2 product category');
+    expect(systemPrompt).not.toContain('exactly one Image 2 SKU instance');
+    expect(systemPrompt).toContain('inherit Image 2 selling points, never inherit Image 2 layout');
     expect(userText).toContain('"requested_count": 2');
     expect(userText).toContain('"batch_diversity_plan"');
     expect(parts[0]?.caption).toContain('Image 1');
     expect(parts[1]?.caption).toContain('Image 2');
-    expect(parts[0]?.image.role).toBe('reference');
-    expect(parts[1]?.image.role).toBe('source');
+    expect(parts[0]?.image.role).toBe('source');
+    expect(parts[1]?.image.role).toBe('reference');
   });
 
   it('renders fallback execution prompt with design plan section', () => {
@@ -66,5 +73,15 @@ describe('skuHitMainVisionPrompt', () => {
     );
     expect(repaired.instructions[0]?.prompt).toContain('English-only main-image design plan');
     expect(repaired.instructions[0]?.prompt).not.toMatch(/\p{Script=Han}/u);
+  });
+
+  it('keeps quoted non-English reference copy instead of dropping it', () => {
+    const batch = parseSkuHitMainVisionBatch(JSON.stringify({
+      instructions: [
+        { index: 1, prompt: 'Preserve the Image 2 reference copy "喷一喷 / 冰雪融化" exactly while rebuilding the scene.' },
+      ],
+    }), 1);
+
+    expect(batch.instructions[0]?.prompt).toContain('喷一喷 / 冰雪融化');
   });
 });

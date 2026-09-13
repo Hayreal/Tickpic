@@ -89,7 +89,7 @@ export function validateAssembledPrompt(
   prompt: string,
   constraints: SkuLabelConstraintSpec | SkuHitMainConstraintSpec,
 ): boolean {
-  if (!prompt.trim() || HAN_CHARACTER_PATTERN.test(prompt)) {
+  if (!prompt.trim() || ('locked_copy' in constraints && HAN_CHARACTER_PATTERN.test(prompt))) {
     return false;
   }
 
@@ -201,7 +201,7 @@ function buildAssemblerSystemPrompt(feature: string): string {
     'Constraints always override conflicting creative plan wording.',
     'Remove duplicate rules, forbidden actions, and analysis language.',
     'Preserve every locked brand, product name, capacity, container geometry lock, packaging lock, physics realism rule, and source-lock rule from constraints.',
-    'Return English only.',
+    'Return English narrative instructions; exact quoted visible copy may remain in its original language when required by the feature.',
   ];
 
   if (feature === 'sku_replica') {
@@ -226,10 +226,12 @@ function buildAssemblerSystemPrompt(feature: string): string {
     );
   } else if (feature === 'sku_hit_main_image') {
     lines.push(
-      'For sku_hit_main_image, headlines must match Image 2 SKU product category and visible label copy.',
-      'Rewrite Image 1 headline wording when the literal object/category conflicts with Image 2; never keep appliance/metal copy for a wall-cleaning SKU.',
-      'The final image must contain exactly one Image 2 SKU instance.',
-      'Never plan both a hand-use demo and a second countertop, vanity, sink-ledges, table, or lower-right foreground product display.',
+      'For sku_hit_main_image, Image 1 is the exact SKU packaging and physical-product authority.',
+      'For sku_hit_main_image, Image 2 is the reference authority for the visible headline, subheadline, advertised use case, target object, selling angle, and before/after logic in its original language.',
+      'Use only wording actually visible in Image 2 or explicitly supplied by the user; if Image 2 has no readable English, do not invent, translate, or promote Image 1 SKU label copy into a new ad headline unless explicitly requested.',
+      'The Image 1 cap, pump, trigger, nozzle, collar, opening, and dispensing mechanism are immutable; never borrow, merge, transplant, or retain product parts from Image 2.',
+      'Before/after must compare the same localized area of the same target object with aligned perspective and boundaries.',
+      'Show one clear primary Image 1 SKU with sufficient exposure; a secondary product display is allowed when it improves visibility and looks intentional.',
     );
   }
 
@@ -237,13 +239,16 @@ function buildAssemblerSystemPrompt(feature: string): string {
 }
 
 function validateHitMainAssembledPrompt(prompt: string): boolean {
-  const normalized = prompt.toLowerCase();
-  const hasConflictingHeadline = /(?:keep the core headline|without rewriting|never rewrite core headline)/.test(normalized)
-    && /(?:appliance|metal wear|radiator|furniture surface)/.test(normalized)
-    && /(?:wall|tile|mildew|mold|grout|black spot)/.test(normalized);
-  const hasHandUse = /(?:hand.*(?:using|holding)|using the product|applicator on|applicator against)/.test(normalized);
-  const hasForegroundDisplay = /(?:lower-right foreground|countertop|on the (?:counter|vanity|sink ledge|table)|upright in the (?:lower-right|foreground))/.test(normalized);
-  if (hasConflictingHeadline || (hasHandUse && hasForegroundDisplay)) {
+  const normalized = prompt.toLowerCase().replace(/\s+/g, ' ');
+  const marketingTerms = '(?:headline|subheadline|advertised use case|usage[- ]scene|target object|marketing copy|product category)';
+  const authorityTerms = '(?:authority|controls|override|defines|determines)';
+  const imageOneMarketingAuthority = new RegExp(`image 1[^.]{0,120}(?:${authorityTerms}[^.]{0,80}${marketingTerms}|${marketingTerms}[^.]{0,80}${authorityTerms})`).test(normalized);
+  const imageTwoRewrite = /(?:rewrite|replace|change).{0,60}image 2 (?:reference )?(?:headline|subheadline|use case|target object).{0,100}(?:image 1|sku category)/.test(normalized)
+    || /image 1[^.]{0,100}(?:instead of|rather than|overrule|override)[^.]{0,100}image 2[^.]{0,80}(?:headline|use case|target object)/.test(normalized);
+  const hasPhysicalPartIsolation = /(?:exact|immutable|never borrow|never merge|never transplant|do not borrow|do not merge|do not transplant).{0,120}(?:cap|pump|trigger|nozzle|collar|dispensing mechanism|product part)/.test(normalized);
+  const hasReferenceCopyLock = /(?:only|actual|visible).{0,100}(?:image 2|reference).{0,100}(?:wording|copy|text|headline)|original language/.test(normalized);
+  const hasSameAreaBeforeAfter = /same localized area.{0,100}same target object|same target object.{0,100}same localized area/.test(normalized);
+  if (imageOneMarketingAuthority || imageTwoRewrite || !hasPhysicalPartIsolation || !hasReferenceCopyLock || !hasSameAreaBeforeAfter) {
     return false;
   }
   return true;
@@ -254,7 +259,7 @@ function buildAssemblerUserText(
   constraints: SkuLabelConstraintSpec | SkuHitMainConstraintSpec,
 ): string {
   return [
-    'Merge the creative plan and constraints into one executable English image-edit prompt.',
+    'Merge the creative plan and constraints into one executable English-narrative image-edit prompt; preserve any exact quoted reference copy in its original language.',
     JSON.stringify({
       creative_plan: creativePlan,
       constraints,

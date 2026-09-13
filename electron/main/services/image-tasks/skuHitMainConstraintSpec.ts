@@ -1,9 +1,8 @@
 import type { ImageTaskRequest } from '../../../../src/shared/domain/imageFeatureApi.js';
 
 const SKU_HIT_MAIN_SINGLE_PRODUCT_RULES = [
-  'Show exactly one Image 2 SKU instance in the final image.',
-  'When the SKU is visible in the demo action (hand holding the applicator, pen, brush, or bottle while using it), do not also place a second copy on a countertop, sink ledge, vanity, table, pedestal, or lower-right foreground display.',
-  'Do not add a countertop, vanity, table, or foreground product display just to showcase the bottle when the product is already visible in the usage action.',
+  'Show one primary Image 1 SKU instance with sufficient exposure in the final image.',
+  'A secondary product display using the Image 1 SKU is allowed when it improves product visibility and does not look like accidental duplication.',
 ] as const;
 
 const SKU_HIT_MAIN_PHYSICS_RULES = [
@@ -17,7 +16,7 @@ const SKU_HIT_MAIN_PHYSICS_RULES = [
 
 const SKU_HIT_MAIN_ANTI_TEMPLATE_FORBIDDEN = [
   'Never use the generic AI ecommerce template: a horizontal row of three hexagonal or circular icon badges, each with a short benefit slogan underneath.',
-  'Do not add new 3-icon feature rows, hex badge grids, or equivalent small-icon selling-point modules unless Image 1 clearly already uses that exact module.',
+  'Do not add new 3-icon feature rows, hex badge grids, or equivalent small-icon selling-point modules unless Image 2 reference clearly already uses that exact module.',
 ] as const;
 
 export interface SkuHitMainConstraintSpec {
@@ -27,6 +26,7 @@ export interface SkuHitMainConstraintSpec {
     image_1: string;
     image_2: string;
   };
+  authority_policy: string[];
   must_preserve: string[];
   product_replacement: string[];
   usage_scene_policy: string[];
@@ -55,43 +55,52 @@ export function buildSkuHitMainConstraintSpec(request: ImageTaskRequest): SkuHit
     feature: 'sku_hit_main_image',
     task: 'sku_hit_main_image',
     image_roles: {
-      image_1: 'Viral main-image reference. Inherit marketing theme, core English copy, selling logic, and before/after marketing structure only.',
-      image_2: 'New SKU product image. The only allowed product identity. Must fully replace the original product in Image 1.',
+      image_1: 'New SKU product image. The only allowed product identity and packaging standard.',
+      image_2: 'Viral main-image reference. Inherit marketing theme, core English copy, product use case, target object, usage-scene type, selling logic, and before/after intent.',
     },
+    authority_policy: [
+      'Image 1 controls the exact SKU product identity, packaging structure, material, color, transparency, label, brand, product name, capacity, and physical appearance.',
+      'Image 2 reference image controls the advertised use case, target object, visible headline/subheadline, explicit marketing copy in its original language, selling angle, usage-scene type, and before/after promise.',
+      'When authorities conflict, use Image 1 for the physical SKU and Image 2 for the advertisement, scene, target object, and marketing copy; do not derive a new use case from the Image 1 SKU label.',
+    ],
     must_preserve: [
-      'Inherit Image 1 before/after marketing structure and general selling angle, not Image 1 literal headline object or repair-target category when it conflicts with Image 2.',
-      'Preserve Image 1 comparison intent and repair-result promise, but redesign the presentation.',
+      'Preserve Image 2 reference visible headline, subheadline, explicit marketing copy in its original language, advertised use case, target object, selling angle, and before/after marketing structure.',
+      'Preserve Image 2 comparison intent and repair-result promise, but redesign the presentation.',
+      'Preserve Image 1 SKU identity and packaging exactly; never redesign the product itself.',
     ],
     product_replacement: [
-      'Remove the original product from Image 1 and insert the Image 2 SKU.',
-      'Lock Image 2 packaging structure, aspect ratio, container shape, cap/opening, material, color, transparency, label visuals, and overall identity.',
-      'Never stretch, compress, slim, widen, or redesign Image 2.',
-      'Derive overall ad palette primarily from Image 2 label colors.',
+      'Remove the original product from Image 2 and insert the Image 1 SKU.',
+      'Lock Image 1 packaging structure, aspect ratio, container shape, cap/opening, material, color, transparency, label visuals, and overall identity.',
+      'The Image 1 cap, pump, trigger, nozzle, collar, opening, and dispensing mechanism are immutable: copy their exact type and geometry from Image 1 (a pump stays a pump and a trigger stays a trigger).',
+      'Never borrow, merge, transplant, or retain any product part, cap, pump, trigger, nozzle, collar, bottle piece, label, or accessory from the Image 2 reference product.',
+      'If Image 1 uses a pump or atomizer, show that same pump or atomizer in use; never convert it into the Image 2 trigger sprayer or another dispenser.',
+      'Never stretch, compress, slim, widen, or redesign Image 1.',
+      'Derive overall ad palette primarily from Image 1 label colors.',
       'This is not a plain white-background full-bottle SKU shot.',
       ...SKU_HIT_MAIN_SINGLE_PRODUCT_RULES,
     ],
     usage_scene_policy: [
-      'Build the demo/usage scene from Image 2 SKU product category and visible label copy, not from Image 1 literal repair object.',
-      'Example: if Image 2 is WALL REPAIR PUTTY, show wall cracks/holes/spackle repair even when Image 1 headline mentions radiator or furniture.',
-      'Image 1 provides headline text, subheadline, selling angle, and before/after marketing structure only.',
-      'Do not copy Image 1 literal scene objects, camera angle, layout, props, or composition.',
+      'Build the demo/usage scene from Image 2 reference advertised use case, target object, and usage-scene type, not from Image 1 SKU label category.',
+      'Image 2 provides the headline, subheadline, selling angle, before/after logic, and scene problem to communicate.',
+      'Image 1 provides the exact product that performs the repair, not a new problem category or replacement headline.',
+      'Do not copy Image 2 literal scene objects, camera angle, layout, props, or composition.',
+      'For before/after, compare the same localized area of the same target object with aligned perspective and boundaries; do not substitute unrelated left/right areas.',
     ],
     physics_realism: [...SKU_HIT_MAIN_PHYSICS_RULES],
     differentiation: buildDifferentiationLines(request),
     copy_overrides: buildCopyOverrideLines({ brand, productName, capacity }),
     forbidden: [
-      'Never copy Image 1 composition or paste Image 2 onto the reference layout.',
-      'Never redesign Image 2 packaging or label artwork.',
+      'Never copy Image 2 composition or paste Image 1 onto the reference layout.',
+      'Never redesign Image 1 packaging or label artwork.',
       'Never use recolor-only, mirror/flip, or headline-only nudge variants.',
-      'Never let reference literal object category override Image 2 product category in the usage scene.',
-      'Never keep Image 1 literal headline wording when it names a different object/category than Image 2 (for example appliance/metal copy with a wall-cleaning SKU).',
-      'Never duplicate the same SKU on a countertop, vanity, sink ledge, table, pedestal, or lower-right foreground display.',
+      'Never let Image 1 SKU label category override Image 2 reference advertised use case or target object in the usage scene.',
+      'Never rewrite Image 2 reference headline or use case merely because Image 1 SKU label uses a different category name.',
       'Never show floating tools, unsupported product clumps, impossible material physics, or inconsistent scale.',
       ...SKU_HIT_MAIN_ANTI_TEMPLATE_FORBIDDEN,
     ],
     output_target: [
       'Return one high-click US Temu / Amazon ecommerce main image at the user-selected aspect ratio.',
-      'Inherit Image 1 selling points, never inherit Image 1 layout.',
+      'Inherit Image 2 reference selling points, never inherit Image 2 layout.',
       'Return only the final image, not analysis.',
     ],
     final_check: buildFinalCheckLines(),
@@ -112,6 +121,7 @@ export function renderSkuHitMainExecutionPrompt(
 ): string {
   const sections = [
     ['IMAGE ROLES:', `Image 1 = ${spec.image_roles.image_1}`, `Image 2 = ${spec.image_roles.image_2}`].join('\n'),
+    ['AUTHORITY POLICY:', ...spec.authority_policy].join('\n'),
     ['MUST PRESERVE:', ...spec.must_preserve].join('\n'),
     ['PRODUCT REPLACEMENT (HIGHEST PRIORITY):', ...spec.product_replacement].join('\n'),
     ['USAGE SCENE POLICY:', ...spec.usage_scene_policy].join('\n'),
@@ -142,8 +152,8 @@ export function renderSkuHitMainExecutionPrompt(
 function buildDifferentiationLines(request: ImageTaskRequest): string[] {
   const lines = [
     'Change at least 3 dimensions in every output: product placement, product scale, headline placement, scene composition, camera angle, depth, before/after presentation, info-block layout, background structure, and product-to-scene relationship.',
-    'Regenerate concrete scene assets, angles, and composition; do not reuse Image 1 objects or viewpoint.',
-    'Keep the SKU clearly visible and readable, but preserve realistic scale relative to hands, furniture, walls, and repair areas; never use an oversized foreground jar that breaks room perspective.',
+    'Regenerate concrete scene assets, angles, and composition; do not reuse Image 2 objects or viewpoint.',
+    'Keep the Image 1 SKU clearly visible and readable, but preserve realistic scale relative to hands, furniture, walls, and repair areas; never use an oversized foreground jar that breaks room perspective.',
   ];
 
   if (request.variantTotal && request.variantTotal > 1) {
@@ -171,12 +181,11 @@ function buildCopyOverrideLines(fields: {
   if (fields.brand || fields.productName || fields.capacity) {
     lines.push('User-filled brand, product name, and capacity override matching words in Image 1, including headline blocks.');
   } else {
-    lines.push('When the user does not provide product name or capacity, derive headline and category wording from Image 2 visible label copy, not from Image 1 literal headline text.');
+    lines.push('When the user does not provide product name or capacity, read those SKU identity fields from Image 1 visible label copy; do not derive the advertised use case from Image 1.');
   }
-  lines.push('Headlines and subheadlines must match Image 2 product category and visible label copy.');
-  lines.push('When Image 1 headline names a different object or category than Image 2 (for example appliance/metal vs wall mold), rewrite the headline into natural English aligned with Image 2; never keep conflicting literal Image 1 wording.');
+  lines.push('Use only marketing wording actually visible in Image 2 or explicitly supplied by the user; preserve its original language. If Image 2 has no readable English, do not invent, translate, or promote Image 1 SKU label copy into a new ad headline unless the user explicitly requests translation or new copy.');
   lines.push('Every visible capacity must start with the exact prefix "NET:".');
-  lines.push('Allow headline resizing and repositioning; rewrite category-conflicting copy; never add fake English or meaningless icon clutter.');
+  lines.push('Allow headline resizing and repositioning while keeping Image 2 reference marketing copy recognizable; never add fake English or meaningless icon clutter.');
   return lines;
 }
 
@@ -191,9 +200,8 @@ function resolveBatchSlotDirective(request: ImageTaskRequest): string | undefine
 
 function buildFinalCheckLines(): string[] {
   return [
-    'The final image must contain exactly one Image 2 SKU instance.',
-    'If the SKU is visible in the demo action, no second copy may appear on a countertop, vanity, sink ledge, table, or lower-right foreground display.',
-    'Headline and subheadline wording must match Image 2 product category; conflicting Image 1 literal object/category copy is invalid.',
+    'The final image must contain one clear primary Image 1 SKU instance with sufficient exposure; a secondary product display is allowed when natural and useful.',
+    'Image 2 reference headline, subheadline, advertised use case, target object, and before/after promise must remain recognizable after the redesign.',
     'Every tool or applicator must have a visible hand, surface support, or believable contact with the repair surface.',
     'No floating scrapers, hovering product clumps, impossible jar peaks, or mismatched lighting between foreground product and background scene.',
     'Physics realism and packaging lock override any conflicting design plan wording.',

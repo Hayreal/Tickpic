@@ -580,7 +580,8 @@ describe('instructionPrompt', () => {
       brand: 'wkau',
     }, 'short main prompt that should not be concatenated');
 
-    expect(prompt).toContain('Image 1 = reference = viral main-image reference');
+    expect(prompt).toContain('Image 1 = source = new SKU product image');
+    expect(prompt).toContain('Image 2 = reference = viral main-image reference');
     expect(prompt).toContain('Brand: "wkau"');
     expect(prompt).not.toContain('输出一张完整的 SKU 产品图');
     expect(prompt).not.toContain('short main prompt that should not be concatenated');

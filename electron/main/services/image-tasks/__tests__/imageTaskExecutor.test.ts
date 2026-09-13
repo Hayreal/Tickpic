@@ -500,7 +500,7 @@ describe('imageTaskExecutor', () => {
     }), new AbortController().signal);
 
     expect(prompts[0]).toBe(withTextQualityRule('Rebuild the scene with a diagonal layout and larger SKU exposure.'));
-    expect(executionImageRoles).toEqual([['reference', 'source']]);
+    expect(executionImageRoles).toEqual([['source', 'reference']]);
   });
 
   it('plans all SKU outputs in one vision batch for a single multi-count task', async () => {

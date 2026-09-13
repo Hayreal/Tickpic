@@ -101,7 +101,7 @@ describe('skuPromptAssembler', () => {
     )).toBe(true);
   });
 
-  it('rejects hit-main assembled prompts with conflicting headlines or duplicate foreground SKU display', () => {
+  it('accepts page-ordered SKU/reference prompts and rejects authority inversion', () => {
     const spec = buildSkuHitMainConstraintSpec({
       feature: 'sku_hit_main_image',
       brand: 'wkau',
@@ -112,12 +112,22 @@ describe('skuPromptAssembler', () => {
     });
 
     expect(validateAssembledPrompt(
-      'Keep the core headline RESTORE APPLIANCE SURFACES without rewriting, with For everyday metal wear, while showing a wall tile before/after scene. Place the wkau SKU upright in the lower-right foreground and show a hand using the applicator on the wall.',
+      'Image 1 is the new SKU product and its packaging identity must remain exact. Preserve the exact dispensing mechanism and never borrow, merge, or transplant any product part from Image 2. Image 2 is the viral reference; preserve its WHITE RADIATOR REPAIR headline, target object, usage scene, and before/after promise while rebuilding the composition. Use only marketing wording actually visible in Image 2 and preserve its original language; do not invent or promote Image 1 SKU label copy. Compare the same localized area of the same target object with aligned perspective. Show the primary wkau SKU clearly and allow a secondary countertop display when it improves product exposure without looking accidental.',
+      spec,
+    )).toBe(true);
+
+    expect(validateAssembledPrompt(
+      'Make Image 1 SKU category and label copy the headline and usage-scene authority. Rewrite the Image 2 reference headline, replace its target object with the SKU category, and preserve only a generic selling angle.',
       spec,
     )).toBe(false);
 
     expect(validateAssembledPrompt(
-      'Create a wall black-spot removal before/after scene with one wkau SKU visible in the hand using the applicator. Rewrite the headline to match wall cleaning. Brand wkau.',
+      'Image 1 is the new SKU product and its packaging identity must remain exact. Image 2 is the viral reference; preserve its headline and target object while rebuilding the composition. Show the primary wkau SKU clearly.',
+      spec,
+    )).toBe(false);
+
+    expect(validateAssembledPrompt(
+      'Image 1 is the new SKU product and its packaging identity must remain exact. Preserve the Image 2 reference copy "喷一喷 / 冰雪融化" in its original language. Never borrow, merge, or transplant any cap, pump, trigger, nozzle, or other product part from Image 2. Compare the same localized area of the same target object with aligned perspective while showing the primary wkau SKU clearly.',
       spec,
     )).toBe(true);
   });

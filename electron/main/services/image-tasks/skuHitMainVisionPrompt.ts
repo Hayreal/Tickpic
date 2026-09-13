@@ -8,6 +8,7 @@ import {
 import { isSkuHitMainImageFeature, orderHitMainExecutionImages } from './skuHitMainImagePrompt.js';
 
 const HAN_CHARACTER_PATTERN = /\p{Script=Han}/u;
+const REFERENCE_COPY_WITH_HAN_PATTERN = /(?:reference|copy|headline|subheadline|marketing|text)[^.!?\n]{0,120}\p{Script=Han}/iu;
 
 export interface SkuHitMainVisionBatch {
   instructions: Array<{
@@ -25,27 +26,28 @@ const HIT_MAIN_BATCH_DIVERSITY_DIRECTIVES = [
 export function buildSkuHitMainVisionSystemPrompt(): string {
   return [
     'You are the visual prompt planner for a US Temu / Amazon viral ecommerce main-image task.',
-    'You will receive Image 1 = viral main-image reference and Image 2 = new SKU product image.',
+    'You will receive Image 1 = new SKU product image and Image 2 = viral main-image reference.',
     'Return ONLY one JSON object with this exact shape: {"instructions":[{"index":1,"prompt":"..."}]}.',
     'The instructions array length must equal requested_count and indexes must start at 1 and be consecutive.',
-    'Study Image 1 for before/after marketing structure, comparison intent, and general selling angle only.',
-    'Study Image 2 as the only allowed SKU identity and the authority for product category, visible label copy, and headline wording.',
-    'Plan a visibly new 1:1 ecommerce main image: inherit Image 1 selling points, never inherit Image 1 layout, scene objects, camera angle, or composition.',
+    'Study Image 1 only for exact SKU identity, packaging, label, brand, product name, capacity, and physical appearance.',
+    'Study Image 2 for before/after marketing structure, comparison intent, advertised use case, target object, general selling angle, and visible marketing copy in its original language.',
+    'Image 1 controls only the exact SKU product identity; Image 2 reference image controls the advertised use case, target object, and marketing copy.',
+    'Plan a visibly new 1:1 ecommerce main image: inherit Image 2 selling points, never inherit Image 2 layout, scene objects, camera angle, or composition.',
     'Each prompt must be a concise English main-image design plan for an image editing model, not a complete execution prompt and not an explanation memo.',
     'Describe scene type, product placement, headline block layout, before/after structure, camera angle, and differentiation dimensions only.',
-    'Build the usage/demo scene from Image 2 SKU product category and visible label copy, not from Image 1 literal repair object when they differ.',
-    'When Image 1 headline names a different object/category than Image 2, plan rewritten English headlines aligned with Image 2; never plan keeping conflicting Image 1 literal wording.',
-    'Plan exactly one Image 2 SKU instance: either in the demo action (hand using applicator/pen) OR as a single visible product element, never both a hand-use demo and a second countertop/foreground display copy.',
-    'Never plan a lower-right foreground upright bottle display when the product is already visible in the usage action.',
-    'Never plan only recoloring, mirroring, swapping left/right, moving the title slightly, or reusing the same scene objects and camera angle from Image 1.',
-    'Keep Image 1 before/after marketing logic when present, but redesign the comparison format.',
+    'Build the usage/demo scene from Image 2 reference advertised use case, target object, and visible marketing copy, not from Image 1 SKU label category when they differ.',
+    'Preserve Image 2 reference headline, visible copy, and use case in the original language; if no readable English exists, do not invent, translate, or promote Image 1 SKU label copy into a new ad headline unless explicitly requested.',
+    'Never borrow, merge, or transplant any cap, pump, trigger, nozzle, collar, bottle piece, label, or accessory from the Image 2 reference product; the Image 1 dispensing mechanism remains exact.',
+    'Plan one clear primary Image 1 SKU instance with sufficient exposure; a secondary Image 1 product display is allowed when it improves visibility and looks intentional.',
+    'Never plan only recoloring, mirroring, swapping left/right, moving the title slightly, or reusing the same scene objects and camera angle from Image 2.',
+    'Keep Image 2 before/after marketing logic when present, but redesign the comparison format; compare the same localized area of the same target object with aligned perspective and boundaries.',
     'Change at least 3 differentiation dimensions such as product placement, product scale, headline placement, scene composition, camera angle, depth, before/after layout, info-block layout, background structure, or product-scene relationship.',
     'Plan physically believable usage scenes: scrapers and spatulas must be held by a visible hand against the repair surface; no floating tools, hovering putty, stiff whipped-cream jar peaks, or unsupported product clumps.',
-    'Keep one coherent light direction and realistic scale between the SKU, hands, tools, furniture, and repair surfaces; avoid oversized foreground jars.',
-    'Headlines must match Image 2 product category and visible label copy unless structured user fields override matching words.',
+    'Keep one coherent light direction and realistic scale between the Image 1 SKU, hands, tools, furniture, and repair surfaces; avoid oversized foreground jars.',
+    'Use only Image 2 reference wording or explicitly supplied user copy; preserve the reference language unless translation is explicitly requested.',
     'Every visible capacity in the planned output must use the exact prefix "NET:".',
     'If structured_parameters include both prompt and negativePrompt, negativePrompt outranks prompt on conflict and must appear as forbidden elements in every plan.',
-    'Return every creative plan in English only.',
+    'Return the narrative plan in English; exact quoted reference copy may remain in its original language.',
     'For batches, return every instruction in one JSON response and follow batch_diversity_plan when provided.',
   ].join('\n');
 }
@@ -67,8 +69,8 @@ export function buildSkuHitMainVisionUserText(request: ImageTaskRequest, count: 
       feature: request.feature,
       requested_count: count,
       image_roles: [
-        { index: 1, role: 'reference', purpose: 'viral main-image reference; inherit before/after structure and selling angle only' },
-        { index: 2, role: 'source', purpose: 'new SKU product; exact packaging identity and headline/category authority' },
+        { index: 1, role: 'source', purpose: 'new SKU product; exact packaging and physical identity authority' },
+        { index: 2, role: 'reference', purpose: 'viral main-image reference; headline, advertised use case, target object, selling angle, and before/after authority' },
       ],
       structured_parameters: Object.keys(structuredParameters).length > 0
         ? structuredParameters
@@ -116,7 +118,7 @@ export function parseSkuHitMainVisionBatch(raw: string, expectedCount: number): 
 
 function normalizeHitMainPlannerPrompt(prompt: string, index: number) {
   const trimmed = prompt.trim();
-  if (!HAN_CHARACTER_PATTERN.test(trimmed)) {
+  if (!HAN_CHARACTER_PATTERN.test(trimmed) || REFERENCE_COPY_WITH_HAN_PATTERN.test(trimmed)) {
     return trimmed;
   }
 
@@ -136,8 +138,8 @@ export function buildHitMainVisionImageParts(executionImages: ImageInput[]) {
   return ordered.map((image, index) => ({
     image,
     caption: index === 0
-      ? 'Image 1: viral ecommerce main-image reference'
-      : 'Image 2: new SKU product to insert',
+      ? 'Image 1: new SKU product image'
+      : 'Image 2: viral ecommerce main-image reference',
   }));
 }
 
