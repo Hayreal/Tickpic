@@ -78,7 +78,7 @@ function canRestoreGroup(group: TaskListGroup): boolean {
     return true;
   }
   const tab = getFeatureRoute(feature).tab;
-  return tab === 'productSet' || tab === 'sku';
+  return tab === 'productSet' || tab === 'sku' || tab === 'product';
 }
 
 interface ProfileProps {

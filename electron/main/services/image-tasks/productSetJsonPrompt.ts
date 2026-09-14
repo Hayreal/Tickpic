@@ -10,6 +10,7 @@ import type {
 import type {
   ProductSetVisionBatch,
   ProductSetVisionInstructionItem,
+  ProductSetVisionSetStyle,
 } from '../../../../src/shared/domain/productSetVisionInstructions.js';
 import { findProductHandheldReferenceByPath } from '../../../../src/shared/domain/productHandheldReferences.js';
 
@@ -167,8 +168,6 @@ const BATCH_DIVERSITY_FORBIDDEN = [
   'horizontal flip or mirror of the whole scene',
 ] as const;
 
-const BATCH_DIVERSITY_DIRECTION_COUNT = 3;
-
 const AUTO_COMPARISON_LAYOUTS = [
   'horizontal',
   'vertical',
@@ -232,11 +231,53 @@ const BATCH_DIVERSITY_DIMENSIONS: Record<ProductSetBatchFeature, readonly string
   ],
 };
 
+export const MAIN_IMAGE_TYPE_EFFECT_MENU = [
+  'solid fill plus heavy drop shadow on the hero word',
+  'outline or hollow stroke on one keyword, solid fill on the support word',
+  'two-tone fill using SKU accent plus white or black',
+  'slight italic slant or upward angle on the lockup',
+  'color slab, underline bar, or diagonal accent behind one word',
+  'small motion lines or spark accents tied to the benefit word only',
+] as const;
+
+export const MAIN_IMAGE_SKU_INTEGRATION_MENU = [
+  'slight perspective tilt matching the scene camera',
+  'partial bleed off one frame edge',
+  'overlap with headline negative space instead of isolating in a corner',
+  'scale that balances with the scene hero, not a tiny sticker',
+  'layer rhythm with title block on the same side column',
+  'soft graphic separation shadow only, never a ground contact shadow',
+] as const;
+
+export const MAIN_IMAGE_SET_STYLE = {
+  type_system: 'One commercial display family sampled from the SKU label palette, reused across the set. Each card needs a designed lockup with one oversized benefit keyword and visible type effects (outline, shadow, slab, angle, or accent shape) that sell the scene — not plain flat sans-serif text',
+  sku_treatment: 'Same SKU identity as a composited overlay integrated into the layout rhythm — tilt, scale, bleed, and overlap are allowed. No standing on surfaces, no ground contact shadow, label always readable',
+  scene_family: 'Same product-use world; each card uses a different crop and layout family',
+} as const;
+
+export const MAIN_IMAGE_LAYOUT_FAMILY_MENU = [
+  'product-anchor',
+  'type-over-action',
+  'magazine-offset',
+  'bleed-overlap',
+  'type-slab',
+  'diagonal-mass',
+] as const;
+
+export const MAIN_IMAGE_LOCKUP_IDEAS = [
+  'oversized hero word with drop shadow plus smaller support line',
+  'condensed caps over the problem surface with one hollow-stroke keyword',
+  'editorial kicker plus one large slanted title line',
+  'solid benefit word plus outlined secondary word in SKU accent colors',
+  'headline sitting inside a color slab with contrasting stroke',
+  'type following a leftover triangle with a diagonal accent bar',
+] as const;
+
 const BATCH_DIVERSITY_SLOT_DIRECTIVES: Record<ProductSetBatchFeature, readonly string[]> = {
   product_main_image: [
-    'AI chooses the carousel role; make the physical sub-scene and product hierarchy clearly different from the other files.',
-    'AI chooses the carousel role; make the use stage or evidence framing clearly different from the other files.',
-    'AI chooses the carousel role; make the camera angle, product position, and headline treatment clearly different from the other files.',
+    'Invent a distinct layout family, SKU zone, and type lockup for this card; do not reuse another card’s stack or corner.',
+    'Choose a different crop, SKU placement, and headline lockup from the other cards while keeping the same type family and accent color.',
+    'Change the hierarchy: a new layout family and a new type lockup, not a recolor of the same stacked title.',
   ],
   product_comparison_image: [
     'Change the core problem sub-area, evidence crop, and color temperature. Do not rely on minor recolor, title-only, or product-shift differences.',
@@ -321,6 +362,17 @@ export function isProductSetFeature(feature: ImageFeature) {
     || feature === 'product_multi_scene';
 }
 
+export function resolveMainImageShowProduct(
+  request: ImageTaskRequest,
+  index = request.variantIndex ?? 1,
+): boolean {
+  const byIndex = request.showProductByIndex;
+  if (Array.isArray(byIndex) && byIndex.length >= index) {
+    return byIndex[index - 1] !== false;
+  }
+  return request.showProduct !== false;
+}
+
 export type MainImagePresentationMode =
   | 'carousel_hero'
   | 'before_after'
@@ -403,6 +455,9 @@ function renderProductSetSkuReference(spec: ProductSetJsonSpec, request: ImageTa
   if (request.feature === 'product_multi_scene') {
     return 'Use the supplied SKU photo only to identify legitimate product use cases; do not render its body, packaging, brand, or label.';
   }
+  if (request.feature === 'product_main_image' && !resolveMainImageShowProduct(request)) {
+    return 'Use the supplied SKU photo only to identify legitimate product use cases; do not render its body, packaging, brand, label, logo, or wordmark anywhere in the frame.';
+  }
 
   return renderProductSetSkuLock(spec);
 }
@@ -425,16 +480,30 @@ function renderMainImageFeatureContract(spec: ProductSetJsonSpec) {
   const effect = asRecord(spec.effect);
   const reference = asRecord(spec.handheld_reference);
   const presentation = asRecord(spec.presentation);
+  const composition = asRecord(spec.composition);
+  const showProduct = composition?.show_product !== false;
   const isBeforeAfter = presentation?.mode === 'before_after';
   const statements = [
     presentation?.mode
-      ? `This is a ${mainImagePresentationExecutionSummary(String(presentation.mode))}.`
+      ? `This is a ${mainImagePresentationExecutionSummary(String(presentation.mode), showProduct)}.`
       : 'Create one coherent ecommerce main-image scene.',
-    'Show the product, an actual use target, and an observable pre-use, action, or result state in one coherent scene.',
+    showProduct
+      ? 'Show the product, an actual use target, and an observable pre-use, action, or result state in one coherent scene.'
+      : 'Show an actual use target and an observable pre-use, action, or result state in one coherent scene. Do not render the SKU body, packaging, brand logo, or wordmark.',
     isBeforeAfter
-      ? 'Show clearly labeled BEFORE and AFTER states of the same object and matched region in one divided ecommerce image; keep the SKU as a readable product hero without covering either state.'
+      ? showProduct
+        ? 'Show clearly labeled BEFORE and AFTER states of the same object and matched region in one divided ecommerce image; keep the SKU as a floating cutout layer without covering either state.'
+        : 'Show clearly labeled BEFORE and AFTER states of the same object and matched region in one divided ecommerce image without any SKU layer.'
       : 'Use one continuous photograph, never a split screen, triptych, or collage.',
   ];
+
+  if (!showProduct) {
+    statements.push('Keep only one scene and one headline. No SKU cutout, no brand logo, and no standalone product hero.');
+    if (effect?.mode !== 'show') {
+      statements.push('Do not show product-emitted action effects; keep the actual target state visible.');
+    }
+    return statements.join(' ');
+  }
 
   if (handheld?.mode === 'handheld') {
     statements.push('Show a natural hand directly using or holding the SKU beside the actual use target.');
@@ -442,8 +511,9 @@ function renderMainImageFeatureContract(spec: ProductSetJsonSpec) {
     if (reference) {
       statements.push('Match the supplied hand-reference grip and pose while keeping the SKU identity locked to the product reference.');
     }
+    statements.push('Do not also add a free-standing second SKU on a table, floor, or any surface.');
   } else {
-    statements.push('Do not show a holding hand; place the SKU naturally as the scene hero.');
+    statements.push('Do not show a holding hand. Composite the SKU as one designed overlay layer integrated with the layout: allow slight perspective tilt, partial edge bleed, overlap with headline negative space, and scale that matches the scene — not a stiff upright sticker pasted in a corner. Do not stand it on any surface; do not add a ground contact shadow; a very soft graphic separation shadow is OK. Follow the named layout family in Composition for headline and SKU placement. Keep only one scene, one headline, and one SKU cutout; do not default to title top-left and product bottom-right, and do not cover the use-target evidence.');
   }
 
   if (effect?.mode === 'show') {
@@ -456,12 +526,16 @@ function renderMainImageFeatureContract(spec: ProductSetJsonSpec) {
   return statements.join(' ');
 }
 
-function mainImagePresentationExecutionSummary(mode: string) {
+function mainImagePresentationExecutionSummary(mode: string, showProduct = true) {
   switch (mode) {
     case 'carousel_hero':
-      return 'carousel-opening hero image with a specific pain-point environment, the SKU as the clear visual hero, no handheld use, and no product action effect';
+      return showProduct
+        ? 'carousel-opening hero image with a specific pain-point environment, the SKU as the clear visual hero, no handheld use, and no product action effect'
+        : 'carousel-opening hero image with a specific pain-point environment and no visible SKU, no handheld use, and no product action effect';
     case 'before_after':
-      return 'carousel-ready BEFORE and AFTER main image comparing the same object and matched region, with the SKU as a clear visual hero';
+      return showProduct
+        ? 'carousel-ready BEFORE and AFTER main image comparing the same object and matched region, with the SKU as a clear visual hero'
+        : 'carousel-ready BEFORE and AFTER main image comparing the same object and matched region without any visible SKU';
     case 'handheld_use':
       return 'handheld-use image with the SKU held naturally beside the real problem surface, without product action effects';
     case 'effect_demo':
@@ -567,6 +641,50 @@ function multiSceneLayoutDescription(layout: string) {
   }
 }
 
+function renderMainImageSetCard(composition?: Record<string, unknown>) {
+  const showProduct = composition?.show_product !== false;
+  const setStyle = asRecord(composition?.set_style);
+  const typeFamily = typeof setStyle?.type_family === 'string' && setStyle.type_family.trim()
+    ? setStyle.type_family.trim()
+    : MAIN_IMAGE_SET_STYLE.type_system;
+  const skuTreatment = typeof setStyle?.sku_treatment === 'string' && setStyle.sku_treatment.trim()
+    ? setStyle.sku_treatment.trim()
+    : MAIN_IMAGE_SET_STYLE.sku_treatment;
+  const accent = typeof setStyle?.accent_color === 'string' ? setStyle.accent_color.trim() : '';
+  const setRole = typeof composition?.set_role === 'string' ? composition.set_role.trim() : '';
+  const layoutFamily = typeof composition?.layout_family === 'string' ? composition.layout_family.trim() : '';
+  const skuPlacement = typeof composition?.sku_placement === 'string' ? composition.sku_placement.trim() : '';
+  const headlinePlacement = typeof composition?.headline_placement === 'string' ? composition.headline_placement.trim() : '';
+  const headlineTreatment = typeof composition?.headline_treatment === 'string' ? composition.headline_treatment.trim() : '';
+  const sections = [
+    `This card belongs to one carousel set. Keep ${typeFamily}. ${skuTreatment}. ${MAIN_IMAGE_SET_STYLE.scene_family}.`,
+  ];
+  if (accent) {
+    sections.push(`Accent color: ${accent}.`);
+  }
+  if (setRole || layoutFamily) {
+    sections.push(`This slot is ${[setRole, layoutFamily].filter(Boolean).join(' / ')}.`);
+  } else {
+    sections.push(showProduct
+      ? 'Invent a distinct layout family, SKU zone, and type lockup for this card; do not reuse another card’s stack or corner.'
+      : 'Invent a distinct layout family and type lockup for this card; do not reuse another card’s stack or corner.');
+  }
+  if (showProduct && skuPlacement) {
+    sections.push(`Place the SKU here: ${skuPlacement}. Integrate the cutout into the layout rhythm with natural scale, angle, and overlap — not a stiff upright sticker pasted in a corner.`);
+  } else if (showProduct) {
+    sections.push('Integrate the SKU cutout into the layout with natural scale, tilt, edge bleed, or overlap with headline space; avoid a stiff upright sticker in a corner.');
+  } else if (!showProduct) {
+    sections.push('Do not render any SKU cutout, bottle, brand logo, or wordmark.');
+  }
+  if (headlinePlacement) {
+    sections.push(`Place the headline here: ${headlinePlacement}.`);
+  }
+  if (headlineTreatment) {
+    sections.push(`Typeset it as: ${headlineTreatment}.`);
+  }
+  return sections.join(' ');
+}
+
 function renderProductSetScene(spec: ProductSetJsonSpec, request: ImageTaskRequest) {
   const environment = asRecord(spec.environment);
   const storytelling = asRecord(spec.scene_storytelling);
@@ -582,6 +700,9 @@ function renderProductSetScene(spec: ProductSetJsonSpec, request: ImageTaskReque
   }
   if (storytelling?.problem_surface || storytelling?.problem_state) {
     sections.push(`Make the target clear: ${[storytelling.problem_surface, storytelling.problem_state].filter(Boolean).join('; ')}.`);
+  }
+  if (request.feature === 'product_main_image') {
+    sections.push(renderMainImageSetCard(composition));
   }
   if (composition?.vision_directive) {
     sections.push(`Composition: ${String(composition.vision_directive)}.`);
@@ -601,13 +722,23 @@ function renderProductSetCopyAndUserRequirements(spec: ProductSetJsonSpec) {
   const copy = asRecord(spec.copy);
   const headline = asRecord(copy?.headline);
   const overrides = asRecord(spec.user_overrides);
+  const mainShowProduct = spec.task === 'product_main_image'
+    && asRecord(spec.composition)?.show_product !== false;
   const capacityRule = spec.task === 'product_multi_scene'
     ? ''
-    : ' Every visible capacity must start with the exact prefix "NET:".';
+    : spec.task === 'product_main_image' && !mainShowProduct
+      ? ''
+      : ' Every visible capacity must start with the exact prefix "NET:".';
   const sections = [`Use only concise, readable English visible copy. Do not render any Chinese, Han, or other CJK characters anywhere; omit optional copy rather than use non-English text.${capacityRule} Do not add icon rows, price, discount, watermark, or long explanatory text.`];
 
   if (headline?.suggested_text) {
     sections.push(`Suggested headline: ${String(headline.suggested_text)}.`);
+  }
+  if (spec.task === 'product_main_image') {
+    const treatment = typeof headline?.treatment === 'string' && headline.treatment.trim()
+      ? headline.treatment.trim()
+      : '';
+    sections.push(`Give the headline punchy type energy as a designed lockup, not plain flat text.${treatment ? ` Use ${treatment}.` : ' Invent a distinct lockup for this card.'} Make the main benefit word visually loud: use at least one commercial type effect such as outline/hollow stroke, drop shadow, color slab, italic slant, two-tone fill, or a small accent shape tied to the selling point. Headline length is unconstrained. Share one display family and accent palette from the SKU label with the other cards, but vary the effect per card. Do not set three equal-height stacked lines, do not repeat the same white/black/yellow stack, do not use boring single-weight plain text, and do not invent garbled English. Place the headline from the planned Composition; do not lock every title to the top-left corner.`);
   }
   if (overrides?.avoid) {
     sections.push(`Avoid (higher priority than additional direction; if they conflict, obey avoid): ${String(overrides.avoid)}.`);
@@ -651,6 +782,7 @@ export function buildProductSetExecutionVariantsFromVision(
       buildProductSetSpec(variantRequest),
       item,
       variantRequest,
+      batch.set_style,
     );
     return {
       prompt: formatProductSetExecutionPromptFromSpec(spec, variantRequest),
@@ -663,6 +795,7 @@ export function mergeProductSetVisionInstruction(
   spec: ProductSetJsonSpec,
   vision: ProductSetVisionInstructionItem,
   request: ImageTaskRequest,
+  setStyle?: ProductSetVisionSetStyle,
 ): ProductSetJsonSpec {
   const merged = cloneLook(spec) as ProductSetJsonSpec;
 
@@ -746,23 +879,60 @@ export function mergeProductSetVisionInstruction(
 
   if (request.feature === 'product_main_image') {
     applyVisionMainImageHandheldEffect(merged, vision, request);
+    applyVisionMainImageSetPlan(merged, vision, setStyle);
   }
 
   return merged;
 }
 
-function resolveVisionHandheldRequired(
-  _request: ImageTaskRequest,
+function applyVisionMainImageSetPlan(
+  merged: ProductSetJsonSpec,
   vision: ProductSetVisionInstructionItem,
-): boolean {
-  return vision.handheld_required ?? false;
+  setStyle?: ProductSetVisionSetStyle,
+) {
+  const compositionPatch = compactOptionalFields({
+    set_style: setStyle,
+    set_role: vision.set_role,
+    layout_family: vision.layout_family,
+    sku_placement: vision.sku_placement,
+    headline_placement: vision.headline_placement,
+    headline_treatment: vision.headline_treatment,
+  });
+  if (Object.keys(compositionPatch).length > 0) {
+    merged.composition = {
+      ...(merged.composition as Record<string, unknown>),
+      ...compositionPatch,
+    };
+  }
+
+  const treatment = vision.headline_treatment?.trim();
+  if (treatment && merged.copy && typeof merged.copy === 'object') {
+    merged.copy = {
+      ...(merged.copy as Record<string, unknown>),
+      headline: {
+        ...((merged.copy as Record<string, unknown>).headline as Record<string, unknown> | undefined),
+        treatment,
+      },
+    };
+  }
 }
 
-function resolveVisionEffectRequired(
-  _request: ImageTaskRequest,
-  vision: ProductSetVisionInstructionItem,
-): boolean {
-  return vision.show_effect ?? false;
+function compactOptionalFields(value: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => {
+      if (typeof entry === 'string') {
+        return Boolean(entry.trim());
+      }
+      return entry !== undefined && entry !== null;
+    }).map(([key, entry]) => [key, typeof entry === 'string' ? entry.trim() : entry]),
+  );
+}
+
+function lockMainImagePresentation(mode?: MainImagePresentationMode) {
+  if (mode === 'handheld_use' || mode === 'effect_demo') {
+    return 'lifestyle_scene';
+  }
+  return mode;
 }
 
 function applyVisionMainImageHandheldEffect(
@@ -770,14 +940,14 @@ function applyVisionMainImageHandheldEffect(
   vision: ProductSetVisionInstructionItem,
   request: ImageTaskRequest,
 ) {
-  const beforeAfter = vision.presentation_mode === 'before_after';
-  const handheldRequired = beforeAfter ? false : resolveVisionHandheldRequired(request, vision);
-  const effectRequired = beforeAfter ? false : resolveVisionEffectRequired(request, vision);
+  const presentationMode = lockMainImagePresentation(vision.presentation_mode);
+  const handheldRequired = false;
+  const effectRequired = false;
   const patch = buildMainImageFields(request, { handheldRequired, effectRequired });
 
-  if (vision.presentation_mode) {
+  if (presentationMode) {
     merged.presentation = {
-      mode: vision.presentation_mode,
+      mode: presentationMode,
       carousel_ready: true,
       batch_role: 'AI-selected carousel role',
       batch_distribution: 'AI planned this role for batch diversity.',
@@ -864,92 +1034,86 @@ export function buildProductSetSpec(request: ImageTaskRequest): ProductSetJsonSp
 
 function buildMainImageFields(
   request: ImageTaskRequest,
-  overrides?: { handheldRequired?: boolean; effectRequired?: boolean },
+  _overrides?: { handheldRequired?: boolean; effectRequired?: boolean },
 ) {
-  const handheldMode: ProductHandheldMode = request.productHandheldMode ?? 'auto';
-  const effectMode: ProductEffectMode = request.productEffectMode ?? 'auto';
-  const hasReference = hasReferenceImage(request);
-  const isHandheld = overrides?.handheldRequired ?? handheldMode === 'handheld';
-  const effectRequired = overrides?.effectRequired ?? effectMode === 'show';
-  const effectGuidanceText = effectGuidance(effectRequired ? 'show' : 'hide');
+  const effectGuidanceText = effectGuidance('hide');
+  const showProduct = resolveMainImageShowProduct(request);
 
   const fields: MainImageFields = {
-    handheld: isHandheld
-      ? hasReference
-        ? {
-            mode: 'handheld',
-            required: true,
-            must: 'Match the grip, hand pose, and held product form from the reference image while applying the SKU product identity',
-            reference_driven: true,
-          }
-        : {
-            mode: 'handheld',
-            required: true,
-            must: 'A real human hand must visibly hold or operate the SKU in the final image',
-            rules: [...HANDHELD_RULES],
-          }
+    handheld: showProduct
+      ? {
+        mode: 'not_handheld',
+        required: true,
+        must: 'No hand may hold the SKU; composite it as a floating graphic cutout',
+        rules: [
+          'SKU must not be held by a hand',
+        'Composite the SKU as one overlay layer integrated with the layout rhythm',
+        'Allow slight tilt, partial edge bleed, and overlap with headline space when it improves the design',
+        'Do not stand, rest, or plant the SKU on any surface',
+        'Do not add a ground contact shadow, shelf, or supporting pile under the SKU',
+        ],
+      }
       : {
-          mode: 'not_handheld',
-          required: true,
-          must: 'No hand may hold the SKU; place the product as the scene hero',
-          rules: [
-            'SKU must not be held by a hand; place product as the scene hero',
-          ],
-        },
+        mode: 'not_handheld',
+        required: false,
+        must: 'Do not render the SKU body, packaging, brand logo, or wordmark',
+        rules: [
+          'No product bottle or packaging in frame',
+          'No brand logo or wordmark',
+          'No floating SKU cutout',
+        ],
+      },
     effect: {
-      mode: effectRequired ? 'show' : 'hide',
+      mode: 'hide',
       guidance: effectGuidanceText,
     },
     composition: {
       strategy: 'free_within_controls',
-      product_required: true,
-      hand_required: isHandheld,
-      goal: 'Within about 3 seconds on a product carousel, show what the product is, where it is used, what problem it solves, and the core benefit',
-      allowed_approaches: isHandheld
+      show_product: showProduct,
+      product_required: showProduct,
+      hand_required: false,
+      goal: showProduct
+        ? 'Within about 3 seconds on a product carousel, show what the product is, where it is used, what problem it solves, and the core benefit'
+        : 'Within about 3 seconds on a product carousel, show where the product is used, what problem it solves, and the core benefit without showing the SKU',
+      allowed_approaches: showProduct
         ? [
-          'handheld real usage',
-          'handheld usage process',
-          'handheld pain-point close-up',
-          'handheld lifestyle use',
+        'real usage scene with an integrated SKU overlay',
+        'usage process with an integrated SKU overlay',
+        'pain-point close-up with an integrated SKU overlay',
+        'lifestyle scene with an integrated SKU overlay',
+        'carousel hero with an integrated SKU overlay',
+          'before-after feeling within a single main image when useful',
         ]
         : [
-          'real usage scene',
-          'usage process',
-          'pain-point close-up',
-          'lifestyle placement',
-          'carousel hero product placement',
+          'real usage scene without any product body',
+          'pain-point close-up without any product body',
+          'lifestyle scene without any product body',
+          'carousel hero without any product body',
           'before-after feeling within a single main image when useful',
         ],
       one_composition_only: 'Each output image is exactly ONE continuous photograph of ONE commercial scene with ONE product placement. Never stack strips, layers, triptychs, split-screen grids, or collage panels inside one frame — even to show multiple use cases.',
-      forbidden_approaches: isHandheld
-        ? [
-            'no hand in frame',
-            'free-standing bottle on table',
-            'table-top product only without grip',
-            'product standing alone',
-            'multi-panel collage or triptych in one image',
-            'split-screen showing 2/3/4 different locations in one frame',
-            'multi-panel collage of different batch variants',
-          ]
-        : [
-            'multi-panel collage or triptych in one image',
-            'split-screen showing 2/3/4 different locations in one frame',
-            'multi-panel collage of different batch variants',
-            'stacked strips of different scenes in one image',
-            'handheld use',
-            'visible holding hand',
-          ],
-      note: isHandheld
-        ? hasReference
-          ? 'Match the reference image grip/pose/form; sku_lock still controls product identity.'
-          : 'A real hand holds or uses the SKU.'
-        : 'Choose the strongest commercial approach for this SKU and scene; batch diversity is controlled by Vision.',
+      forbidden_approaches: [
+        'multi-panel collage or triptych in one image',
+        'split-screen showing 2/3/4 different locations in one frame',
+        'multi-panel collage of different batch variants',
+        'stacked strips of different scenes in one image',
+        'handheld use',
+        'visible holding hand',
+        'SKU standing on a table, floor, or any surface',
+        'SKU restaged as a 3D object inside the scene',
+        'contact shadow under the SKU',
+        'spray, mist, or product-emitted action effects',
+      ],
+      set_style: MAIN_IMAGE_SET_STYLE,
+      note: showProduct
+        ? 'Composite the SKU as an overlay integrated with the layout rhythm; do not plant it in the scene or paste a stiff upright sticker. Never show handheld use or spray/mist effects. Follow the planner’s layout family, SKU placement, and headline lockup when provided so the batch reads as one carousel set.'
+        : 'Do not render any SKU cutout, bottle, brand logo, or wordmark. Follow the planner’s layout family and headline lockup when provided so the batch reads as one carousel set.',
     },
     copy: {
       headline: {
         language: 'en',
-        word_count: '3-7',
-        role: 'short benefit/use/result title coordinated with SKU label style',
+        role: 'benefit headline designed as a lockup with visible type effects, coordinated with SKU label palette',
+        treatment: 'designed lockup with outline, shadow, slab, angle, or accent shape; not plain flat text',
       },
       forbidden: [
         'long paragraphs',
@@ -959,60 +1123,28 @@ function buildMainImageFields(
       ],
     },
     quality_targets: [
-      'SKU identity locked to the reference photo',
-      ...(isHandheld
-        ? hasReference
-          ? [
-              'Grip, hand pose, and held product form match the reference image',
-              'SKU packaging identity still comes only from product images',
-              'Logo and primary label stay on the nozzle/cap/orifice end, matching the SKU photo',
-            ]
-          : [
-              'A real hand must appear and hold the SKU',
-              'Correct hand anatomy with visible thumb',
-              'Product bottom does not extend past the wrist',
-              'Logo and primary label stay on the nozzle/cap/orifice end, matching the SKU photo',
-            ]
-        : [
-            'No holding hand in frame',
-          ]),
-      'English headline readable in 3 seconds',
+      ...(showProduct ? ['SKU identity locked to the reference photo'] : ['No SKU body, packaging, brand logo, or wordmark in frame']),
+      'No holding hand in frame',
+      'English headline readable in 3 seconds as a designed lockup with visible type effects, not plain flat text or three equal stacked lines',
       'No small icon selling-point UI',
     ],
     negative_prompt: [
       ...MAIN_NEGATIVE,
-      ...(isHandheld ? HANDHELD_NEGATIVE : ['no holding hand', 'no handheld grip']),
+      'no holding hand',
+      'no handheld grip',
+      'no spray',
+      'no mist',
+      ...(showProduct
+        ? ['stiff upright SKU sticker pasted in a corner']
+        : ['no product bottle', 'no packaging', 'no brand logo', 'no wordmark']),
     ],
   };
-
-  if (effectRequired) {
-    fields.spray_physics = {
-      ...SPRAY_PHYSICS,
-      forbidden: [...SPRAY_PHYSICS.forbidden],
-    };
-    (fields.quality_targets as string[]).push(
-      'Spray/nozzle geometry matches SKU and medium exits the real orifice in the correct direction',
-    );
-    (fields.negative_prompt as string[]).push('no wrong spray nozzle', 'no spray from empty air');
-  }
 
   if (avoidExtra(request.negativePrompt)) {
     (fields.negative_prompt as string[]).push(`also avoid: ${request.negativePrompt!.trim()}`);
   }
 
-  if (isHandheld && hasReference) {
-    fields.handheld_reference = {
-      source: 'attached reference image',
-      apply: ['hand grip', 'hand pose', 'held product orientation and form'],
-      preserve: [
-        'SKU packaging identity from product images only',
-        'logo, brand text, and primary label position relative to nozzle/cap/orifice end from SKU photos',
-      ],
-      priority: 'reference image overrides generic handheld posing rules; sku_lock still overrides product identity and label orientation relative to actuator end',
-    };
-  }
-
-  const imageInputs = buildExecutionImageInputs(request, isHandheld);
+  const imageInputs = buildExecutionImageInputs(request, false);
   if (imageInputs) {
     fields.image_inputs = imageInputs;
   }
@@ -1304,7 +1436,8 @@ function buildVariantField(request: ImageTaskRequest) {
 
   const feature = request.feature as ProductSetBatchFeature;
   const slot = buildDiversitySlots(feature, request.variantTotal)[request.variantIndex - 1];
-  const cycle = Math.floor((request.variantIndex - 1) / BATCH_DIVERSITY_DIRECTION_COUNT) + 1;
+  const directionCount = BATCH_DIVERSITY_SLOT_DIRECTIVES[feature].length;
+  const cycle = Math.floor((request.variantIndex - 1) / directionCount) + 1;
   const directive = slot.directive;
   const multiSceneLayout = request.feature === 'product_multi_scene'
     ? resolveMultiScenePresentationLayout(request)
@@ -1411,8 +1544,9 @@ function buildDiversitySlots(feature: ProductSetBatchFeature, count: number) {
   const directives = BATCH_DIVERSITY_SLOT_DIRECTIVES[feature];
   return Array.from({ length: count }, (_, index) => {
     const slotIndex = index + 1;
-    const directionIndex = index % BATCH_DIVERSITY_DIRECTION_COUNT;
-    const cycle = Math.floor(index / BATCH_DIVERSITY_DIRECTION_COUNT) + 1;
+    const directionCount = directives.length;
+    const directionIndex = index % directionCount;
+    const cycle = Math.floor(index / directionCount) + 1;
     let directive = directives[directionIndex];
     if (cycle > 1) {
       directive = `${directive} Round ${cycle} of this direction: choose previously unused concrete sub-scenes, subjects, props, and compositions.`;
@@ -1474,10 +1608,6 @@ function buildBatchPlainTextSuffix(
   );
 
   return `\n\n${lines.join('\n')}\n`;
-}
-
-function hasReferenceImage(request: ImageTaskRequest) {
-  return (request.images ?? []).some((image) => image.role === 'reference');
 }
 
 function buildUserOverrides(

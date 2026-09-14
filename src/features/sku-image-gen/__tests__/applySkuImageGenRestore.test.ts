@@ -27,8 +27,7 @@ describe('applySkuImageGenRestore', () => {
       ],
       aspectRatio: '1:1',
       brand: 'wkau',
-      productName: 'WHITE RADIATOR REPAIR',
-      capacity: '100ml',
+      headline: 'WHITE RADIATOR REPAIR',
       prompt: '对比更强',
       negativePrompt: 'no fake english',
       variantIndex: 1,
@@ -40,10 +39,10 @@ describe('applySkuImageGenRestore', () => {
       aspectRatio: '1:1',
       count: 3,
       brand: 'wkau',
-      productName: 'WHITE RADIATOR REPAIR',
-      capacity: '100ml',
+      headline: 'WHITE RADIATOR REPAIR',
       prompt: '对比更强',
       negativePrompt: 'no fake english',
+      showProduct: true,
     });
     expect(restored?.hitMain.skuBatch?.images[0]?.filePath).toBe('C:/sku/new.png');
     expect(restored?.hitMain.referenceBatch?.images[0]?.filePath).toBe('C:/refs/hit-main.png');

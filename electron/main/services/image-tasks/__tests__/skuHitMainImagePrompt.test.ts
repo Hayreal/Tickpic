@@ -16,60 +16,53 @@ describe('skuHitMainImagePrompt', () => {
     expect(isSkuFeature('sku_hit_main_image')).toBe(false);
   });
 
-  it('labels the uploaded SKU as image 1 and reference as image 2', () => {
+  it('renders a compact overlay instruction instead of a bottle SKU prompt', () => {
     const prompt = buildSkuHitMainImagePrompt(baseRequest);
-    expect(prompt).toContain('Image 1 = source = new SKU product image');
-    expect(prompt).toContain('Image 2 = reference = viral main-image reference');
+    expect(prompt).toContain('Composite Image 1 SKU as a floating graphic cutout');
+    expect(prompt).toContain('do not stand it on any surface');
+    expect(prompt).toContain('Understand Image 1 for the product effect');
+    expect(prompt).toContain('do not complete the crop into objects Image 2 does not fully show');
+    expect(prompt).toContain('do not copy Image 2 layout, holding hand, or camera');
+    expect(prompt).toContain('five complete fingers');
+    expect(prompt).toContain('Always show one simple Before/After of the same cropped surface');
+    expect(prompt).toContain('Image 1 is the new SKU product photo only');
+    expect(prompt).toContain('Keep the frame simple');
+    expect(prompt).toContain('Give the headline Image 2’s type energy');
+    expect(prompt).not.toContain('IMAGE ROLES:');
     expect(prompt).not.toContain('输出一张完整的 SKU 产品图');
+    expect(prompt).toContain('All visible text must be English');
     expect(prompt).not.toMatch(/\p{Script=Han}/u);
-    expect(prompt).toContain('Change at least 3 dimensions');
-    expect(prompt).toContain('Never stretch, compress, slim, widen, or redesign Image 1');
-    expect(prompt).toContain('Packaging lock applies only to the SKU itself');
-    expect(prompt).toContain('scene prop styling');
-    expect(prompt).toContain('comparison-region shape');
-    expect(prompt).toContain('background structure');
-    expect(prompt).toContain('product-to-scene relationship');
-    expect(prompt).toContain('must not reuse the exact same objects, angle, and composition');
-    expect(prompt).toContain('preserve that marketing logic but redesign the presentation');
-    expect(prompt).toContain('realistic scale, not an oversized hero jar');
-    expect(prompt).toContain('PHYSICS REALISM:');
-    expect(prompt).toContain('Image 1 controls the exact SKU product identity');
-    expect(prompt).toContain('Image 2 controls the advertised use case');
-    expect(prompt).toContain('exact type and geometry from Image 1');
-    expect(prompt).toContain('Never borrow, merge, transplant, or retain any product part');
-    expect(prompt).toContain('only marketing wording actually visible in Image 2');
-    expect(prompt).toContain('same localized area');
-    expect(prompt).not.toContain('exactly one Image 2 SKU instance');
-    expect(prompt).not.toContain('rewrite category-conflicting copy');
-    expect(prompt).toContain('Return only the final image, not analysis');
+    expect(prompt).not.toContain('secondary product display');
 
-    const swapped = buildSkuHitMainImagePrompt({
+    const hidden = buildSkuHitMainImagePrompt({
       ...baseRequest,
-      images: [
-        { role: 'reference', path: '/tmp/hit-main.png' },
-        { role: 'source', path: '/tmp/sku.png' },
-      ],
+      showProduct: false,
+      brand: 'wkau',
     });
-    expect(swapped).toContain('Image 1 = source = new SKU product image');
-    expect(swapped).toContain('Image 2 = reference = viral main-image reference');
+    expect(hidden).toContain('Remove every product bottle, brand logo, and wordmark');
+    expect(hidden).toContain('Do not overlay or render Image 1 SKU, packaging, bottle, brand logo');
+    expect(hidden).toContain('Do not render Image 1 brand, logo, product name, or capacity anywhere');
+    expect(hidden).not.toContain('Brand: "wkau"');
+    expect(hidden).not.toContain('Composite Image 1 SKU as a floating graphic cutout');
   });
 
   it('overrides SKU fields without replacing reference marketing copy', () => {
     const filled = buildSkuHitMainImagePrompt({
       ...baseRequest,
       brand: 'wkau',
-      productName: 'WHITE RADIATOR REPAIR',
-      capacity: '100ml',
+      headline: 'Melt Ice Fast',
     });
-    expect(filled).toContain('Brand: "wkau"');
-    expect(filled).toContain('Product name: "WHITE RADIATOR REPAIR"');
-    expect(filled).toContain('Capacity: "NET: 100ml"');
-    expect(filled).toContain('Every visible capacity must start with the exact prefix "NET:"');
-    expect(filled).toContain('including words that appear in headline blocks');
+    expect(filled).toContain('apply "wkau" only on the Image 1 cutout label');
+    expect(filled).toContain('Never add a standalone brand logo');
+    expect(filled).not.toContain('Brand: "wkau"');
+    expect(filled).toContain('On-image headline: "Melt Ice Fast"');
+    expect(filled).not.toContain('Product name:');
+    expect(filled).toContain('All visible text must be English');
+    expect(filled).not.toMatch(/\p{Script=Han}/u);
 
     const inherited = buildSkuHitMainImagePrompt(baseRequest);
-    expect(inherited).toContain('marketing wording actually visible in Image 2');
-    expect(inherited).toContain('do not derive the advertised use case from Image 1');
+    expect(inherited).toContain('translate Image 2 headlines');
+    expect(inherited).not.toContain('On-image headline:');
   });
 
   it('bounds additional prompt and requires batch composition diversity', () => {
@@ -80,7 +73,6 @@ describe('skuHitMainImagePrompt', () => {
       variantTotal: 3,
     });
     expect(prompt).toContain('stronger contrast, larger product');
-    expect(prompt).toContain('must not break Image 1 packaging lock');
-    expect(prompt).toContain('Every output in the same batch must use a visibly different composition');
+    expect(prompt).toContain('batch output 2/3');
   });
 });

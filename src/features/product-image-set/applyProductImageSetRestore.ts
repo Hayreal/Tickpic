@@ -8,6 +8,7 @@ import type {
 import type { ImportBatch, StoredImageRecord } from '../../shared/domain/images';
 import type { TaskRecord } from '../../shared/domain/tasks';
 import type { ImageAspectRatioValue } from '../../shared/view/imageAspectRatioOptions';
+import { restoreMainShowProductByIndex } from '../../shared/domain/productSetShowProductByIndex';
 import { resolveImageCount } from '../../shared/view/imageCountOptions';
 import { getFeatureRoute } from '../../shared/view/featureRoutes';
 import type { ProductSetSubTab } from '../../shared/view/ui';
@@ -26,6 +27,7 @@ export interface ProductImageSetRestoreState {
   comparisonLayout: ComparisonLayout;
   comparisonIntensity: ComparisonIntensity;
   showProduct: boolean;
+  showProductByIndex: boolean[];
   multiSceneLayout: MultiSceneLayout;
   aspectRatio: ImageAspectRatioValue;
   count: number;
@@ -75,6 +77,13 @@ export function applyProductImageSetRestore(task: TaskRecord): ProductImageSetRe
     comparisonLayout: resolveEnum(request.comparisonLayout, ['auto', 'horizontal', 'vertical'], 'auto'),
     comparisonIntensity: resolveEnum(request.comparisonIntensity, ['light', 'medium', 'heavy'], 'medium'),
     showProduct: request.showProduct ?? true,
+    showProductByIndex: subTab === 'main'
+      ? restoreMainShowProductByIndex(
+        resolveImageCount(request.variantTotal ?? request.count ?? 1),
+        request.showProductByIndex,
+        request.showProduct,
+      )
+      : [],
     multiSceneLayout: resolveEnum(request.multiSceneLayout, ['single', 'collage', 'grid'], 'grid'),
     aspectRatio: (request.aspectRatio?.trim() || '1:1') as ImageAspectRatioValue,
     count: resolveImageCount(request.variantTotal ?? request.count ?? 1),

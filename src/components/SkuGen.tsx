@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { ImportBatch } from '../shared/domain/images';
 import type { ImageFeature } from '../shared/domain/imageFeatureApi';
 import type { TaskRecord } from '../shared/domain/tasks';
-import type { ImageAspectRatioValue } from '../shared/view/imageAspectRatioOptions';
 import type { SkuSubTab } from '../shared/view/ui';
 import {
   DEFAULT_SKU_HIT_MAIN_COUNT,
@@ -16,7 +14,7 @@ import { useAppLogs } from '../hooks/useAppLogs';
 import { useDesktopClient } from '../hooks/useDesktopClient';
 import { useImageTask } from '../hooks/useImageTask';
 import { useOpenOutputDirectory } from '../hooks/useOpenOutputDirectory';
-import { applySkuImageGenRestore } from '../features/sku-image-gen/applySkuImageGenRestore';
+import { applySkuImageGenRestore, type SkuTabState } from '../features/sku-image-gen/applySkuImageGenRestore';
 import { buildSkuImageGenRequests, getSkuImageGenFeature } from '../features/sku-image-gen/skuImageGenRequests';
 import { imageTaskRecordFromTaskRecord } from '../features/tasks/taskRestoreHelpers';
 import { filterLogsForTasks } from '../lib/taskLogs';
@@ -42,18 +40,6 @@ interface SkuGenProps {
   onRestoreConsumed?: () => void;
 }
 
-interface SkuTabState {
-  skuBatch: ImportBatch | null;
-  referenceBatch: ImportBatch | null;
-  aspectRatio: ImageAspectRatioValue;
-  count: number;
-  brand: string;
-  productName: string;
-  capacity: string;
-  prompt: string;
-  negativePrompt: string;
-}
-
 const TAB_LABELS: Record<SkuSubTab, string> = {
   replica: '复刻',
   variation: '裂变',
@@ -77,8 +63,10 @@ function defaultTabState(subTab: SkuSubTab): SkuTabState {
     brand: DEFAULT_SKU_BRAND,
     productName: '',
     capacity: '',
+    headline: '',
     prompt: '',
     negativePrompt: '',
+    showProduct: true,
   };
 }
 
@@ -97,7 +85,7 @@ function renderParameterPanels(
     : subTab === 'variation'
       ? '例如：差异化再大一点，不要太像参考图'
       : subTab === 'hitMain'
-        ? '例如：标题改成 WHITE RADIATOR REPAIR，对比更强，产品再大一点'
+        ? '例如：对比更强，产品再大一点'
         : '例如：墙面修补膏，自由发挥，适合贴瓶的高级感';
 
   return (
@@ -137,6 +125,29 @@ function renderParameterPanels(
             onChange={(count) => onChange({ count })}
             options={SKU_IMAGE_COUNT_OPTIONS}
           />
+          {subTab === 'hitMain' ? (
+            <div className="space-y-2">
+              <label className="ui-label">SKU</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  id={`${subTab}-sku-hide`}
+                  onClick={() => onChange({ showProduct: false })}
+                  className={`cursor-pointer py-2 rounded-lg text-xs font-bold transition-all border ${!state.showProduct ? 'ui-segment-active' : 'ui-segment-inactive'}`}
+                >
+                  不展示
+                </button>
+                <button
+                  type="button"
+                  id={`${subTab}-sku-show`}
+                  onClick={() => onChange({ showProduct: true })}
+                  className={`cursor-pointer py-2 rounded-lg text-xs font-bold transition-all border ${state.showProduct ? 'ui-segment-active' : 'ui-segment-inactive'}`}
+                >
+                  展示
+                </button>
+              </div>
+            </div>
+          ) : null}
         </>
       )}
       advanced={(
@@ -150,7 +161,22 @@ function renderParameterPanels(
             capacity={state.capacity}
             onCapacityChange={(capacity) => onChange({ capacity })}
             productNameRequired={subTab === 'original'}
+            showProductName={subTab !== 'hitMain'}
+            showCapacity={subTab !== 'hitMain'}
           />
+          {subTab === 'hitMain' ? (
+            <div className="space-y-2 sm:col-span-2">
+              <label className="ui-label" htmlFor={`${subTab}-headline-input`}>主图标题</label>
+              <input
+                type="text"
+                id={`${subTab}-headline-input`}
+                value={state.headline}
+                onChange={(event) => onChange({ headline: event.target.value })}
+                placeholder="例如：Melt Ice Fast / 快速化冰 想走就走，留空则跟参考图标题"
+                className="ui-input-compact"
+              />
+            </div>
+          ) : null}
           <div className="space-y-2 sm:col-span-2">
             <label className="ui-label" htmlFor={`${subTab}-prompt-input`}>附加提示词</label>
             <textarea
@@ -339,8 +365,10 @@ export default function SkuGen({ restoredTask, onRestoreConsumed }: SkuGenProps)
         brand: state.brand,
         productName: state.productName,
         capacity: state.capacity,
+        headline: state.headline,
         prompt: state.prompt,
         negativePrompt: state.negativePrompt,
+        showProduct: state.showProduct,
       });
       reset(getSkuImageGenFeature(type));
       if (requests.length === 1) {

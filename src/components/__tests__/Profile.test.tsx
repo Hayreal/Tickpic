@@ -347,6 +347,28 @@ describe('Profile', () => {
     expect(screen.getByText('输出图片 (1)')).toBeInTheDocument();
   });
 
+  it('allows restoring product tab batch representatives', () => {
+    const onRestoreTask = vi.fn();
+    const tasks: TaskRecord[] = ['prompt-1', 'prompt-2', 'prompt-3'].map((taskId) => ({
+      taskId,
+      batchId: 'batch-prompt',
+      category: '产品',
+      feature: '纯提示词主图',
+      status: 'Completed',
+      imports: [],
+      outputs: [],
+      request: { feature: 'prompt_only_main_asset', outputBatchId: 'batch-prompt', prompt: 'test', count: 1 },
+      createdAt: '2026-07-31T00:00:00.000Z',
+      updatedAt: '2026-07-31T00:00:00.000Z',
+    }));
+    render(<Profile tasks={tasks} onRefresh={vi.fn()} onRestoreTask={onRestoreTask} />);
+
+    const restoreButton = document.getElementById('restore-task-prompt-3')!;
+    expect(restoreButton).toBeEnabled();
+    fireEvent.click(restoreButton);
+    expect(onRestoreTask).toHaveBeenCalledWith(tasks[2]);
+  });
+
   it('allows restoring product image set and sku batch representatives', () => {
     const onRestoreTask = vi.fn();
     const makeBatchTask = (

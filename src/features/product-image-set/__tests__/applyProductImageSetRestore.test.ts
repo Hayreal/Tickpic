@@ -96,7 +96,8 @@ describe('applyProductImageSetRestore', () => {
     expect(applyProductImageSetRestore(createTask(createRequest('product_main_image')))).toMatchObject({
       subTab: 'main', prompt: '', negativePrompt: '', scenePrompt: '',
       productHandheldMode: 'auto', productEffectMode: 'auto',
-      comparisonLayout: 'auto', comparisonIntensity: 'medium', showProduct: true, multiSceneLayout: 'grid',
+      comparisonLayout: 'auto', comparisonIntensity: 'medium', showProduct: true,
+      showProductByIndex: [true], multiSceneLayout: 'grid',
     });
     expect(applyProductImageSetRestore(createTask(createRequest('product_comparison_image')))).toMatchObject({
       subTab: 'comparison', prompt: '', negativePrompt: '', scenePrompt: '',

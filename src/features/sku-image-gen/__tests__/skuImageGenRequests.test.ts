@@ -118,6 +118,7 @@ describe('buildSkuImageGenRequests', () => {
       brand: 'wkau',
       productName: 'Radiator Repair',
       capacity: '100ml',
+      headline: 'Melt Ice Fast',
       prompt: '对比更强',
       negativePrompt: 'no fake english',
     });
@@ -128,15 +129,17 @@ describe('buildSkuImageGenRequests', () => {
       count: 3,
       aspectRatio: '1:1',
       brand: 'wkau',
-      productName: 'Radiator Repair',
-      capacity: '100ml',
+      headline: 'Melt Ice Fast',
       prompt: '对比更强',
       negativePrompt: 'no fake english',
+      showProduct: true,
       images: [
         { role: 'source', path: '/tmp/sku.png' },
         { role: 'reference', path: '/tmp/hit-main.png' },
       ],
     });
+    expect(requests[0]).not.toHaveProperty('productName');
+    expect(requests[0]).not.toHaveProperty('capacity');
   });
 
   it('requires exactly one hit-main reference image', () => {

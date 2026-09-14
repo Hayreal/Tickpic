@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { X, FolderOpen, RotateCcw, Copy } from 'lucide-react';
 import type { ImageRole, ImageTaskRequest, RegionInput } from '../shared/domain/imageFeatureApi';
+import { formatShowProductByIndex } from '../shared/domain/productSetShowProductByIndex';
 import type { TaskRecord } from '../shared/domain/tasks';
 import type { StoredImageRecord } from '../shared/domain/images';
 import { aggregateTaskStatuses } from '../features/tasks/taskBatchGrouping';
@@ -85,11 +86,15 @@ function buildRequestParams(request: ImageTaskRequest) {
       <ParamRow label="具体场景词" value={request.scenePrompt} />
       <ParamRow
         label="手持方式"
-        value={request.productHandheldMode && PRODUCT_SET_CONTROL_LABELS.productHandheldMode[request.productHandheldMode]}
+        value={request.feature === 'product_main_image'
+          ? undefined
+          : request.productHandheldMode && PRODUCT_SET_CONTROL_LABELS.productHandheldMode[request.productHandheldMode]}
       />
       <ParamRow
         label="具体效果"
-        value={request.productEffectMode && PRODUCT_SET_CONTROL_LABELS.productEffectMode[request.productEffectMode]}
+        value={request.feature === 'product_main_image'
+          ? undefined
+          : request.productEffectMode && PRODUCT_SET_CONTROL_LABELS.productEffectMode[request.productEffectMode]}
       />
       <ParamRow
         label="对比布局"
@@ -105,6 +110,7 @@ function buildRequestParams(request: ImageTaskRequest) {
       />
       <ParamRow label="出图数量" value={request.count} />
       <ParamRow label="品牌" value={request.brand} />
+      <ParamRow label="主图标题" value={request.headline} />
       <ParamRow label="产品名称" value={request.productName} />
       <ParamRow label="产品品类" value={request.productCategory} />
       <ParamRow label="素材" value={request.material} />
@@ -119,8 +125,14 @@ function buildRequestParams(request: ImageTaskRequest) {
       <ParamRow label="配色方案" value={request.colorScheme} />
       <ParamRow label="宽高比" value={request.aspectRatio} />
       <ParamRow
-        label={request.feature === 'product_comparison_image' ? 'After 产品展示' : '展示产品'}
-        value={request.showProduct === undefined ? undefined : request.showProduct}
+        label={request.feature === 'product_comparison_image' ? 'After 产品展示' : '产品展示'}
+        value={
+          request.feature === 'product_main_image' && request.showProductByIndex?.length
+            ? formatShowProductByIndex(request.showProductByIndex)
+            : request.showProduct === undefined
+              ? undefined
+              : request.showProduct
+        }
       />
       <ParamRow label="模型覆盖" value={modelSummary} />
       <ParamRow

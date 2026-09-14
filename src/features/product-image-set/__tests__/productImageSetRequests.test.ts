@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildProductImageSetRequests } from '../productImageSetRequests';
 
 describe('buildProductImageSetRequests', () => {
-  it('builds a single main-image request with count and optional handheld reference', () => {
+  it('builds a single main-image request without handheld or spray controls', () => {
     const requests = buildProductImageSetRequests({
       subTab: 'main',
       skuPaths: ['/tmp/front.png', '/tmp/back.png'],
@@ -17,6 +17,7 @@ describe('buildProductImageSetRequests', () => {
       comparisonLayout: 'auto',
       comparisonIntensity: 'medium',
       showProduct: true,
+      showProductByIndex: [true, false],
       multiSceneLayout: 'single',
     });
 
@@ -26,62 +27,37 @@ describe('buildProductImageSetRequests', () => {
         images: [
           { role: 'product', path: '/tmp/front.png' },
           { role: 'product', path: '/tmp/back.png' },
-          { role: 'reference', path: '/resources/product/handheld-pump-foam.png' },
         ],
         count: 2,
         aspectRatio: '1:1',
         prompt: 'bright premium composition',
         negativePrompt: 'no extra props',
         scenePrompt: 'kitchen counter',
-        productHandheldMode: 'handheld',
-        productEffectMode: 'show',
+        showProductByIndex: [true, false],
       },
     ]);
   });
 
-  it('omits handheld reference when handheld mode is not_handheld', () => {
+  it('passes per-image showProductByIndex on main-image requests', () => {
     const [request] = buildProductImageSetRequests({
       subTab: 'main',
-      skuPaths: ['/tmp/front.png'],
+      skuPaths: ['/tmp/product.png'],
       aspectRatio: '1:1',
-      count: 1,
+      count: 3,
       prompt: '',
       negativePrompt: '',
       scenePrompt: '',
       productHandheldMode: 'not_handheld',
       productEffectMode: 'auto',
-      handheldReferencePath: '/resources/product/handheld-pump-foam.png',
       comparisonLayout: 'auto',
       comparisonIntensity: 'medium',
       showProduct: true,
+      showProductByIndex: [true, false, true],
       multiSceneLayout: 'single',
     });
 
-    expect(request.images).toEqual([{ role: 'product', path: '/tmp/front.png' }]);
-  });
-
-  it('includes handheld reference in auto mode when a pose is selected', () => {
-    const [request] = buildProductImageSetRequests({
-      subTab: 'main',
-      skuPaths: ['/tmp/front.png'],
-      aspectRatio: '1:1',
-      count: 1,
-      prompt: '',
-      negativePrompt: '',
-      scenePrompt: '',
-      productHandheldMode: 'auto',
-      productEffectMode: 'auto',
-      handheldReferencePath: '/resources/product/handheld-spray-side-press.png',
-      comparisonLayout: 'auto',
-      comparisonIntensity: 'medium',
-      showProduct: true,
-      multiSceneLayout: 'single',
-    });
-
-    expect(request.images).toEqual([
-      { role: 'product', path: '/tmp/front.png' },
-      { role: 'reference', path: '/resources/product/handheld-spray-side-press.png' },
-    ]);
+    expect(request.showProductByIndex).toEqual([true, false, true]);
+    expect(request).not.toHaveProperty('showProduct');
   });
 
   it('builds comparison requests with only its applicable fields', () => {
@@ -98,6 +74,7 @@ describe('buildProductImageSetRequests', () => {
       comparisonLayout: 'vertical',
       comparisonIntensity: 'heavy',
       showProduct: false,
+      showProductByIndex: [],
       multiSceneLayout: 'grid',
     });
 
@@ -130,6 +107,7 @@ describe('buildProductImageSetRequests', () => {
       comparisonLayout: 'horizontal',
       comparisonIntensity: 'light',
       showProduct: true,
+      showProductByIndex: [true, true, true],
       multiSceneLayout: 'collage',
     });
 
@@ -160,6 +138,7 @@ describe('buildProductImageSetRequests', () => {
       comparisonLayout: 'auto',
       comparisonIntensity: 'medium',
       showProduct: true,
+      showProductByIndex: [true],
       multiSceneLayout: 'single',
     })).toThrow('请上传 SKU 产品图');
   });
@@ -178,6 +157,7 @@ describe('buildProductImageSetRequests', () => {
       comparisonLayout: 'auto',
       comparisonIntensity: 'medium',
       showProduct: true,
+      showProductByIndex: [true],
       multiSceneLayout: 'single',
     })[0]).toEqual(expect.not.objectContaining({ prompt: expect.anything(), negativePrompt: expect.anything() }));
   });
@@ -198,6 +178,7 @@ describe('buildProductImageSetRequests', () => {
         comparisonLayout: 'auto',
         comparisonIntensity: 'medium',
         showProduct: true,
+        showProductByIndex: [true],
         multiSceneLayout: 'single',
       })).toThrow('生成数量必须是正整数');
     },

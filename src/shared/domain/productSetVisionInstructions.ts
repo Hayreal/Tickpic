@@ -1,5 +1,11 @@
 import { stripJsonFence } from './replaceProductExecutionPrompt.js';
 
+export interface ProductSetVisionSetStyle {
+  type_family?: string;
+  accent_color?: string;
+  sku_treatment?: string;
+}
+
 export interface ProductSetVisionInstructionItem {
   index: number;
   presentation_mode?: 'carousel_hero' | 'before_after' | 'handheld_use' | 'effect_demo' | 'lifestyle_scene';
@@ -12,6 +18,11 @@ export interface ProductSetVisionInstructionItem {
     set?: string;
     props?: string;
   };
+  set_role?: string;
+  layout_family?: string;
+  sku_placement?: string;
+  headline_placement?: string;
+  headline_treatment?: string;
   composition_directive?: string;
   headline_suggestion?: string;
   variant_directive?: string;
@@ -26,6 +37,7 @@ export interface ProductSetVisionInstructionItem {
 }
 
 export interface ProductSetVisionBatch {
+  set_style?: ProductSetVisionSetStyle;
   instructions: ProductSetVisionInstructionItem[];
 }
 
@@ -52,5 +64,21 @@ export function parseProductSetVisionBatch(
     }
   }
 
-  return { instructions: sorted };
+  return {
+    ...(asSetStyle(parsed.set_style) ? { set_style: asSetStyle(parsed.set_style) } : {}),
+    instructions: sorted,
+  };
+}
+
+function asSetStyle(value: unknown): ProductSetVisionSetStyle | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+  const record = value as ProductSetVisionSetStyle;
+  const setStyle = {
+    ...(record.type_family?.trim() ? { type_family: record.type_family.trim() } : {}),
+    ...(record.accent_color?.trim() ? { accent_color: record.accent_color.trim() } : {}),
+    ...(record.sku_treatment?.trim() ? { sku_treatment: record.sku_treatment.trim() } : {}),
+  };
+  return Object.keys(setStyle).length > 0 ? setStyle : undefined;
 }

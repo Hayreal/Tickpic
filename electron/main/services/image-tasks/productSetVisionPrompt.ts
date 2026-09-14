@@ -1,12 +1,18 @@
 import type { ImageFeature, ImageTaskRequest } from '../../../../src/shared/domain/imageFeatureApi.js';
 import type { ProductSetVisionBatch } from '../../../../src/shared/domain/productSetVisionInstructions.js';
 import {
+  MAIN_IMAGE_LAYOUT_FAMILY_MENU,
+  MAIN_IMAGE_LOCKUP_IDEAS,
+  MAIN_IMAGE_SET_STYLE,
+  MAIN_IMAGE_TYPE_EFFECT_MENU,
+  MAIN_IMAGE_SKU_INTEGRATION_MENU,
   isProductSetFeature,
   multiSceneLayoutPlan,
   resolveComparisonEvidenceFraming,
   resolveComparisonLayout,
   resolveMultiScenePresentationLayout,
 } from './productSetJsonPrompt.js';
+import { resizeShowProductByIndex } from '../../../../src/shared/domain/productSetShowProductByIndex.js';
 import { sanitizeRequestForInstruction } from './instructionPrompt.js';
 
 export function buildProductSetVisionSystemPrompt(feature: ImageFeature): string {
@@ -17,7 +23,9 @@ export function buildProductSetVisionSystemPrompt(feature: ImageFeature): string
   return [
     '你是 US Temu 电商套图任务的视觉理解助手。',
     '你会看到 SKU 产品图（以及可选的手持参考图）。',
-    '请结合产品外观、品类、用途与任务参数，为每一张待输出图片生成独立的图像编辑指令。',
+    feature === 'product_main_image'
+      ? '请结合产品外观、品类、用途、用户提示词与 requested_count，规划恰好这么多张主图。1 张就设计一张完整主图；2 张或 3 张才当成一组套图，不要默认按三张套来写。'
+      : '请结合产品外观、品类、用途与任务参数，为每一张待输出图片生成独立的图像编辑指令。',
     '输出 ONLY 一个 JSON 对象，不要 Markdown、不要解释。',
     'JSON 必须严格符合以下 schema 示例（字段可增删数组项，但结构保持一致）：',
     JSON.stringify(createVisionBatchTemplate(feature), null, 2),
@@ -26,13 +34,24 @@ export function buildProductSetVisionSystemPrompt(feature: ImageFeature): string
     '1. instructions 数组长度必须等于 requested_count，index 从 1 递增且连续。',
     '2. 每条 instruction 必须针对真实 SKU 标签/包装上的品类与用途填写，禁止臆造与 SKU 无关的场景（例如清洁剂被写成发动机皮带维护）。',
     '3. 每条 instruction 必须填写 problem_surface 与 problem_state，让画面出现「具体痛点表面 + 可见问题状态」，禁止空泛棚拍或货架陈列。',
-    '4. 同一批次内各 instruction 的场景、构图、机位、光线或子环境必须明显不同，不得只改标题或换色。',
-    '5. 主图批次由你决定每张的 presentation_mode、handheld_required 与 show_effect，不按 index 固定角色。可选角色包括 carousel_hero、before_after、handheld_use、effect_demo、lifestyle_scene；Before/After、手持、真实使用过程、使用后效果和生活场景都不是必选项。',
-    '5a. 同批任意两张至少在场景、使用阶段、构图、机位、产品位置、文案表达中的至少 3 项明显不同；不得只换标题、颜色或轻微移动产品。',
-    '5b. 若提供手持参考图，只有你选择 handheld_required=true 时才按参考图握姿；参考图不要求每张手持。',
-    '5c. show_effect=true 表示展示真实品类对应的使用动作或使用后效果。仅真实喷雾/泵头/扳机 SKU 可喷射；非喷雾类 SKU 禁止生成喷雾、雾气或虚构喷嘴。',
+    '4. 仅当 requested_count > 1 时，各 instruction 的场景、构图、机位、光线或子环境必须明显不同，不得只改标题或换色。requested_count = 1 时只输出一张完整主图，不要硬拆成套图角色。',
+    '5. 主图批次由你决定每张的 presentation_mode，不按 index 固定角色。可选角色只有 carousel_hero、before_after、lifestyle_scene。禁止 handheld_use 与 effect_demo，禁止手持握瓶和喷雾/雾气/喷射效果。',
+    '5a. 仅当 requested_count > 1 时，任意两张至少在场景、使用阶段、构图、机位、产品位置、文案表达中的至少 3 项明显不同；不得只换标题、颜色或轻微移动产品。',
     '5d. before_after 仅在有同一对象和同一区域的可信前后证据时选择，必须带英文 BEFORE/AFTER 标识且 SKU 不遮挡证据。',
-    '6. 最终 SKU 锁定与执行提示词由后续渲染器处理；你只需输出本张真实场景、目标对象/状态、构图与差异方向。合并后直接采用你输出的 presentation_mode、handheld_required 与 show_effect。',
+    ...(feature === 'product_main_image'
+      ? [
+        '5e. 主图标题要有电商主标题力度和字体特效：先发明一套 set_style（从 SKU 标签取样的字体气质 + 强调色 + 统一抠图气质），再按 requested_count 为每一张发明 headline_treatment。headline_treatment 必须写清字效：描边/空心字、投影、色块底、倾斜、双色填充、下划线或斜条装饰等，并让它服务该张的卖点词，不要做成平淡的单色平字。必须有一个明显更大的主词。标题长短由你按画面决定，不要编造乱码英文，不要额外角标墙。禁止三行等高层叠单词，禁止整批都用白/黑/黄三行堆字，禁止套用固定的图1 opener / 图2 problem / 图3 result。',
+        '5f. 按 main_image_planning_brief.show_product_by_index 中对应 index 的 show_product 决定是否规划 SKU 图层。false 时不得规划 sku_placement、包装、品牌 logo 或 wordmark。true 时 SKU 仍是 Photoshop 抠图图层，但要融入排版节奏：可写清 scale、tilt、edge bleed、与标题留白区的 overlap；不要做成僵硬的竖直贴纸硬贴角落。不要立在任何表面上，不要加地面接触阴影；极轻的图形分离阴影可以。禁止手握 SKU，禁止喷雾、雾气或产品喷射效果。',
+        '5h. handheld_required 与 show_effect 必须始终为 false。',
+        '5g. 你必须自己生成 set_style，以及每张 instruction 的 set_role、layout_family、sku_placement、headline_placement、headline_treatment，条数必须等于 requested_count。composition_directive 必须点名这五项。requested_count > 1 时共用一套字体家族/强调色/SKU 抠图气质，像一组轮播套图，且不得重复同一种构图或同一种堆字。排版家族和 lockup 可从菜单选，也可以发明新名字。',
+        '5g1. showProduct=true 时画面只保留：一张使用场景、一条主标题、一层 SKU 抠图；before_after 才加一组对比。showProduct=false 时只保留场景与主标题，不要 SKU 抠图。不要图标行、卖点卡、信息块、角标墙。',
+        '5g2. showProduct=true 时 sku_placement 必须同时写清位置、比例、角度和与标题/场景的关系，让 SKU 像设计过的图层而不是硬贴素材；标签仍要够读。禁止缩成角落小贴纸，禁止多张都右下或都右中竖直悬浮。',
+        '5g3. 可选排版家族：product-anchor=SKU 占约三分之一当锚点；type-over-action=大标题压痛点，SKU 在对侧；magazine-offset=标题和 SKU 同一侧栏；bleed-overlap=场景满幅，SKU 切边；type-slab=标题色块切图；diagonal-mass=对角大面，标题和 SKU 在对角留白。也可以发明新家族，只要同批不重复。',
+        '5g4. 禁止整批都落成「左上标题、右下产品、其余铺场景」。',
+        '5i. 用户字段：prompt=补充提示词，negativePrompt=反向提示词，scenePrompt=具体场景词。有值就必须纳入规划：scenePrompt 约束场景范围，prompt 约束风格/构图/光线/文案，negativePrompt 是禁止项。冲突时 negativePrompt 优先。空字段由你按 SKU 自行决定。',
+      ]
+      : []),
+    '6. 最终 SKU 锁定与执行提示词由后续渲染器处理；你只需输出本张真实场景、目标对象/状态、构图与差异方向。合并后直接采用你输出的 presentation_mode。',
     '7. variant_directive 应写清该张图独有的子场景/构图/光线方向，并与 batch 内其他 index 互斥。',
     '8. 若用户提供 scenePrompt / prompt / negativePrompt，将其要点体现在 environment、composition_directive 或 scene_notes 中。冲突时 negativePrompt 优先于 prompt，禁止项不得被附加要求覆盖。',
     '9. 多场景图不得输出产品本体、包装、人物或手部；主图/对比图必须锁定 SKU 身份。',
@@ -59,6 +78,40 @@ export function buildProductSetVisionUserText(
     feature: request.feature,
     requested_count: count,
     structured_parameters: Object.keys(parameters).length > 0 ? parameters : undefined,
+    ...(request.feature === 'product_main_image'
+      ? {
+          main_image_planning_brief: {
+            requested_count: count,
+            invent: [
+              'set_style',
+              'exactly requested_count cards',
+              'per-card set_role',
+              'layout_family',
+              'sku_placement',
+              'headline_placement',
+              'headline_treatment',
+            ],
+            show_product_by_index: resizeShowProductByIndex(
+              request.showProductByIndex,
+              count,
+              request.showProduct !== false,
+            ).map((showProduct, index) => ({
+              index: index + 1,
+              show_product: showProduct,
+            })),
+            user_direction: {
+              prompt: request.prompt?.trim() || null,
+              negative_prompt: request.negativePrompt?.trim() || null,
+              scene_prompt: request.scenePrompt?.trim() || null,
+            },
+            shared_constraints: MAIN_IMAGE_SET_STYLE,
+            layout_family_menu: MAIN_IMAGE_LAYOUT_FAMILY_MENU,
+            lockup_ideas: MAIN_IMAGE_LOCKUP_IDEAS,
+            type_effect_menu: MAIN_IMAGE_TYPE_EFFECT_MENU,
+            sku_integration_menu: MAIN_IMAGE_SKU_INTEGRATION_MENU,
+          },
+        }
+      : {}),
     ...(request.feature === 'product_comparison_image' && count > 1
       ? { comparison_layout_plan: buildComparisonLayoutPlan(request, count) }
       : {}),
@@ -68,7 +121,11 @@ export function buildProductSetVisionUserText(
   };
 
   return [
-    `请基于附带的产品图，为 ${count} 张套图输出各自独立的图像编辑指令 batch。`,
+    request.feature === 'product_main_image'
+      ? count === 1
+        ? '请只规划 1 张主图：发明 set_style、排版、SKU 落点和标题 lockup。必须吸收用户提示词、反向提示词和具体场景词；空字段才由你按 SKU 决定。'
+        : `请按 requested_count=${count} 规划一组电商套图：先发明一套 set_style，再为这 ${count} 张各发明不同的排版、SKU 落点和标题 lockup。必须吸收用户提示词、反向提示词和具体场景词。不要套用固定的图1 opener / 图2 problem / 图3 result。`
+      : `请基于附带的产品图，为 ${count} 张套图输出各自独立的图像编辑指令 batch。`,
     JSON.stringify(payload, null, 2),
   ].join('\n\n');
 }
@@ -90,12 +147,23 @@ function createVisionBatchTemplate(feature: ImageFeature): ProductSetVisionBatch
 
   if (feature === 'product_main_image') {
     return {
+      set_style: {
+        type_family: 'display family sampled from the SKU label',
+        accent_color: 'one accent pulled from the SKU label',
+        sku_treatment: 'same floating cutout, no contact shadow',
+      },
       instructions: [{
         ...baseItem,
         presentation_mode: 'carousel_hero',
         handheld_required: false,
         show_effect: false,
-        headline_suggestion: '3-7 word English benefit headline coordinated with this scene',
+        set_role: 'short role name you invent for this card in the set',
+        layout_family: 'a layout family you choose or invent; unique in this batch',
+        sku_placement: 'where and how the SKU cutout sits: zone, scale, tilt, bleed, overlap with headline or scene',
+        headline_placement: 'where the headline lockup sits',
+        headline_treatment: 'how this card’s type lockup is designed with visible effects (outline, shadow, slab, angle, accent); must differ from other cards',
+        headline_suggestion: 'English benefit headline coordinated with this scene; length decided by you',
+        composition_directive: 'Name the invented set_role, layout_family, sku_placement, headline_placement, and headline_treatment',
       }],
     };
   }

@@ -8,6 +8,7 @@ import type {
 } from '../../shared/domain/imageFeatureApi';
 import type { ImageAspectRatioValue } from '../../shared/view/imageAspectRatioOptions';
 import type { ProductSetSubTab } from '../../shared/view/ui';
+import { resizeShowProductByIndex } from '../../shared/domain/productSetShowProductByIndex';
 
 export interface ProductImageSetRequestInput {
   subTab: ProductSetSubTab;
@@ -22,6 +23,7 @@ export interface ProductImageSetRequestInput {
   comparisonLayout: ComparisonLayout;
   comparisonIntensity: ComparisonIntensity;
   showProduct: boolean;
+  showProductByIndex: boolean[];
   multiSceneLayout: MultiSceneLayout;
   handheldReferencePath?: string | null;
 }
@@ -47,21 +49,16 @@ export function buildProductImageSetRequests(
     role: 'product' as const,
     path,
   }));
-  const referencePath = input.handheldReferencePath?.trim();
-  if (input.subTab === 'main' && input.productHandheldMode !== 'not_handheld' && referencePath) {
-    images.push({ role: 'reference', path: referencePath });
-  }
-
   const feature = FEATURE_BY_SUB_TAB[input.subTab];
   const sharedFields = {
     ...optionalString('prompt', input.prompt),
     ...optionalString('negativePrompt', input.negativePrompt),
   };
+  const showProductByIndex = resizeShowProductByIndex(input.showProductByIndex, input.count);
   const featureFields = input.subTab === 'main'
     ? {
       ...optionalString('scenePrompt', input.scenePrompt),
-      productHandheldMode: input.productHandheldMode,
-      productEffectMode: input.productEffectMode,
+      showProductByIndex,
     }
     : input.subTab === 'comparison'
       ? {

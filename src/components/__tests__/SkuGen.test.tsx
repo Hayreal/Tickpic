@@ -87,7 +87,15 @@ describe('SkuGen hit main tab', () => {
 
     expect(screen.getByText('爆款主图参考')).toBeTruthy();
     expect(screen.getByText('上传一张爆款电商主图作卖点与场景参考')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '展示' })).toHaveClass('ui-segment-active');
+    expect(screen.getByRole('button', { name: '不展示' })).toBeTruthy();
     expect(screen.queryByText('可选')).toBeNull();
+
+    const panel = document.getElementById('feature-parameters-panel')!;
+    fireEvent.click(within(panel).getByRole('button', { name: /高级参数/ }));
+    expect(within(panel).getByLabelText('主图标题')).toBeTruthy();
+    expect(within(panel).queryByLabelText('产品名称')).toBeNull();
+    expect(within(panel).queryByLabelText('容量')).toBeNull();
   });
 
   it('alerts when generating hit-main without the reference image', () => {

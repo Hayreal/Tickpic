@@ -359,6 +359,28 @@ describe('image feature API contract', () => {
       ...productRequest,
       showProduct: false,
     }).showProduct).toBe(false);
+    expect(validateImageTaskRequest({
+      feature: 'product_main_image',
+      ...productRequest,
+      showProduct: true,
+    }).showProduct).toBe(true);
+    expect(validateImageTaskRequest({
+      feature: 'product_main_image',
+      ...productRequest,
+      showProduct: false,
+    }).showProduct).toBe(false);
+    expect(validateImageTaskRequest({
+      feature: 'product_main_image',
+      ...productRequest,
+      count: 2,
+      showProductByIndex: [true, false],
+    }).showProductByIndex).toEqual([true, false]);
+    expect(() => validateImageTaskRequest({
+      feature: 'product_main_image',
+      ...productRequest,
+      count: 2,
+      showProductByIndex: [true],
+    })).toThrow('showProductByIndex length must match count');
     expect(() => validateImageTaskRequest({
       feature: 'product_comparison_image',
       ...productRequest,
@@ -374,11 +396,6 @@ describe('image feature API contract', () => {
       images: [{ role: 'source', path: '/authorized/input/sticker.png' }],
       showProduct: false,
     })).toThrow('showProduct is not supported by sticker_variation');
-    expect(() => validateImageTaskRequest({
-      feature: 'product_main_image',
-      ...productRequest,
-      showProduct: true,
-    })).toThrow('showProduct is not supported by product_main_image');
     expect(() => validateImageTaskRequest({
       feature: 'product_multi_scene',
       ...productRequest,
@@ -510,8 +527,16 @@ describe('image feature API contract', () => {
     expect(() => validateImageTaskRequest({ ...request, productHandheldMode: 'handheld' })).toThrow(
       'productHandheldMode is not supported by sku_hit_main_image',
     );
-    expect(() => validateImageTaskRequest({ ...request, showProduct: true })).toThrow(
-      'showProduct is not supported by sku_hit_main_image',
-    );
+    expect(validateImageTaskRequest({ ...request, showProduct: true }).showProduct).toBe(true);
+    expect(validateImageTaskRequest({ ...request, showProduct: false }).showProduct).toBe(false);
+    expect(validateImageTaskRequest({ ...request, headline: 'Melt Ice Fast' }).headline).toBe('Melt Ice Fast');
+    expect(() => validateImageTaskRequest({
+      feature: 'sku_replica',
+      images: [
+        { role: 'source', path: '/authorized/input/sku.png' },
+        { role: 'reference', path: '/authorized/input/ref.png' },
+      ],
+      headline: 'Melt Ice Fast',
+    })).toThrow('headline is not supported by sku_replica');
   });
 });

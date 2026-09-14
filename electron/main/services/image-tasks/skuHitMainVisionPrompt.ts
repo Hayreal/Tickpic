@@ -19,35 +19,37 @@ export interface SkuHitMainVisionBatch {
 
 const HIT_MAIN_BATCH_DIVERSITY_DIRECTIVES = [
   'Use a different product placement and headline block layout from the other outputs while keeping the same marketing promise.',
-  'Rebuild the usage scene with a new camera angle, scene depth, and before/after presentation structure.',
+  'Keep the same cropped surface; only restyle the headline block and Before/After placement.',
   'Shift the information hierarchy, background space, and product-to-scene relationship while staying within the same product use case.',
 ] as const;
 
 export function buildSkuHitMainVisionSystemPrompt(): string {
   return [
-    'You are the visual prompt planner for a US Temu / Amazon viral ecommerce main-image task.',
-    'You will receive Image 1 = new SKU product image and Image 2 = viral main-image reference.',
+    'You are a US Temu / Amazon viral ecommerce main-image designer and visual prompt planner.',
+    'You will receive Image 1 = new SKU product photo only and Image 2 = viral main-image reference. Do not swap them: Image 1 is never the ad layout, and Image 2 is never the product to keep.',
     'Return ONLY one JSON object with this exact shape: {"instructions":[{"index":1,"prompt":"..."}]}.',
     'The instructions array length must equal requested_count and indexes must start at 1 and be consecutive.',
-    'Study Image 1 only for exact SKU identity, packaging, label, brand, product name, capacity, and physical appearance.',
+    'Study Image 1 for exact SKU identity, packaging, label, brand, product name, capacity, physical appearance, and what the product is used for.',
     'Study Image 2 for before/after marketing structure, comparison intent, advertised use case, target object, general selling angle, and visible marketing copy in its original language.',
-    'Image 1 controls only the exact SKU product identity; Image 2 reference image controls the advertised use case, target object, and marketing copy.',
-    'Plan a visibly new 1:1 ecommerce main image: inherit Image 2 selling points, never inherit Image 2 layout, scene objects, camera angle, or composition.',
-    'Each prompt must be a concise English main-image design plan for an image editing model, not a complete execution prompt and not an explanation memo.',
-    'Describe scene type, product placement, headline block layout, before/after structure, camera angle, and differentiation dimensions only.',
-    'Build the usage/demo scene from Image 2 reference advertised use case, target object, and visible marketing copy, not from Image 1 SKU label category when they differ.',
-    'Preserve Image 2 reference headline, visible copy, and use case in the original language; if no readable English exists, do not invent, translate, or promote Image 1 SKU label copy into a new ad headline unless explicitly requested.',
+    'Image 1 controls SKU appearance and product understanding; Image 2 controls which scene objects, target, and marketing copy appear.',
+    'Plan a simple 1:1 ecommerce main image: inherit Image 2 selling points and the same visible cropped surface; do not copy Image 2 layout, holding hand, or camera.',
+    'Each prompt must be one English image-edit instruction in this exact order: action + target + modification detail + scope/position limit.',
+    'Do not write a narrative design memo. Example when showProduct is true: Composite Image 1 SKU as a floating graphic cutout on Image 2’s visible cropped surface; keep Image 1 packaging pixel-identical without redrawing the bottle, standing it on any surface, copying the Image 2 holding hand, or adding a handheld second bottle, and add a simple Before/After of that same cropped surface; place the floating layer in unused space without covering the headline or comparison evidence.',
+    'Example when showProduct is false: Remove every product bottle, brand logo, and wordmark; keep Image 2’s visible cropped surface, translated Image 2 headline, and a simple Before/After of that same surface; apply the change to the entire frame so no Image 1 packaging or logo appears.',
+    'If structured_parameters.showProduct is false, do not overlay or mention a visible Image 1 SKU, brand logo, wordmark, or ® mark; otherwise composite Image 1 as one floating graphic cutout. Never stand the bottle on any surface, and never add a contact shadow under it.',
+    'Read Image 1 for the product effect on that cropped surface, not to guess a larger host object. Keep the surface as a crop; do not complete it into any host object that Image 2 does not fully show.',
+    'Preserve Image 2 headline meaning and use case, but render every visible word in correctly spelled English. Translate any Chinese reference or user copy to natural English. Never invent Chinese slogans or extra claims.',
     'Never borrow, merge, or transplant any cap, pump, trigger, nozzle, collar, bottle piece, label, or accessory from the Image 2 reference product; the Image 1 dispensing mechanism remains exact.',
-    'Plan one clear primary Image 1 SKU instance with sufficient exposure; a secondary Image 1 product display is allowed when it improves visibility and looks intentional.',
-    'Never plan only recoloring, mirroring, swapping left/right, moving the title slightly, or reusing the same scene objects and camera angle from Image 2.',
-    'Keep Image 2 before/after marketing logic when present, but redesign the comparison format; compare the same localized area of the same target object with aligned perspective and boundaries.',
-    'Change at least 3 differentiation dimensions such as product placement, product scale, headline placement, scene composition, camera angle, depth, before/after layout, info-block layout, background structure, or product-scene relationship.',
-    'Plan physically believable usage scenes: scrapers and spatulas must be held by a visible hand against the repair surface; no floating tools, hovering putty, stiff whipped-cream jar peaks, or unsupported product clumps.',
-    'Keep one coherent light direction and realistic scale between the Image 1 SKU, hands, tools, furniture, and repair surfaces; avoid oversized foreground jars.',
-    'Use only Image 2 reference wording or explicitly supplied user copy; preserve the reference language unless translation is explicitly requested.',
-    'Every visible capacity in the planned output must use the exact prefix "NET:".',
+    'Never plan a handheld bottle, a second SKU instance, or a hand gripping a redrawn product. Do not copy the Image 2 holding hand.',
+    'If a hand appears, require five complete fingers, a visible thumb, and a natural wrist; the hand may only gesture or press toward the Image 2 target object.',
+    'Never plan only recoloring, mirroring, swapping left/right, or moving the title slightly. Do not expand Image 2’s crop into a fuller environment.',
+    'Every plan must include one simple Before/After of the same cropped surface. If Image 2 already shows a comparison, keep that logic but restyle it; if it does not, add a tight comparison of that same surface only. BEFORE problem must be obvious and AFTER improvement clear without fake material changes.',
+    'Do not add extra scene objects or modules to look more designed. The headline itself must stay punchy: inherit Image 2 type energy (contrast, stack, color split, weight), not a flat single-color title.',
+    'Keep the frame simple: one scene, one headline, one Before/After, and at most one SKU layer when showProduct is true. When showProduct is false, plan no SKU layer and no Image 1 brand or logo. Never plan a separate brand logo or wordmark outside the SKU cutout. Do not plan extra info blocks, icon rows, callout stacks, or collage modules.',
+    'If structured_parameters.headline is present, that is the only on-image title; translate it to correctly spelled English if needed and ignore Image 2 headline wording. Otherwise use only Image 2 reference wording or explicitly supplied user copy, rendered in correctly spelled English. Match Image 2 headline energy with size, line breaks, hierarchy, weight, and color contrast; never invent Chinese headlines, extra claims, or fake English.',
+    'When showProduct is true, every visible capacity must use the exact prefix "NET:". When showProduct is false, do not render capacity, brand, or logo.',
     'If structured_parameters include both prompt and negativePrompt, negativePrompt outranks prompt on conflict and must appear as forbidden elements in every plan.',
-    'Return the narrative plan in English; exact quoted reference copy may remain in its original language.',
+    'Return the edit instruction in English. Quoted on-image copy must also be English; translate Chinese quotes before using them.',
     'For batches, return every instruction in one JSON response and follow batch_diversity_plan when provided.',
   ].join('\n');
 }
@@ -63,8 +65,8 @@ export function buildSkuHitMainVisionUserText(request: ImageTaskRequest, count: 
 
   return [
     count === 1
-      ? 'Create 1 English viral-main-image design plan from the attached images.'
-      : `Create one batch with ${count} independent English viral-main-image design plans from the attached images.`,
+      ? 'Create 1 English image-edit instruction from the attached images, in this order: action + target + modification detail + scope/position limit.'
+      : `Create one batch with ${count} independent English image-edit instructions from the attached images, each in this order: action + target + modification detail + scope/position limit.`,
     JSON.stringify({
       feature: request.feature,
       requested_count: count,
@@ -91,7 +93,11 @@ export function buildSkuHitMainBatchDiversityPlan(count: number) {
   }));
 }
 
-export function parseSkuHitMainVisionBatch(raw: string, expectedCount: number): SkuHitMainVisionBatch {
+export function parseSkuHitMainVisionBatch(
+  raw: string,
+  expectedCount: number,
+  showProduct = true,
+): SkuHitMainVisionBatch {
   const parsed = JSON.parse(stripJsonFence(raw)) as {
     instructions?: SkuHitMainVisionBatch['instructions'];
   };
@@ -111,18 +117,20 @@ export function parseSkuHitMainVisionBatch(raw: string, expectedCount: number): 
   return {
     instructions: instructions.map((instruction) => ({
       index: instruction.index,
-      prompt: normalizeHitMainPlannerPrompt(instruction.prompt, instruction.index),
+      prompt: normalizeHitMainPlannerPrompt(instruction.prompt, instruction.index, showProduct),
     })),
   };
 }
 
-function normalizeHitMainPlannerPrompt(prompt: string, index: number) {
+function normalizeHitMainPlannerPrompt(prompt: string, index: number, showProduct = true) {
   const trimmed = prompt.trim();
   if (!HAN_CHARACTER_PATTERN.test(trimmed) || REFERENCE_COPY_WITH_HAN_PATTERN.test(trimmed)) {
     return trimmed;
   }
 
-  return `Create an English-only main-image design plan for batch output ${index}. Use a clearly distinct scene composition, product placement, headline hierarchy, and camera angle while preserving the SKU identity and marketing promise.`;
+  return showProduct
+    ? `Composite Image 1 SKU as a floating graphic cutout on Image 2’s visible cropped surface for batch output ${index}; keep Image 1 packaging pixel-identical without redrawing the bottle, standing it on any surface, copying the Image 2 holding hand, or adding a handheld second bottle, and add a simple Before/After of that same cropped surface; place the floating layer in unused space without covering the headline or comparison evidence.`
+    : `Remove every product bottle, brand logo, and wordmark for batch output ${index}; keep Image 2’s visible cropped surface, Image 2 headline, and a simple Before/After of that same surface; apply the change to the entire frame so no Image 1 packaging, logo, or holding hand appears.`;
 }
 
 export function finalizeSkuHitMainVisionInstruction(
@@ -138,8 +146,8 @@ export function buildHitMainVisionImageParts(executionImages: ImageInput[]) {
   return ordered.map((image, index) => ({
     image,
     caption: index === 0
-      ? 'Image 1: new SKU product image'
-      : 'Image 2: viral ecommerce main-image reference',
+      ? 'Image 1: new SKU product photo only, not the ad layout'
+      : 'Image 2: viral ecommerce main-image reference for selling points and scene type only',
   }));
 }
 

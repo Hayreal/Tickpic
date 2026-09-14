@@ -23,16 +23,22 @@ describe('skuHitMainVisionPrompt', () => {
     const userText = buildSkuHitMainVisionUserText(baseRequest, +2);
     const parts = buildHitMainVisionImageParts(baseRequest.images);
 
-    expect(systemPrompt).toContain('Image 1 = new SKU product image');
+    expect(systemPrompt).toContain('Image 1 = new SKU product photo only');
     expect(systemPrompt).toContain('Image 2 = viral main-image reference');
+    expect(systemPrompt).toContain('Do not swap them');
     expect(systemPrompt).toContain('Image 2 reference image controls the advertised use case');
-    expect(systemPrompt).toContain('Image 1 controls only the exact SKU product identity');
-    expect(systemPrompt).toContain('original language');
+    expect(systemPrompt).toContain('Image 1 controls SKU appearance and product understanding');
+    expect(systemPrompt).toContain('Never invent Chinese slogans');
     expect(systemPrompt).toContain('Never borrow, merge, or transplant');
-    expect(systemPrompt).toContain('same localized area');
+    expect(systemPrompt).toContain('same cropped surface');
+    expect(systemPrompt).toContain('Every plan must include one simple Before/After');
     expect(systemPrompt).not.toContain('Headlines must match Image 2 product category');
     expect(systemPrompt).not.toContain('exactly one Image 2 SKU instance');
-    expect(systemPrompt).toContain('inherit Image 2 selling points, never inherit Image 2 layout');
+    expect(systemPrompt).toContain('inherit Image 2 selling points and the same visible cropped surface');
+    expect(systemPrompt).toContain('action + target + modification detail + scope/position limit');
+    expect(systemPrompt).toContain('Never plan a handheld bottle');
+    expect(systemPrompt).toContain('Do not copy the Image 2 holding hand');
+    expect(systemPrompt).toContain('If structured_parameters.headline is present');
     expect(userText).toContain('"requested_count": 2');
     expect(userText).toContain('"batch_diversity_plan"');
     expect(parts[0]?.caption).toContain('Image 1');
@@ -52,10 +58,11 @@ describe('skuHitMainVisionPrompt', () => {
       ],
     }, planned);
 
-    expect(prompt).toContain('USAGE SCENE POLICY:');
-    expect(prompt).toContain('MAIN IMAGE DESIGN PLAN:');
+    expect(prompt).not.toContain('USAGE SCENE POLICY:');
+    expect(prompt).not.toContain('IMAGE ROLES:');
     expect(prompt).toContain(planned);
-    expect(prompt).toContain('Brand: "wkau"');
+    expect(prompt).toContain('Never add a standalone brand logo');
+    expect(prompt).toContain('Do not copy Image 2 composition');
   });
 
   it('parses one instruction batch and repairs Chinese execution text', () => {
@@ -71,7 +78,7 @@ describe('skuHitMainVisionPrompt', () => {
       '{"instructions":[{"index":1,"prompt":"只改主图"}]}',
       1,
     );
-    expect(repaired.instructions[0]?.prompt).toContain('English-only main-image design plan');
+    expect(repaired.instructions[0]?.prompt).toContain('Composite Image 1 SKU as a floating graphic cutout');
     expect(repaired.instructions[0]?.prompt).not.toMatch(/\p{Script=Han}/u);
   });
 

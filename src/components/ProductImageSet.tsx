@@ -17,6 +17,7 @@ import { useImageTask } from '../hooks/useImageTask';
 import { useOpenOutputDirectory } from '../hooks/useOpenOutputDirectory';
 import { applyProductImageSetRestore } from '../features/product-image-set/applyProductImageSetRestore';
 import { buildProductImageSetRequests } from '../features/product-image-set/productImageSetRequests';
+import { resizeShowProductByIndex } from '../shared/domain/productSetShowProductByIndex';
 import { imageTaskRecordFromTaskRecord } from '../features/tasks/taskRestoreHelpers';
 import { filterLogsForTasks } from '../lib/taskLogs';
 import {
@@ -32,7 +33,6 @@ import GenerationResult from './GenerationResult';
 import GenerationTaskStatus from './GenerationTaskStatus';
 import ImageCountSelector, { DEFAULT_IMAGE_COUNT } from './ImageCountSelector';
 import ImageUploader from './ImageUploader';
-import HandheldReferencePicker from './HandheldReferencePicker';
 
 interface ProductImageSetProps {
   restoredTask?: TaskRecord | null;
@@ -52,6 +52,7 @@ interface TabState {
   comparisonLayout: ComparisonLayout;
   comparisonIntensity: ComparisonIntensity;
   showProduct: boolean;
+  showProductByIndex: boolean[];
   multiSceneLayout: MultiSceneLayout;
 }
 
@@ -87,12 +88,13 @@ function defaultTabState(subTab: ProductSetSubTab): TabState {
     prompt: '',
     negativePrompt: '',
     scenePrompt: '',
-    productHandheldMode: 'auto',
-    productEffectMode: 'auto',
+    productHandheldMode: 'not_handheld',
+    productEffectMode: 'hide',
     handheldReferenceId: null,
     comparisonLayout: 'auto',
     comparisonIntensity: 'medium',
     showProduct: true,
+    showProductByIndex: resizeShowProductByIndex(undefined, DEFAULT_COUNT_BY_SUBTAB[subTab]),
     multiSceneLayout: 'auto',
   };
 }
@@ -105,7 +107,6 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
     multiScene: defaultTabState('multiScene'),
   });
   const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
-  const [handheldReferencePaths, setHandheldReferencePaths] = useState<Record<string, string>>({});
   const isSubmitPending = useRef(false);
   const restoringFeatureRef = useRef<ImageFeature | null>(null);
   const desktopClient = useDesktopClient();
@@ -117,28 +118,6 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
   const activeTasks = getTasks(currentFeature);
   const activeTask = getTask(currentFeature);
   const error = getError(currentFeature);
-
-  useEffect(() => {
-    if (!desktopClient) {
-      return;
-    }
-    let cancelled = false;
-    void desktopClient.resources.listHandheldReferences()
-      .then((references) => {
-        if (cancelled) {
-          return;
-        }
-        setHandheldReferencePaths(Object.fromEntries(
-          references.map((reference) => [reference.id, reference.path]),
-        ));
-      })
-      .catch((loadError) => {
-        console.error('加载手持参考图失败', loadError);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [desktopClient]);
 
   const updateActiveState = (update: Partial<TabState>) => {
     setTabStates((current) => ({
@@ -173,6 +152,7 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
           comparisonLayout: restored.comparisonLayout,
           comparisonIntensity: restored.comparisonIntensity,
           showProduct: restored.showProduct,
+          showProductByIndex: restored.showProductByIndex,
           multiSceneLayout: restored.multiSceneLayout,
       },
     }));
@@ -272,14 +252,13 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
         prompt: activeState.prompt,
         negativePrompt: activeState.negativePrompt,
         scenePrompt: activeState.scenePrompt,
-        productHandheldMode: activeState.productHandheldMode,
-        productEffectMode: activeState.productEffectMode,
-        handheldReferencePath: activeState.handheldReferenceId
-          ? handheldReferencePaths[activeState.handheldReferenceId] ?? null
-          : null,
+        productHandheldMode: 'not_handheld',
+        productEffectMode: 'hide',
+        handheldReferencePath: null,
         comparisonLayout: activeState.comparisonLayout,
         comparisonIntensity: activeState.comparisonIntensity,
         showProduct: activeState.showProduct,
+        showProductByIndex: activeState.showProductByIndex,
         multiSceneLayout: activeState.multiSceneLayout,
       });
       reset(currentFeature);
@@ -356,12 +335,6 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
                   feature={currentFeature}
                   label="SKU 产品图"
                 />
-                {subTab === 'main' && activeState.productHandheldMode !== 'not_handheld' ? (
-                  <HandheldReferencePicker
-                    value={activeState.handheldReferenceId}
-                    onChange={(handheldReferenceId) => updateActiveState({ handheldReferenceId })}
-                  />
-                ) : null}
               </>
             )}
             basic={(
@@ -375,7 +348,12 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
                 <ImageCountSelector
                   id={`product-set-${subTab}-count`}
                   value={activeState.count}
-                  onChange={(count) => updateActiveState({ count })}
+                  onChange={(count) => updateActiveState({
+                    count,
+                    ...(subTab === 'main'
+                      ? { showProductByIndex: resizeShowProductByIndex(activeState.showProductByIndex, count) }
+                      : {}),
+                  })}
                 />
               </>
             )}
@@ -405,25 +383,23 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
                   />
                 ) : null}
                 {subTab === 'main' ? (
-                  <>
-                    <SegmentedControl
-                      id="product-set-main-handheld"
-                      label="手持方式"
-                      value={activeState.productHandheldMode}
-                      options={[['auto', 'AI 自动判断'], ['handheld', '手持展示'], ['not_handheld', '不手持']]}
-                      onChange={(productHandheldMode) => updateActiveState({
-                        productHandheldMode: productHandheldMode as ProductHandheldMode,
-                        ...(productHandheldMode === 'not_handheld' ? { handheldReferenceId: null } : {}),
-                      })}
-                    />
-                    <SegmentedControl
-                      id="product-set-main-effect"
-                      label="具体效果"
-                      value={activeState.productEffectMode}
-                      options={[['auto', 'AI 自动判断'], ['show', '展示具体效果'], ['hide', '不展示具体效果']]}
-                      onChange={(productEffectMode) => updateActiveState({ productEffectMode: productEffectMode as ProductEffectMode })}
-                    />
-                  </>
+                  <div className="space-y-3">
+                    <p className="ui-label">产品展示</p>
+                    {resizeShowProductByIndex(activeState.showProductByIndex, activeState.count).map((showProduct, index) => (
+                      <SegmentedControl
+                        key={`main-show-product-${index + 1}`}
+                        id={`product-set-main-show-product-${index + 1}`}
+                        label={`图 ${index + 1}`}
+                        value={String(showProduct)}
+                        options={[['true', '展示'], ['false', '不展示']]}
+                        onChange={(value) => {
+                          const next = resizeShowProductByIndex(activeState.showProductByIndex, activeState.count);
+                          next[index] = value === 'true';
+                          updateActiveState({ showProductByIndex: next });
+                        }}
+                      />
+                    ))}
+                  </div>
                 ) : null}
                 {subTab === 'comparison' ? (
                   <>

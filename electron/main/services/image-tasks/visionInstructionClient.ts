@@ -433,15 +433,11 @@ export function createVisionInstructionClient(
         response,
       });
 
-      const batch = parseSkuHitMainVisionBatch(content, plan.count);
-      const executionPrompts = await assembleSkuHitMainExecutionPrompts({
-        openai,
-        baseUrl: options.baseUrl,
-        visionModel,
+      const batch = parseSkuHitMainVisionBatch(content, plan.count, task.request.showProduct !== false);
+      const executionPrompts = assembleSkuHitMainExecutionPrompts({
         task,
         plan,
         batch,
-        abortSignal,
       });
       return {
         visionModel,
@@ -492,38 +488,20 @@ async function assembleSkuLabelExecutionPrompts(input: {
   return prompts;
 }
 
-async function assembleSkuHitMainExecutionPrompts(input: {
-  openai: OpenAI;
-  baseUrl: string;
-  visionModel: string;
+function assembleSkuHitMainExecutionPrompts(input: {
   task: ImageTaskRecord;
   plan: ImageTaskPlan;
   batch: SkuHitMainVisionBatch;
-  abortSignal: AbortSignal;
-}): Promise<string[]> {
-  const prompts: string[] = [];
-  for (const instruction of input.batch.instructions) {
-    const variantRequest = {
+}): string[] {
+  return input.batch.instructions.map((instruction) => {
+    const spec = buildSkuHitMainConstraintSpec({
       ...input.task.request,
       count: 1,
       variantIndex: instruction.index,
       variantTotal: input.plan.count,
-    };
-    const spec = buildSkuHitMainConstraintSpec(variantRequest);
-    const creativePlan = instruction.prompt.trim();
-    const { prompt } = await assembleSkuExecutionPrompt({
-      openai: input.openai,
-      model: input.visionModel,
-      baseUrl: input.baseUrl,
-      feature: input.task.feature,
-      creativePlan,
-      constraints: spec,
-      renderFallback: () => renderSkuHitMainExecutionPrompt(spec, creativePlan),
-      abortSignal: input.abortSignal,
     });
-    prompts.push(prompt);
-  }
-  return prompts;
+    return renderSkuHitMainExecutionPrompt(spec, instruction.prompt.trim());
+  });
 }
 
 function resolveVisionModel(

@@ -229,21 +229,18 @@ describe('ProductImageSet', () => {
     expect(screen.getByLabelText('提示词')).toHaveValue('');
     expect(screen.getByLabelText('反向提示词')).toHaveValue('');
     expect(screen.getByLabelText('具体场景词')).toHaveValue('');
-    expect(document.getElementById('product-set-main-handheld-auto')).toHaveClass('ui-segment-active');
-    expect(document.getElementById('product-set-main-effect-auto')).toHaveClass('ui-segment-active');
+    expect(document.getElementById('product-set-main-handheld-auto')).toBeNull();
+    expect(document.getElementById('product-set-main-effect-auto')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'mock upload sku' }));
     fireEvent.change(screen.getByLabelText('提示词'), { target: { value: ' premium display ' } });
     fireEvent.change(screen.getByLabelText('反向提示词'), { target: { value: ' no props ' } });
     fireEvent.change(screen.getByLabelText('具体场景词'), { target: { value: ' kitchen ' } });
-    fireEvent.click(document.getElementById('product-set-main-handheld-handheld')!);
-    fireEvent.click(document.getElementById('product-set-main-effect-show')!);
     fireEvent.click(document.getElementById('submit-product-set-main')!);
 
     await waitFor(() => expect(submitMany).toHaveBeenCalledTimes(1));
     expect(submitMany.mock.calls[0]![0][0]).toMatchObject({
       feature: 'product_main_image', prompt: 'premium display', negativePrompt: 'no props', scenePrompt: 'kitchen',
-      productHandheldMode: 'handheld', productEffectMode: 'show',
     });
   });
 

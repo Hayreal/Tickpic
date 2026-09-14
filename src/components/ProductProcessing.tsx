@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Clock,
 } from 'lucide-react';
@@ -101,12 +101,13 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
   const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
   const desktopClient = useDesktopClient();
   const { logs, isLoading: isLoadingLogs } = useAppLogs(desktopClient);
-  const { submitMany, bindTask, restoreTask, getTask, getTasks, getError, isSubmitting, reset } = useImageTask();
+  const { submitMany, restoreTask, getTask, getTasks, getError, isSubmitting, reset } = useImageTask();
   const currentFeature = FEATURE_MAP[subTab];
   const activeTasks = getTasks(currentFeature);
   const activeTask = getTask(currentFeature);
   const error = getError(currentFeature);
   const { openActiveTaskDirectory } = useOpenOutputDirectory();
+  const restoringFeatureRef = useRef<ImageFeature | null>(null);
 
   const handleOpenOutputDirectory = async () => {
     if (!activeTask) return;
@@ -258,19 +259,81 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
     setPromptAssetAspectRatio(restored.promptAssetAspectRatio);
     setPromptAssetCount(restored.promptAssetCount);
 
-    const fallbackTask = imageTaskRecordFromTaskRecord(restoredTask);
-    if (fallbackTask) {
+    let cancelled = false;
+    const expectedFeature = restoredTask.request.feature;
+    const previousFeature = restoringFeatureRef.current;
+    if (previousFeature && previousFeature !== expectedFeature) {
+      reset(previousFeature);
+    }
+    reset(expectedFeature);
+    restoringFeatureRef.current = expectedFeature;
+
+    const restorePersistedTask = (task: TaskRecord) => {
+      if (cancelled) {
+        return Promise.resolve();
+      }
+
+      const fallbackTask = imageTaskRecordFromTaskRecord(task);
+      if (!fallbackTask) {
+        return Promise.resolve();
+      }
+
       restoreTask(fallbackTask);
-      void bindTask(restoredTask.taskId, restoredTask.request.feature).catch(() => undefined);
-      void desktopClient?.imageTask.get(restoredTask.taskId).then((liveTask) => {
-        if (liveTask) {
+      return desktopClient?.imageTask.get(task.taskId).then((liveTask) => {
+        if (!cancelled && liveTask?.feature === fallbackTask.feature) {
           restoreTask(liveTask);
         }
-      });
-    }
+      }).catch((error) => {
+        console.error('恢复实时任务失败', task.taskId, error);
+      }) ?? Promise.resolve();
+    };
 
-    onRestoreConsumed?.();
-  }, [restoredTask, bindTask, restoreTask, desktopClient, onRestoreConsumed]);
+    void (async () => {
+      let batchTaskCount = 1;
+      const pendingLiveTasks = [restorePersistedTask(restoredTask)];
+      const outputBatchId = restoredTask.request!.outputBatchId?.trim();
+      if (outputBatchId && desktopClient) {
+        const tasks = await desktopClient.listTasks().catch(() => []);
+        if (cancelled) {
+          return;
+        }
+
+        for (const task of tasks) {
+          if (cancelled) {
+            return;
+          }
+
+          if (
+            task.taskId !== restoredTask.taskId
+            && task.request?.feature === expectedFeature
+            && task.request.outputBatchId?.trim() === outputBatchId
+          ) {
+            batchTaskCount += 1;
+            pendingLiveTasks.push(restorePersistedTask(task));
+          }
+        }
+      }
+
+      await Promise.all(pendingLiveTasks);
+      if (cancelled) {
+        return;
+      }
+
+      if (batchTaskCount > 1) {
+        if (expectedFeature === 'prompt_only_main_asset') {
+          setPromptAssetCount(batchTaskCount);
+        } else if (expectedFeature === 'create_new_scene') {
+          setSceneCount(batchTaskCount);
+        }
+      }
+
+      onRestoreConsumed?.();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [restoredTask, restoreTask, reset, desktopClient, onRestoreConsumed]);
 
   const activeExpectedCount = subTab === 'remove'
     ? (removeBatch?.images.length ?? 0)

@@ -26,7 +26,9 @@ const SHOW_PRODUCT_FEATURES: readonly ImageFeature[] = [
   'main_image_asset_variation',
   'scene_variation',
   'create_new_scene',
+  'product_main_image',
   'product_comparison_image',
+  'sku_hit_main_image',
 ];
 
 export const IMAGE_ROLES = [
@@ -99,6 +101,9 @@ export interface ImageTaskRequest {
   aspectRatio?: string;
   productRatio?: string;
   showProduct?: boolean;
+  /** Per-output SKU visibility for product_main_image; length must match count when set. */
+  showProductByIndex?: boolean[];
+  headline?: string;
   productHandheldMode?: ProductHandheldMode;
   productEffectMode?: ProductEffectMode;
   comparisonLayout?: ComparisonLayout;
@@ -410,6 +415,24 @@ function validateProductSetControls(input: ImageTaskRequest) {
   validateControlOwnership(input, 'comparisonIntensity', ['product_comparison_image']);
   validateControlOwnership(input, 'multiSceneLayout', ['product_multi_scene']);
   validateControlOwnership(input, 'scenePrompt', ['product_main_image', 'product_comparison_image']);
+  validateControlOwnership(input, 'headline', ['sku_hit_main_image']);
+  validateControlOwnership(input, 'showProductByIndex', ['product_main_image']);
+
+  if (input.headline !== undefined && typeof input.headline !== 'string') {
+    throw new Error('headline must be a string');
+  }
+
+  if (input.showProductByIndex !== undefined) {
+    if (!Array.isArray(input.showProductByIndex)) {
+      throw new Error('showProductByIndex must be an array of booleans');
+    }
+    if (!input.showProductByIndex.every((value) => typeof value === 'boolean')) {
+      throw new Error('showProductByIndex must be an array of booleans');
+    }
+    if (input.count !== undefined && input.showProductByIndex.length !== input.count) {
+      throw new Error('showProductByIndex length must match count');
+    }
+  }
 
   if (input.showProduct !== undefined) {
     if (typeof input.showProduct !== 'boolean') {

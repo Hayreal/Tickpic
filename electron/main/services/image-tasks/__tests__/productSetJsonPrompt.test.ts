@@ -53,6 +53,20 @@ describe('productSetJsonPrompt', () => {
     expect(prompt).not.toMatch(/^\s*\{/);
     expect(prompt).toContain('Create one 1:1 US Temu functional ecommerce main image, commercial photography, clear benefit hierarchy for US Temu ecommerce.');
     expect(prompt).toContain('Create one coherent ecommerce main-image scene');
+    expect(prompt).toContain('Give the headline punchy type energy');
+    expect(prompt).toContain('designed lockup');
+    expect(prompt).toContain('Headline length is unconstrained');
+    expect(prompt).toContain('outline/hollow stroke');
+    expect(prompt).toContain('not plain flat text');
+    expect(prompt).toContain('Invent a distinct lockup for this card');
+    expect(prompt).toContain('Do not set three equal-height stacked lines');
+    expect(prompt).toContain('integrated with the layout');
+    expect(prompt).toContain('do not stand it on any surface');
+    expect(prompt).toContain('Follow the named layout family in Composition');
+    expect(prompt).toContain('do not default to title top-left and product bottom-right');
+    expect(prompt).toContain('This card belongs to one carousel set');
+    expect(prompt).toContain('Invent a distinct layout family, SKU zone, and type lockup');
+    expect(prompt).not.toContain('This slot is opener / product-anchor');
     expect(prompt).not.toMatch(/[\u4e00-\u9fff]/);
     expect(prompt).not.toContain('"sku_lock"');
     expect(prompt).not.toContain('--- VARIANT DIRECTIVE');
@@ -63,48 +77,57 @@ describe('productSetJsonPrompt', () => {
     expect(prompt).toContain('unrelated filler props');
   });
 
-  it('renders hard hand anatomy and scale constraints for handheld main images', () => {
+  it('shows the SKU only on outputs marked true in showProductByIndex', () => {
+    const showPrompt = productSetPrompt.buildProductSetExecutionPrompt({
+      feature: 'product_main_image',
+      showProductByIndex: [true, false],
+      count: 2,
+      variantIndex: 1,
+      variantTotal: 2,
+    });
+    const hidePrompt = productSetPrompt.buildProductSetExecutionPrompt({
+      feature: 'product_main_image',
+      showProductByIndex: [true, false],
+      count: 2,
+      variantIndex: 2,
+      variantTotal: 2,
+    });
+
+    expect(showPrompt).toContain('floating graphic cutout');
+    expect(hidePrompt).toContain('Do not render the SKU body, packaging, brand logo, or wordmark');
+  });
+
+  it('hides the SKU layer when main-image showProductByIndex is false for that output', () => {
+    const prompt = productSetPrompt.buildProductSetExecutionPrompt({
+      feature: 'product_main_image',
+      showProductByIndex: [false],
+      count: 1,
+      variantIndex: 1,
+      variantTotal: 1,
+      images: [{ role: 'product', path: '/authorized/input/product.png' }],
+    });
+
+    expect(prompt).toContain('Do not render the SKU body, packaging, brand logo, or wordmark');
+    expect(prompt).toContain('Do not render any SKU cutout, bottle, brand logo, or wordmark');
+    expect(prompt).not.toContain('Composite the SKU as one floating graphic cutout');
+    expect(prompt).not.toContain('Every visible capacity must start with the exact prefix "NET:".');
+  });
+
+  it('ignores handheld and spray request flags on main images', () => {
     const prompt = productSetPrompt.buildProductSetExecutionPrompt({
       feature: 'product_main_image',
       productHandheldMode: 'handheld',
-      productEffectMode: 'hide',
+      productEffectMode: 'show',
       images: [
         { role: 'product', path: '/authorized/input/product.png' },
         { role: 'reference', path: '/authorized/resources/product/handheld-spray-side-press.png' },
       ],
     });
 
-    expect(prompt).toContain('all 5 fingers');
-    expect(prompt).toContain('thumb must be visible');
-    expect(prompt).toContain('natural real-hand-to-product scale');
-    expect(prompt).toContain('no tiny hand with giant product');
-  });
-
-  it('renders real actuator and protective-cap constraints for spray effects', () => {
-    const prompt = productSetPrompt.buildProductSetExecutionPrompt({
-      feature: 'product_main_image',
-      productHandheldMode: 'handheld',
-      productEffectMode: 'show',
-    });
-
-    expect(prompt).toContain('remove any removable protective cap before spraying');
-    expect(prompt).toContain('never spray through a cap');
-    expect(prompt).toContain('real nozzle orifice only');
-    expect(prompt).toContain('wrong nozzle/cap/trigger geometry');
-  });
-
-  it('keeps effect demonstrations category-appropriate for non-spray products', () => {
-    const prompt = productSetPrompt.buildProductSetExecutionPrompt({
-      feature: 'product_main_image',
-      productHandheldMode: 'handheld',
-      productEffectMode: 'show',
-      scenePrompt: 'apply beeswax paste from a wide-mouth jar to a wooden table',
-    });
-
-    expect(prompt).toContain('real category-appropriate use action or visible after-use result');
-    expect(prompt).toContain('Never invent spray, mist, or a nozzle for a non-spray product');
-    expect(prompt).toContain('Only if the SKU truly has a spray nozzle, pump, trigger, or dispensing orifice');
-    expect(prompt).not.toContain('Spray mechanics:');
+    expect(prompt).toContain('floating graphic cutout');
+    expect(prompt).not.toContain('all 5 fingers');
+    expect(prompt).not.toContain('remove any removable protective cap before spraying');
+    expect(prompt).toContain('Do not show product-emitted action effects');
   });
 
   it('renders a zero-CJK visible-copy constraint for overseas ecommerce images', () => {
@@ -223,26 +246,19 @@ describe('productSetJsonPrompt', () => {
     ]));
     expect(spec.composition.strategy).toBe('free_within_controls');
     expect(spec.composition.product_required).toBe(true);
-    expect(spec.composition.hand_required).toBe(true);
-    expect(spec.handheld.mode).toBe('handheld');
-    expect(spec.handheld.required).toBe(true);
-    expect(spec.handheld.rules).toEqual(expect.arrayContaining([
-      expect.stringContaining('5 fingers'),
-      expect.stringContaining('thumb must be visible'),
-      expect.stringContaining('not extend past the wrist'),
-    ]));
-    expect(spec.spray_physics.spray_origin).toContain('nozzle');
+    expect(spec.composition.hand_required).toBe(false);
+    expect(spec.handheld.mode).toBe('not_handheld');
+    expect(spec.spray_physics).toBeUndefined();
     expect(spec.copy.headline).toEqual(expect.objectContaining({
       language: 'en',
-      word_count: '3-7',
     }));
+    expect(spec.copy.headline).not.toHaveProperty('word_count');
     expect(spec.negative_prompt).toEqual(expect.arrayContaining([
       expect.stringMatching(/icon|badge|selling point/i),
       expect.stringMatching(/Chinese/i),
     ]));
     expect(spec.quality_targets).toEqual(expect.arrayContaining([
-      expect.stringMatching(/thumb/i),
-      expect.stringMatching(/wrist/i),
+      expect.stringMatching(/No holding hand/i),
     ]));
     expect(spec.user_overrides).toEqual({
       scene: 'fixative spray on canvas',
@@ -254,7 +270,7 @@ describe('productSetJsonPrompt', () => {
     expect(spec.variant).toBeUndefined();
   });
 
-  it('uses handheld_reference when a reference image is attached', () => {
+  it('drops handheld reference metadata on main images', () => {
     const spec = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
       feature: 'product_main_image',
       productHandheldMode: 'handheld',
@@ -264,18 +280,11 @@ describe('productSetJsonPrompt', () => {
       ],
     }));
 
-    expect(spec.handheld.reference_driven).toBe(true);
-    expect(spec.handheld.rules).toBeUndefined();
-    expect(spec.handheld_reference).toEqual(expect.objectContaining({
-      source: 'attached reference image',
-      apply: expect.arrayContaining(['hand grip', 'hand pose']),
-    }));
-    expect(spec.quality_targets).toEqual(expect.arrayContaining([
-      expect.stringMatching(/match the reference image/i),
-    ]));
+    expect(spec.handheld.mode).toBe('not_handheld');
+    expect(spec.handheld_reference).toBeUndefined();
   });
 
-  it('makes handheld a hard requirement that cannot be escaped by free composition', () => {
+  it('locks main images to a floating SKU cutout instead of handheld posing', () => {
     const spec = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
       feature: 'product_main_image',
       productHandheldMode: 'handheld',
@@ -283,23 +292,12 @@ describe('productSetJsonPrompt', () => {
       count: 1,
     }));
 
-    expect(spec.handheld.mode).toBe('handheld');
-    expect(spec.handheld.required).toBe(true);
-    expect(spec.composition.hand_required).toBe(true);
-    expect(spec.composition.allowed_approaches).toEqual(expect.arrayContaining([
-      expect.stringMatching(/handheld/i),
-    ]));
-    expect(spec.composition.allowed_approaches.join(' ')).not.toMatch(/lifestyle placement|free-standing|product on table alone/i);
+    expect(spec.handheld.mode).toBe('not_handheld');
+    expect(spec.composition.hand_required).toBe(false);
+    expect(spec.composition.allowed_approaches.join(' ')).toContain('floating SKU cutout');
     expect(spec.composition.forbidden_approaches).toEqual(expect.arrayContaining([
-      expect.stringMatching(/no hand|free-standing|table-top product only/i),
+      expect.stringMatching(/handheld use/i),
     ]));
-    expect(spec.quality_targets).toEqual(expect.arrayContaining([
-      expect.stringMatching(/hand must appear|must be held by a real hand/i),
-    ]));
-    expect(spec.negative_prompt).toEqual(expect.arrayContaining([
-      expect.stringMatching(/no free-standing product without a hand|no product standing alone/i),
-    ]));
-    expect(spec.user_overrides.priority).toMatch(/handheld/);
     expect(spec.batch_output).toBeUndefined();
   });
 
@@ -329,23 +327,14 @@ describe('productSetJsonPrompt', () => {
     expect(spec.user_overrides.priority).toMatch(/batch_output/);
   });
 
-  it('includes spray_physics only when effect mode is show', () => {
-    const autoSpec = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
-      feature: 'product_main_image',
-      productEffectMode: 'auto',
-    }));
+  it('never includes spray_physics on main images', () => {
     const showSpec = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
       feature: 'product_main_image',
       productEffectMode: 'show',
     }));
-    const hideSpec = parseProductSetJsonPrompt(buildProductSetJsonPrompt({
-      feature: 'product_main_image',
-      productEffectMode: 'hide',
-    }));
 
-    expect(autoSpec.spray_physics).toBeUndefined();
-    expect(hideSpec.spray_physics).toBeUndefined();
-    expect(showSpec.spray_physics.spray_origin).toMatch(/nozzle/i);
+    expect(showSpec.spray_physics).toBeUndefined();
+    expect(showSpec.effect.mode).toBe('hide');
   });
 
   it('uses a stable default look instead of per-variant lighting and camera', () => {
@@ -566,12 +555,7 @@ describe('productSetJsonPrompt', () => {
     expect(spec.sku_lock.must_preserve).toEqual(expect.arrayContaining([
       expect.stringMatching(/logo.*nozzle|nozzle.*logo/i),
     ]));
-    expect(spec.handheld_reference?.preserve).toEqual(expect.arrayContaining([
-      expect.stringMatching(/logo.*nozzle|nozzle.*logo/i),
-    ]));
-    expect(spec.quality_targets).toEqual(expect.arrayContaining([
-      expect.stringMatching(/logo.*nozzle|nozzle.*logo/i),
-    ]));
+    expect(spec.handheld_reference).toBeUndefined();
     expect(spec.negative_prompt).toEqual(expect.arrayContaining([
       expect.stringMatching(/mirrored label|upside-down label/i),
     ]));
@@ -603,7 +587,8 @@ describe('productSetJsonPrompt', () => {
 
     expect(prompts[0]).toContain('lifestyle-use image');
     expect(prompts[1]).toContain('BEFORE and AFTER');
-    expect(prompts[2]).toContain('handheld-use image');
+    expect(prompts[2]).toContain('lifestyle-use image');
+    expect(prompts[2]).not.toContain('handheld-use image');
   });
 
   it('merges vision instructions into per-variant execution prompts', () => {
@@ -618,12 +603,20 @@ describe('productSetJsonPrompt', () => {
           environment: { location: 'indoor laundry room wall' },
           variant_directive: 'close-up handheld spray on vertical drywall crack',
           headline_suggestion: 'Fix Cracks Fast',
+          set_role: 'opener',
+          layout_family: 'product-anchor',
+          sku_placement: 'left third cutout',
+          headline_treatment: 'oversized SHINE with tight support line',
         },
         {
           index: 2,
           environment: { location: 'garage concrete floor corner' },
           variant_directive: 'wide scene with product hero on floor crack',
           headline_suggestion: 'Seal Concrete Gaps',
+          set_role: 'result',
+          layout_family: 'magazine-offset',
+          sku_placement: 'right column cutout',
+          headline_treatment: 'editorial kicker plus one large title',
         },
       ],
     });
@@ -633,8 +626,13 @@ describe('productSetJsonPrompt', () => {
     expect(prompts[0]).not.toContain('--- VARIANT DIRECTIVE');
     expect(prompts[0]).toContain('indoor laundry room wall');
     expect(prompts[0]).toContain('Fix Cracks Fast');
+    expect(prompts[0]).toContain('This slot is opener / product-anchor');
+    expect(prompts[0]).toContain('left third cutout');
+    expect(prompts[0]).toContain('oversized SHINE with tight support line');
     expect(prompts[1]).toContain('garage concrete floor corner');
     expect(prompts[1]).toContain('Seal Concrete Gaps');
+    expect(prompts[1]).toContain('This slot is result / magazine-offset');
+    expect(prompts[1]).toContain('editorial kicker plus one large title');
     expect(prompts[0]).not.toContain('--- BATCH DIVERSITY');
   });
 
@@ -678,7 +676,7 @@ describe('productSetJsonPrompt', () => {
     expect(prompts[0]).toContain('ALL THESE CAN BE REMOVED');
   });
 
-  it('applies vision handheld_required when productHandheldMode is auto', () => {
+  it('ignores vision handheld_required on main images', () => {
     const prompts = buildProductSetExecutionPromptsFromVision({
       feature: 'product_main_image',
       productHandheldMode: 'auto',
@@ -692,12 +690,12 @@ describe('productSetJsonPrompt', () => {
       instructions: [{
         index: 1,
         handheld_required: true,
-        show_effect: false,
+        show_effect: true,
         composition_directive: 'handheld beside motorcycle helmet interior',
       }],
     });
 
-    expect(prompts[0]).toContain('Show a natural hand directly using or holding the SKU beside the actual use target.');
-    expect(prompts[0]).toContain('Match the supplied hand-reference grip and pose');
+    expect(prompts[0]).toContain('floating graphic cutout');
+    expect(prompts[0]).not.toContain('Show a natural hand directly using or holding the SKU');
   });
 });

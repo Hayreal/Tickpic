@@ -21,8 +21,10 @@ export interface SkuTabState {
   brand: string;
   productName: string;
   capacity: string;
+  headline: string;
   prompt: string;
   negativePrompt: string;
+  showProduct: boolean;
 }
 
 export interface SkuImageGenRestoreState {
@@ -49,8 +51,10 @@ function emptyTabState(
     brand: DEFAULT_SKU_BRAND,
     productName: '',
     capacity: '',
+    headline: '',
     prompt: '',
     negativePrompt: '',
+    showProduct: true,
   };
 }
 
@@ -59,8 +63,10 @@ function structuredFields(request: NonNullable<TaskRecord['request']>) {
     brand: request.brand?.trim() || DEFAULT_SKU_BRAND,
     productName: request.productName ?? '',
     capacity: request.capacity ?? '',
+    headline: request.headline ?? '',
     prompt: request.prompt ?? '',
     negativePrompt: request.negativePrompt ?? '',
+    showProduct: request.showProduct ?? true,
     aspectRatio: aspectRatioFrom(request.aspectRatio),
     count: request.variantTotal ?? request.count ?? 1,
   };
@@ -87,8 +93,10 @@ function tabStateFromRequest(
     brand: structured.brand,
     productName: structured.productName,
     capacity: structured.capacity,
+    headline: structured.headline,
     prompt: structured.prompt,
     negativePrompt: structured.negativePrompt,
+    showProduct: structured.showProduct,
   };
 }
 

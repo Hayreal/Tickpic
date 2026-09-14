@@ -11,8 +11,10 @@ export interface SkuImageGenRequestInput {
   brand: string;
   productName: string;
   capacity: string;
+  headline?: string;
   prompt: string;
   negativePrompt: string;
+  showProduct?: boolean;
 }
 
 const FEATURE_BY_SUB_TAB = {
@@ -22,7 +24,7 @@ const FEATURE_BY_SUB_TAB = {
   hitMain: 'sku_hit_main_image',
 } as const satisfies Record<SkuSubTab, ImageTaskRequest['feature']>;
 
-function optionalString<Key extends 'brand' | 'productName' | 'capacity' | 'prompt' | 'negativePrompt'>(
+function optionalString<Key extends 'brand' | 'productName' | 'capacity' | 'headline' | 'prompt' | 'negativePrompt'>(
   key: Key,
   value: string,
 ) {
@@ -63,10 +65,15 @@ export function buildSkuImageGenRequests(input: SkuImageGenRequestInput): ImageT
   const sharedFields = {
     aspectRatio: input.aspectRatio,
     ...optionalString('brand', input.brand),
-    ...optionalString('productName', input.productName),
-    ...optionalString('capacity', input.capacity),
+    ...(input.subTab === 'hitMain'
+      ? optionalString('headline', input.headline ?? '')
+      : {
+        ...optionalString('productName', input.productName),
+        ...optionalString('capacity', input.capacity),
+      }),
     ...optionalString('prompt', input.prompt),
     ...optionalString('negativePrompt', input.negativePrompt),
+    ...(input.subTab === 'hitMain' ? { showProduct: input.showProduct !== false } : {}),
   };
 
   return [{

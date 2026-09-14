@@ -128,7 +128,7 @@ export function validateAssembledPrompt(
     if (fields.brand && !prompt.toLowerCase().includes(fields.brand.toLowerCase())) {
       return false;
     }
-    if (!validateHitMainAssembledPrompt(prompt)) {
+    if (!validateHitMainAssembledPrompt(prompt, constraints)) {
       return false;
     }
   }
@@ -201,7 +201,7 @@ function buildAssemblerSystemPrompt(feature: string): string {
     'Constraints always override conflicting creative plan wording.',
     'Remove duplicate rules, forbidden actions, and analysis language.',
     'Preserve every locked brand, product name, capacity, container geometry lock, packaging lock, physics realism rule, and source-lock rule from constraints.',
-    'Return English narrative instructions; exact quoted visible copy may remain in its original language when required by the feature.',
+    'Return English narrative instructions unless the feature requires a stricter edit-instruction format; exact quoted visible copy may remain in its original language when required by the feature.',
   ];
 
   if (feature === 'sku_replica') {
@@ -231,14 +231,17 @@ function buildAssemblerSystemPrompt(feature: string): string {
       'Use only wording actually visible in Image 2 or explicitly supplied by the user; if Image 2 has no readable English, do not invent, translate, or promote Image 1 SKU label copy into a new ad headline unless explicitly requested.',
       'The Image 1 cap, pump, trigger, nozzle, collar, opening, and dispensing mechanism are immutable; never borrow, merge, transplant, or retain product parts from Image 2.',
       'Before/after must compare the same localized area of the same target object with aligned perspective and boundaries.',
-      'Show one clear primary Image 1 SKU with sufficient exposure; a secondary product display is allowed when it improves visibility and looks intentional.',
+      'Write the merged prompt as one English edit instruction in this order: action + target + modification detail + scope/position limit.',
+      'When constraints.show_product is true, overlay Image 1 as a single foreground product layer; do not redraw the bottle or add a handheld second bottle.',
+      'When constraints.show_product is false, do not overlay or render Image 1 SKU anywhere; communicate only through scene, headline, and before/after evidence.',
+      'If a hand appears, require five complete fingers and a visible thumb; the hand must not hold a bottle.',
     );
   }
 
   return lines.join('\n');
 }
 
-function validateHitMainAssembledPrompt(prompt: string): boolean {
+function validateHitMainAssembledPrompt(prompt: string, spec: SkuHitMainConstraintSpec): boolean {
   const normalized = prompt.toLowerCase().replace(/\s+/g, ' ');
   const marketingTerms = '(?:headline|subheadline|advertised use case|usage[- ]scene|target object|marketing copy|product category)';
   const authorityTerms = '(?:authority|controls|override|defines|determines)';
@@ -248,7 +251,12 @@ function validateHitMainAssembledPrompt(prompt: string): boolean {
   const hasPhysicalPartIsolation = /(?:exact|immutable|never borrow|never merge|never transplant|do not borrow|do not merge|do not transplant).{0,120}(?:cap|pump|trigger|nozzle|collar|dispensing mechanism|product part)/.test(normalized);
   const hasReferenceCopyLock = /(?:only|actual|visible).{0,100}(?:image 2|reference).{0,100}(?:wording|copy|text|headline)|original language/.test(normalized);
   const hasSameAreaBeforeAfter = /same localized area.{0,100}same target object|same target object.{0,100}same localized area/.test(normalized);
+  const hasSkuLayer = /(?:overlay|foreground (?:product )?layer|cutout layer|without redrawing|do not redraw)/.test(normalized);
+  const hasHiddenSku = /(?:do not (?:overlay|render|show)|no sku|without.{0,40}sku|sku anywhere)/.test(normalized);
   if (imageOneMarketingAuthority || imageTwoRewrite || !hasPhysicalPartIsolation || !hasReferenceCopyLock || !hasSameAreaBeforeAfter) {
+    return false;
+  }
+  if (spec.show_product ? !hasSkuLayer : !hasHiddenSku) {
     return false;
   }
   return true;
@@ -259,7 +267,9 @@ function buildAssemblerUserText(
   constraints: SkuLabelConstraintSpec | SkuHitMainConstraintSpec,
 ): string {
   return [
-    'Merge the creative plan and constraints into one executable English-narrative image-edit prompt; preserve any exact quoted reference copy in its original language.',
+    constraints.feature === 'sku_hit_main_image'
+      ? 'Merge the creative plan and constraints into one English edit instruction in this order: action + target + modification detail + scope/position limit; preserve any exact quoted reference copy in its original language.'
+      : 'Merge the creative plan and constraints into one executable English-narrative image-edit prompt; preserve any exact quoted reference copy in its original language.',
     JSON.stringify({
       creative_plan: creativePlan,
       constraints,
