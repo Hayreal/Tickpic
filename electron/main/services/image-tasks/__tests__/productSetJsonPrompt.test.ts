@@ -58,10 +58,10 @@ describe('productSetJsonPrompt', () => {
     expect(prompt).toContain('Headline length is unconstrained');
     expect(prompt).toContain('outline/hollow stroke');
     expect(prompt).toContain('not plain flat text');
-    expect(prompt).toContain('Invent a distinct lockup for this card');
+    expect(prompt).toContain('Use designed lockup with outline, shadow, slab, angle, or accent shape');
     expect(prompt).toContain('Do not set three equal-height stacked lines');
     expect(prompt).toContain('integrated with the layout');
-    expect(prompt).toContain('do not stand it on any surface');
+    expect(prompt).toContain('Do not stand it on any surface');
     expect(prompt).toContain('Follow the named layout family in Composition');
     expect(prompt).toContain('do not default to title top-left and product bottom-right');
     expect(prompt).toContain('This card belongs to one carousel set');
@@ -93,7 +93,7 @@ describe('productSetJsonPrompt', () => {
       variantTotal: 2,
     });
 
-    expect(showPrompt).toContain('floating graphic cutout');
+    expect(showPrompt).toContain('designed overlay layer integrated with the layout');
     expect(hidePrompt).toContain('Do not render the SKU body, packaging, brand logo, or wordmark');
   });
 
@@ -124,7 +124,7 @@ describe('productSetJsonPrompt', () => {
       ],
     });
 
-    expect(prompt).toContain('floating graphic cutout');
+    expect(prompt).toContain('designed overlay layer integrated with the layout');
     expect(prompt).not.toContain('all 5 fingers');
     expect(prompt).not.toContain('remove any removable protective cap before spraying');
     expect(prompt).toContain('Do not show product-emitted action effects');
@@ -294,7 +294,7 @@ describe('productSetJsonPrompt', () => {
 
     expect(spec.handheld.mode).toBe('not_handheld');
     expect(spec.composition.hand_required).toBe(false);
-    expect(spec.composition.allowed_approaches.join(' ')).toContain('floating SKU cutout');
+    expect(spec.composition.allowed_approaches.join(' ')).toContain('integrated SKU overlay');
     expect(spec.composition.forbidden_approaches).toEqual(expect.arrayContaining([
       expect.stringMatching(/handheld use/i),
     ]));
@@ -556,8 +556,8 @@ describe('productSetJsonPrompt', () => {
       expect.stringMatching(/logo.*nozzle|nozzle.*logo/i),
     ]));
     expect(spec.handheld_reference).toBeUndefined();
-    expect(spec.negative_prompt).toEqual(expect.arrayContaining([
-      expect.stringMatching(/mirrored label|upside-down label/i),
+    expect(spec.sku_lock.forbidden).toEqual(expect.arrayContaining([
+      expect.stringMatching(/flip or mirror the label/i),
     ]));
   });
 
@@ -695,7 +695,7 @@ describe('productSetJsonPrompt', () => {
       }],
     });
 
-    expect(prompts[0]).toContain('floating graphic cutout');
+    expect(prompts[0]).toContain('designed overlay layer integrated with the layout');
     expect(prompts[0]).not.toContain('Show a natural hand directly using or holding the SKU');
   });
 });

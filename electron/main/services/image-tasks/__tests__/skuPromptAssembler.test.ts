@@ -112,7 +112,7 @@ describe('skuPromptAssembler', () => {
     });
 
     expect(validateAssembledPrompt(
-      'Overlay Image 1 SKU as a single foreground product layer onto the rebuilt main-image scene; keep Image 1 packaging pixel-identical without redrawing the bottle. Image 1 packaging identity must remain exact. Preserve the exact dispensing mechanism and never borrow, merge, or transplant any product part from Image 2. Image 2 is the viral reference; preserve its WHITE RADIATOR REPAIR headline, target object, usage scene, and before/after promise while rebuilding the composition. Use only marketing wording actually visible in Image 2 and preserve its original language; do not invent or promote Image 1 SKU label copy. Compare the same localized area of the same target object with aligned perspective.',
+      'Overlay Image 1 SKU as a single foreground product layer onto the rebuilt main-image scene; keep Image 1 packaging pixel-identical without redrawing the bottle. Image 1 packaging identity must remain exact. Preserve the exact dispensing mechanism and never borrow, merge, or transplant any product part from Image 2. Image 2 is the viral reference; preserve its WHITE RADIATOR REPAIR headline, target object, usage scene, and before/after promise while rebuilding the composition. Apply wkau only on the Image 1 cutout label when needed. Use only marketing wording actually visible in Image 2 and preserve its original language; do not invent or promote Image 1 SKU label copy. Compare the same localized area of the same target object with aligned perspective.',
       spec,
     )).toBe(true);
 
@@ -127,7 +127,7 @@ describe('skuPromptAssembler', () => {
     )).toBe(false);
 
     expect(validateAssembledPrompt(
-      'Overlay Image 1 SKU as a single foreground product layer onto the rebuilt main-image scene; keep Image 1 packaging pixel-identical without redrawing the bottle. Image 1 packaging identity must remain exact. Preserve the Image 2 reference copy "喷一喷 / 冰雪融化" in its original language. Never borrow, merge, or transplant any cap, pump, trigger, nozzle, or other product part from Image 2. Compare the same localized area of the same target object with aligned perspective.',
+      'Overlay Image 1 SKU as a single foreground product layer onto the rebuilt main-image scene; keep Image 1 packaging pixel-identical without redrawing the bottle. Image 1 packaging identity must remain exact. Apply wkau only on the Image 1 cutout label when needed. Preserve the Image 2 reference copy "喷一喷 / 冰雪融化" in its original language. Never borrow, merge, or transplant any cap, pump, trigger, nozzle, or other product part from Image 2. Compare the same localized area of the same target object with aligned perspective.',
       spec,
     )).toBe(true);
   });

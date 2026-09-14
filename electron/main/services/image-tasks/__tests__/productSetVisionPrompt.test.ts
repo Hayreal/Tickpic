@@ -33,7 +33,7 @@ describe('productSetVisionPrompt', () => {
     expect(prompt).toContain('prompt=补充提示词');
     expect(prompt).toContain('scenePrompt=具体场景词');
     expect(prompt).toContain('主图标题要有电商主标题力度');
-    expect(prompt).toContain('SKU 一律按 Photoshop 图层处理');
+    expect(prompt).toContain('SKU 仍是 Photoshop 抠图图层');
     expect(prompt).toContain('禁止整批都落成「左上标题、右下产品、其余铺场景」');
     expect(prompt).toContain('你必须自己生成 set_style');
     expect(prompt).toContain('sku_placement');

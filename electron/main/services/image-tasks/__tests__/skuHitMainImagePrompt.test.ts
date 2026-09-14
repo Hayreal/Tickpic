@@ -39,7 +39,7 @@ describe('skuHitMainImagePrompt', () => {
       showProduct: false,
       brand: 'wkau',
     });
-    expect(hidden).toContain('Remove every product bottle, brand logo, and wordmark');
+    expect(hidden).toContain('Remove every product bottle, brand logo, wordmark, and packaging');
     expect(hidden).toContain('Do not overlay or render Image 1 SKU, packaging, bottle, brand logo');
     expect(hidden).toContain('Do not render Image 1 brand, logo, product name, or capacity anywhere');
     expect(hidden).not.toContain('Brand: "wkau"');

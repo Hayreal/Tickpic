@@ -26,7 +26,7 @@ describe('skuHitMainVisionPrompt', () => {
     expect(systemPrompt).toContain('Image 1 = new SKU product photo only');
     expect(systemPrompt).toContain('Image 2 = viral main-image reference');
     expect(systemPrompt).toContain('Do not swap them');
-    expect(systemPrompt).toContain('Image 2 reference image controls the advertised use case');
+    expect(systemPrompt).toContain('Image 2 controls which scene objects, target, and marketing copy appear');
     expect(systemPrompt).toContain('Image 1 controls SKU appearance and product understanding');
     expect(systemPrompt).toContain('Never invent Chinese slogans');
     expect(systemPrompt).toContain('Never borrow, merge, or transplant');
@@ -62,7 +62,7 @@ describe('skuHitMainVisionPrompt', () => {
     expect(prompt).not.toContain('IMAGE ROLES:');
     expect(prompt).toContain(planned);
     expect(prompt).toContain('Never add a standalone brand logo');
-    expect(prompt).toContain('Do not copy Image 2 composition');
+    expect(prompt).toContain('do not copy Image 2 layout, holding hand, or camera');
   });
 
   it('parses one instruction batch and repairs Chinese execution text', () => {

@@ -38,7 +38,7 @@ describe('skuHitMainConstraintSpec', () => {
     expect(prompt).toContain('Overlay Image 1 SKU as a foreground layer');
     expect(prompt).toContain('Never add a standalone brand logo');
     expect(prompt).toContain('apply "wkau" only on the Image 1 cutout label');
-    expect(prompt).toContain('do not redraw the bottle');
+    expect(prompt).toContain('without redrawing the bottle');
     expect(prompt).toContain('five complete fingers');
     expect(prompt).toContain('Always show one simple Before/After of the same cropped surface');
   });
@@ -74,7 +74,7 @@ describe('skuHitMainConstraintSpec', () => {
     expect(spec.product_replacement.join(' ')).toContain('exact type and geometry from Image 1');
     expect(spec.product_replacement.join(' ')).toContain('Never borrow, merge, transplant, or retain any product part');
     expect(spec.copy_overrides.join(' ')).toContain('only marketing wording actually visible in Image 2');
-    expect(spec.copy_overrides.join(' ')).toContain('do not invent, translate, or promote Image 1 SKU label copy');
+    expect(spec.copy_overrides.join(' ')).toContain('do not invent or promote Image 1 SKU label copy');
     expect(spec.usage_scene_policy.join(' ')).toContain('same cropped surface');
   });
 });

@@ -146,9 +146,9 @@ describe('instructionPrompt', () => {
     expect(text).not.toContain('--- BATCH DIVERSITY');
     expect(text).not.toContain(ENGLISH_ONLY_VISIBLE_TEXT_RULE);
     expect(text).toContain('Use the supplied SKU as the only product identity reference.');
-    expect(text).toContain('Show a natural hand directly using or holding the SKU beside the actual use target.');
-    expect(text).toContain('Show the SKU’s real category-appropriate use action or visible after-use result on the actual use target.');
-    expect(text).toContain('spray origin: real nozzle orifice only');
+    expect(text).toContain('Do not show a holding hand. Composite the SKU as one designed overlay layer integrated with the layout');
+    expect(text).toContain('Do not show product-emitted action effects');
+    expect(text).not.toContain('spray origin: real nozzle orifice only');
     expect(text).toContain('User scene direction: fixative spray.');
     expect(text).toContain('Avoid (higher priority than additional direction; if they conflict, obey avoid): extra bottles.');
     expect(text).toContain('Additional direction (must not contradict avoid): premium look.');
@@ -156,27 +156,15 @@ describe('instructionPrompt', () => {
 
   it.each(['auto', 'handheld', 'not_handheld'] as const)('maps main-image handheld mode %s into JSON', (productHandheldMode) => {
     const spec = productSetSpec({ feature: 'product_main_image', productHandheldMode });
-    if (productHandheldMode === 'handheld') {
-      expect(spec.handheld.mode).toBe('handheld');
-    } else {
-      expect(spec.handheld.mode).toBe('not_handheld');
-    }
-    if (productHandheldMode === 'handheld') {
-      expect(spec.handheld.rules.join(' ')).toMatch(/thumb must be visible/i);
-      expect(spec.handheld.rules.join(' ')).toMatch(/wrist/i);
-    } else {
-      expect(spec.handheld.rules.join(' ')).toMatch(/must not be held/i);
-    }
+    expect(spec.handheld.mode).toBe('not_handheld');
+    expect(spec.composition.hand_required).toBe(false);
+    expect(spec.handheld.rules.join(' ')).toMatch(/must not be held|integrated with the layout/i);
   });
 
   it.each(['auto', 'show', 'hide'] as const)('maps main-image effect mode %s into JSON', (productEffectMode) => {
     const spec = productSetSpec({ feature: 'product_main_image', productEffectMode });
-    expect(spec.effect.mode).toBe(productEffectMode === 'show' ? 'show' : 'hide');
-    if (productEffectMode === 'show') {
-      expect(spec.spray_physics.nozzle_must_match_sku).toBe(true);
-    } else {
-      expect(spec.spray_physics).toBeUndefined();
-    }
+    expect(spec.effect.mode).toBe('hide');
+    expect(spec.spray_physics).toBeUndefined();
   });
 
   it.each([
