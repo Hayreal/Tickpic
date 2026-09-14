@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { ImportBatch } from '../shared/domain/images';
 import type {
   ComparisonIntensity,
@@ -386,18 +386,19 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
                   <div className="space-y-3">
                     <p className="ui-label">产品展示</p>
                     {resizeShowProductByIndex(activeState.showProductByIndex, activeState.count).map((showProduct, index) => (
-                      <SegmentedControl
-                        key={`main-show-product-${index + 1}`}
-                        id={`product-set-main-show-product-${index + 1}`}
-                        label={`图 ${index + 1}`}
-                        value={String(showProduct)}
-                        options={[['true', '展示'], ['false', '不展示']]}
-                        onChange={(value) => {
-                          const next = resizeShowProductByIndex(activeState.showProductByIndex, activeState.count);
-                          next[index] = value === 'true';
-                          updateActiveState({ showProductByIndex: next });
-                        }}
-                      />
+                      <Fragment key={`main-show-product-${index + 1}`}>
+                        <SegmentedControl
+                          id={`product-set-main-show-product-${index + 1}`}
+                          label={`图 ${index + 1}`}
+                          value={String(showProduct)}
+                          options={[['true', '展示'], ['false', '不展示']] as const}
+                          onChange={(value) => {
+                            const next = resizeShowProductByIndex(activeState.showProductByIndex, activeState.count);
+                            next[index] = value === 'true';
+                            updateActiveState({ showProductByIndex: next });
+                          }}
+                        />
+                      </Fragment>
                     ))}
                   </div>
                 ) : null}
