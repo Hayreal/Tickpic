@@ -55,7 +55,10 @@ describe('productSetJsonPrompt', () => {
     expect(prompt).toContain('Create one coherent ecommerce main-image scene');
     expect(prompt).toContain('Give the headline punchy type energy');
     expect(prompt).toContain('designed lockup');
-    expect(prompt).toContain('Headline length is unconstrained');
+    expect(prompt).toContain('headline is limited to at most two lines');
+    expect(prompt).toContain('headline only in the upper-left, upper-right, or a top banner');
+    expect(prompt).toContain('SKU cutout only in the lower-left or lower-right');
+    expect(prompt).toContain('comparison content may occupy the middle');
     expect(prompt).toContain('outline/hollow stroke');
     expect(prompt).toContain('not plain flat text');
     expect(prompt).toContain('Use designed lockup with optional kicker, one or two main lines, outline, shadow, slab, or accent shape on level horizontal baselines');
@@ -67,7 +70,7 @@ describe('productSetJsonPrompt', () => {
     expect(prompt).toContain('integrated with the layout');
     expect(prompt).toContain('Do not stand it on any surface');
     expect(prompt).toContain('Follow the named layout family in Composition');
-    expect(prompt).toContain('do not default to title top-left and product bottom-right');
+    expect(prompt).toContain('Place the headline only in an allowed top zone');
     expect(prompt).toContain('This card belongs to one carousel set');
     expect(prompt).toContain('Invent a distinct layout family, SKU zone, and type lockup');
     expect(prompt).not.toContain('This slot is opener / product-anchor');
@@ -78,6 +81,13 @@ describe('productSetJsonPrompt', () => {
     expect(prompt).toContain('actual use target');
     expect(prompt).toContain('a real category-specific use setting');
     expect(prompt).toContain('premium but credible');
+
+    const comparisonPrompt = renderer!({
+      feature: 'product_comparison_image',
+      aspectRatio: '1:1',
+      comparisonLayout: 'horizontal',
+    });
+    expect(comparisonPrompt).not.toContain('headline only in the upper-left, upper-right, or a top banner');
     expect(prompt).toContain('unrelated filler props');
   });
 

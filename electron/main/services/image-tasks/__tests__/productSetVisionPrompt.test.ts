@@ -34,6 +34,10 @@ describe('productSetVisionPrompt', () => {
     expect(prompt).toContain('scenePrompt=具体场景词');
     expect(prompt).toContain('主图标题要有电商主标题力度');
     expect(prompt).toContain('SKU 仍是 Photoshop 抠图图层');
+    expect(prompt).toContain('标题只能放在左上、右上或顶部横幅');
+    expect(prompt).toContain('标题最多两行');
+    expect(prompt).toContain('SKU 只能放在左下或右下');
+    expect(prompt).toContain('对比内容可以位于画面中间');
     expect(prompt).toContain('禁止整批都落成「左上标题、右下产品、其余铺场景」');
     expect(prompt).toContain('你必须自己生成 set_style');
     expect(prompt).toContain('sku_placement');
