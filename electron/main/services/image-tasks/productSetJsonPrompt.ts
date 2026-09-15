@@ -252,7 +252,7 @@ export const MAIN_IMAGE_SKU_INTEGRATION_MENU = [
 ] as const;
 
 export const MAIN_IMAGE_SET_STYLE = {
-  type_system: 'One commercial display family sampled from the SKU label palette, reused across the set. Each card needs a word-rich designed lockup: optional small kicker/subtitle plus one or two main lines (or one long line), with one oversized benefit keyword and visible type effects (outline, shadow, slab, or accent shape) on level horizontal baselines — not plain flat sans-serif text and never slanted or italic type',
+  type_system: 'One commercial display family sampled from the SKU label palette, reused across the set. Each card needs a word-rich designed lockup with at most two rendered headline lines total: either one or two main-title lines, or one kicker/subtitle line plus one main-title line. Include one oversized benefit keyword and visible type effects (outline, shadow, slab, or accent shape) on level horizontal baselines — not plain flat sans-serif text and never slanted or italic type',
   sku_treatment: 'Same SKU identity as a composited overlay: upright vertical bottle, label facing camera, zero rotation, placed only in the lower-left or lower-right. Optional edge bleed may come from a lower corner. Keep clear of the top headline area; no standing on surfaces, no ground contact shadow, label always readable',
   scene_family: 'Same product-use world; each card uses a different crop and layout family',
 } as const;
@@ -498,10 +498,10 @@ function renderMainImageFeatureContract(spec: ProductSetJsonSpec) {
         : 'Show clearly labeled BEFORE and AFTER states of the same object and matched region in one divided ecommerce image without any SKU layer.'
       : 'Use one continuous photograph, never a split screen, triptych, or collage.',
   ];
-  statements.push('Hard layout rules for this main-image card: keep the headline only in the upper-left, upper-right, or a top banner, never in the middle, and limit it to at most two lines. If the SKU is shown, place the single SKU cutout only in the lower-left or lower-right, never in the middle or upper area. In before_after mode, comparison content may occupy the middle, but it must not move the headline or SKU outside these zones.');
+  statements.push('Hard layout rules for this main-image card: keep the headline only in the upper-left, upper-right, or a top banner, never in the middle, and limit the title plus optional subtitle/kicker to at most two rendered lines total. If a subtitle/kicker is used, it counts as one line and the main title must use only one line. If the SKU is shown, place the single SKU cutout only in the lower-left or lower-right, never in the middle or upper area. In before_after mode, comparison content may occupy the middle, but it must not move the headline or SKU outside these zones.');
 
   if (!showProduct) {
-    statements.push('Keep only one scene and one headline lockup (optional kicker plus one or two main lines). No SKU cutout, no brand logo, and no standalone product hero.');
+    statements.push('Keep only one scene and one headline lockup with at most two rendered lines total: either a one- or two-line main title, or a one-line optional kicker/subtitle plus a one-line main title. No SKU cutout, no brand logo, and no standalone product hero.');
     if (effect?.mode !== 'show') {
       statements.push('Do not show product-emitted action effects; keep the actual target state visible.');
     }
@@ -516,7 +516,7 @@ function renderMainImageFeatureContract(spec: ProductSetJsonSpec) {
     }
     statements.push('Do not also add a free-standing second SKU on a table, floor, or any surface.');
   } else {
-    statements.push('Do not show a holding hand. Composite the SKU as one designed overlay layer integrated with the layout: keep the bottle upright and vertical with the label facing camera (zero rotation), place it only in the lower-left or lower-right, optionally with lower-corner edge bleed, and keep it clear of the top headline area. Do not stand it on any surface; do not add a ground contact shadow; a very soft graphic separation shadow is OK. Typeset the headline lockup on level horizontal baselines with no italic slant or diagonal skew: optional small kicker plus one or two word-rich main lines (or one long line), with at most two headline lines total. Follow the named layout family in Composition without overriding the allowed top headline and bottom SKU zones. Keep only one scene, one headline lockup, and one SKU cutout; do not cover the use-target evidence.');
+    statements.push('Do not show a holding hand. Composite the SKU as one designed overlay layer integrated with the layout: keep the bottle upright and vertical with the label facing camera (zero rotation), place it only in the lower-left or lower-right, optionally with lower-corner edge bleed, and keep it clear of the top headline area. Do not stand it on any surface; do not add a ground contact shadow; a very soft graphic separation shadow is OK. Typeset the headline lockup on level horizontal baselines with no italic slant or diagonal skew: at most two rendered headline lines total; use either a one- or two-line main title, or a one-line kicker/subtitle plus a one-line main title. Follow the named layout family in Composition without overriding the allowed top headline and bottom SKU zones. Keep only one scene, one headline lockup, and one SKU cutout; do not cover the use-target evidence.');
   }
 
   if (effect?.mode === 'show') {
@@ -741,7 +741,7 @@ function renderProductSetCopyAndUserRequirements(spec: ProductSetJsonSpec) {
     const treatment = typeof headline?.treatment === 'string' && headline.treatment.trim()
       ? headline.treatment.trim()
       : '';
-    sections.push(`Give the headline punchy type energy as a designed lockup, not plain flat text.${treatment ? ` Use ${treatment}.` : ' Invent a distinct lockup for this card.'} Use enough English words to sell the benefit: one full line, two main lines, or an optional small kicker/subtitle plus one or two main lines (often 3–12+ words total). Make the main benefit word visually loud: use at least one commercial type effect such as outline/hollow stroke, drop shadow, color slab, two-tone fill, or a small accent shape tied to the selling point. Keep every headline line on a level horizontal baseline with no italic slant, diagonal skew, or perspective warping. The headline is limited to at most two lines and may appear only in the upper-left, upper-right, or a top banner, never in the middle. Share one display family and accent palette from the SKU label with the other cards, but vary the effect per card. Do not set three or more equal-height stacked lines, do not repeat the same white/black/yellow stack, do not use boring single-weight plain text, and do not invent garbled English. Place the headline only in an allowed top zone from the planned Composition.`);
+    sections.push(`Give the headline punchy type energy as a designed lockup, not plain flat text.${treatment ? ` Use ${treatment}.` : ' Invent a distinct lockup for this card.'} Use enough English words to sell the benefit: at most two rendered headline lines total. Choose either one or two main-title lines, or one kicker/subtitle line plus one main-title line; a kicker/subtitle counts as one line. Make the main benefit word visually loud: use at least one commercial type effect such as outline/hollow stroke, drop shadow, color slab, two-tone fill, or a small accent shape tied to the selling point. Keep every headline line on a level horizontal baseline with no italic slant, diagonal skew, or perspective warping. The headline may appear only in the upper-left, upper-right, or a top banner, never in the middle. Share one display family and accent palette from the SKU label with the other cards, but vary the effect per card. Do not set three or more rendered lines, do not repeat the same white/black/yellow stack, do not use boring single-weight plain text, and do not invent garbled English. Place the headline only in an allowed top zone from the planned Composition.`);
   }
   if (overrides?.avoid) {
     sections.push(`Avoid (higher priority than additional direction; if they conflict, obey avoid): ${String(overrides.avoid)}.`);
@@ -1110,14 +1110,14 @@ function buildMainImageFields(
       ],
       set_style: MAIN_IMAGE_SET_STYLE,
       note: showProduct
-        ? 'Composite the SKU as an upright overlay (zero rotation, label facing camera) integrated with the layout rhythm; do not plant it in the scene. Typeset headlines on a level horizontal baseline. Never show handheld use or spray/mist effects. Follow the planner’s layout family, SKU placement, and headline lockup when provided so the batch reads as one carousel set.'
+        ? 'Composite the SKU as an upright overlay (zero rotation, label facing camera) integrated with the layout rhythm; do not plant it in the scene. Typeset the title and optional subtitle/kicker as at most two rendered lines total: either one or two main-title lines, or one subtitle line plus one main-title line. Never show handheld use or spray/mist effects. Follow the planner’s layout family, SKU placement, and headline lockup when provided so the batch reads as one carousel set.'
         : 'Do not render any SKU cutout, bottle, brand logo, or wordmark. Follow the planner’s layout family and headline lockup when provided so the batch reads as one carousel set.',
     },
     copy: {
       headline: {
         language: 'en',
-        role: 'word-rich benefit headline lockup (optional kicker + one or two main lines) with visible type effects, coordinated with SKU label palette',
-        treatment: 'designed lockup with optional kicker, one or two main lines, outline, shadow, slab, or accent shape on level horizontal baselines; not plain flat text',
+        role: 'word-rich benefit headline lockup with at most two rendered lines total: one/two main-title lines, or one kicker/subtitle line plus one main-title line, with visible type effects coordinated with SKU label palette',
+        treatment: 'designed lockup with at most two rendered lines total; either one/two main-title lines or one kicker/subtitle line plus one main-title line, with outline, shadow, slab, or accent shape on level horizontal baselines; not plain flat text',
       },
       forbidden: [
         'long paragraphs',
@@ -1129,7 +1129,7 @@ function buildMainImageFields(
     quality_targets: [
       ...(showProduct ? ['SKU identity locked to the reference photo'] : ['No SKU body, packaging, brand logo, or wordmark in frame']),
       'No holding hand in frame',
-      'English headline readable in 3 seconds as a word-rich designed lockup (kicker and/or one–two lines) with visible type effects, not plain flat text or three+ equal stacked lines',
+      'English headline readable in 3 seconds as a word-rich designed lockup of at most two rendered lines total (a kicker/subtitle counts as one line) with visible type effects, not plain flat text or three+ lines',
       'No small icon selling-point UI',
     ],
     negative_prompt: [

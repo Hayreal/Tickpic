@@ -40,11 +40,11 @@ export function buildProductSetVisionSystemPrompt(feature: ImageFeature): string
     '5d. before_after 仅在有同一对象和同一区域的可信前后证据时选择，必须带英文 BEFORE/AFTER 标识且 SKU 不遮挡证据。',
     ...(feature === 'product_main_image'
       ? [
-        '5e. 主图标题要有电商主标题力度和字体特效：先发明一套 set_style（从 SKU 标签取样的字体气质 + 强调色 + 统一抠图气质），再按 requested_count 为每一张发明 headline_treatment。headline_treatment 必须写清字效：描边/空心字、投影、色块底、双色填充、下划线或装饰块等，并让它服务该张的卖点词，不要做成平淡的单色平字。标题只能放在左上、右上或顶部横幅，禁止放在画面中部；标题最多两行，必须落在水平基线上，禁止整行倾斜、斜体、对角排版或透视扭曲。文案要够词、够卖：可以是一行长标题，也可以是两行主标题，或「可选小标题/kicker + 一行或两行主标题」；总词量宜 3–12 个英文词（可更多），必须有一个明显更大的主词。不要编造乱码英文，不要额外角标墙。禁止三行及以上等高层叠、等字号单词墙，禁止整批都用白/黑/黄三行堆字，禁止套用固定的图1 opener / 图2 problem / 图3 result。',
+        '5e. 主图标题要有电商主标题力度和字体特效：先发明一套 set_style（从 SKU 标签取样的字体气质 + 强调色 + 统一抠图气质），再按 requested_count 为每一张发明 headline_treatment。headline_treatment 必须写清字效：描边/空心字、投影、色块底、双色填充、下划线或装饰块等，并让它服务该张的卖点词，不要做成平淡的单色平字。标题只能放在左上、右上或顶部横幅，禁止放在画面中部；标题与可选副标题合计最多两行，必须落在水平基线上，禁止整行倾斜、斜体、对角排版或透视扭曲。文案要够词、够卖：无副标题时主标题可一行或两行；有副标题时副标题占一行且主标题只能一行；总词量宜 3–12 个英文词（可更多），必须有一个明显更大的主词。不要编造乱码英文，不要额外角标墙。禁止三行及以上等高层叠、等字号单词墙，禁止整批都用白/黑/黄三行堆字，禁止套用固定的图1 opener / 图2 problem / 图3 result。',
         '5f. 按 main_image_planning_brief.show_product_by_index 中对应 index 的 show_product 决定是否规划 SKU 图层。false 时不得规划 sku_placement、包装、品牌 logo 或 wordmark。true 时 SKU 仍是 Photoshop 抠图图层，但要融入排版节奏：SKU 只能放在左下或右下，禁止放在中部或上部；瓶身必须竖直、标签正向可读、旋转角度为 0；可写清 scale、edge bleed，但不得与标题区域重叠。不要立在任何表面上，不要加地面接触阴影；极轻的图形分离阴影可以。禁止手握 SKU，禁止喷雾、雾气或产品喷射效果。before_after 的对比内容可以位于画面中间，但标题与 SKU 仍必须遵守各自区域。',
         '5h. handheld_required 与 show_effect 必须始终为 false。',
         '5g. 你必须自己生成 set_style，以及每张 instruction 的 set_role、layout_family、sku_placement、headline_placement、headline_treatment，条数必须等于 requested_count。composition_directive 必须点名这五项。requested_count > 1 时共用一套字体家族/强调色/SKU 抠图气质，像一组轮播套图，且不得重复同一种构图或同一种堆字。排版家族和 lockup 可从菜单选，也可以发明新名字。',
-        '5g1. showProduct=true 时画面只保留：一张使用场景、一组主标题排版（可选小标题 + 一行或两行主标题）、一层 SKU 抠图；before_after 才加一组对比。showProduct=false 时只保留场景与主标题组，不要 SKU 抠图。不要图标行、卖点卡、信息块、角标墙。',
+        '5g1. showProduct=true 时画面只保留：一张使用场景、一组主标题排版（标题与可选小标题合计最多两行：无小标题时主标题一到两行；有小标题时小标题一行且主标题一行）、一层 SKU 抠图；before_after 才加一组对比。showProduct=false 时只保留场景与主标题组，不要 SKU 抠图。不要图标行、卖点卡、信息块、角标墙。',
         '5g2. showProduct=true 时 sku_placement 必须明确写左下或右下位置、比例、竖直摆放（0° 旋转、标签朝镜头）和与标题/场景的关系，让 SKU 像设计过的图层而不是硬贴素材；标签仍要够读。禁止倾斜/侧倒瓶身，禁止放在中部或上部，禁止缩成不可读的小贴纸。',
         '5g3. 可选排版家族：product-anchor=SKU 占约三分之一当锚点；type-over-action=大标题压痛点，SKU 在对侧；magazine-offset=标题和 SKU 同一侧栏；bleed-overlap=场景满幅，SKU 切边；type-slab=标题色块切图；diagonal-mass=对角大面，标题和 SKU 在对角留白。也可以发明新家族，只要同批不重复。',
         '5g4. 禁止整批都落成「左上标题、右下产品、其余铺场景」。',
@@ -162,7 +162,7 @@ function createVisionBatchTemplate(feature: ImageFeature): ProductSetVisionBatch
         sku_placement: 'lower-left or lower-right zone, scale, upright 0° rotation, label facing camera, optional lower-corner bleed, no middle/upper placement or headline overlap',
         headline_placement: 'upper-left, upper-right, or top-banner zone on a level horizontal baseline; no middle placement; at most two lines',
         headline_treatment: 'how this card’s type lockup is designed with visible effects (outline, shadow, slab, accent) without slant or italic; must differ from other cards',
-        headline_suggestion: 'English benefit copy for this scene: optional small kicker plus one or two main lines, word-rich (often 3–12+ words); you decide exact wording',
+        headline_suggestion: 'English benefit copy for this scene: either a one- or two-line main title, or a one-line kicker/subtitle plus a one-line main title; subtitle and title together must be at most two rendered lines',
         composition_directive: 'Name the invented set_role, layout_family, sku_placement, headline_placement, and headline_treatment',
       }],
     };
