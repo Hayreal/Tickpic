@@ -562,7 +562,7 @@ function renderComparisonFeatureContract(spec: ProductSetJsonSpec) {
   ];
 
   if (overlay?.enabled === true) {
-    statements.push('Use one readable foreground product layer integrated with the comparison frame, positioned in unused comparison space. It must not cover the evidence or cause unrelated display surfaces or filler props to be introduced; do not add a tabletop, pedestal, or display surface just to hold the product.');
+    statements.push('Use one readable foreground product layer integrated with the comparison frame. Place the SKU at the exact visual center of the full comparison canvas: for horizontal layouts, center it on the left/right divider; for vertical layouts, center it on the top/bottom divider; for grids, center it in the central gap. Never place it in the lower-left, lower-right, or inside a Before/After panel. It must not cover the evidence or cause unrelated display surfaces or filler props to be introduced; do not add a tabletop, pedestal, or display surface just to hold the product.');
   } else {
     statements.push('Do not render the SKU in the comparison; communicate the improvement through the matched evidence only.');
   }
@@ -1648,15 +1648,15 @@ function effectGuidance(mode: ProductEffectMode) {
 function placementForLayout(layout: ComparisonLayout) {
   switch (layout) {
     case 'horizontal':
-      return 'Center the enlarged product vertically across the left/right divider';
+      return 'Place the single enlarged SKU at the exact visual center of the full comparison canvas, centered on the left/right divider; never place it in a lower corner or inside a Before/After panel';
     case 'vertical':
-      return 'Center the enlarged product horizontally across the top/bottom divider';
+      return 'Place the single enlarged SKU at the exact visual center of the full comparison canvas, centered on the top/bottom divider; never place it in a lower corner or inside a Before/After panel';
     case 'grid_2x2':
-      return 'Integrate the product in the central comparison frame without covering either matched row';
+      return 'Place the single enlarged SKU at the exact visual center of the full comparison canvas, aligned with the central gap without covering either matched row or any Before/After panel';
     case 'grid_3x2':
-      return 'Integrate the product in the central comparison frame without covering any matched row';
+      return 'Place the single enlarged SKU at the exact visual center of the full comparison canvas, aligned with the central gap without covering any matched row or any Before/After panel';
     default:
-      return 'After choosing layout, center the enlarged product across the divider';
+      return 'After choosing layout, place the single enlarged SKU at the exact visual center of the full comparison canvas; never place it in a lower corner or inside a Before/After panel';
   }
 }
 

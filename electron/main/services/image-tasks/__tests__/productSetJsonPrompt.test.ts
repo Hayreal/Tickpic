@@ -388,6 +388,9 @@ describe('productSetJsonPrompt', () => {
     expect(spec.product_overlay.enabled).toBe(true);
     expect(spec.product_overlay.scale).toMatch(/larger|hero|enlarged/i);
     expect(spec.product_overlay.instances).toBe(1);
+    expect(spec.product_overlay.placement).toBe(
+      'Place the single enlarged SKU at the exact visual center of the full comparison canvas, centered on the left/right divider; never place it in a lower corner or inside a Before/After panel',
+    );
     expect(spec.intensity).toBe('heavy');
     expect(spec.user_overrides.scene).toBe('stained bathroom tile');
     expect(spec.batch_output).toEqual(expectBatchOutput(2));
