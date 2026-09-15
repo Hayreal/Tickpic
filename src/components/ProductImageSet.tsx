@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ImportBatch } from '../shared/domain/images';
 import type {
   ComparisonIntensity,
@@ -15,6 +15,7 @@ import { useAppLogs } from '../hooks/useAppLogs';
 import { useDesktopClient } from '../hooks/useDesktopClient';
 import { useImageTask } from '../hooks/useImageTask';
 import { useOpenOutputDirectory } from '../hooks/useOpenOutputDirectory';
+import { usePrefillGlobalNegativePrompt } from '../hooks/usePrefillGlobalNegativePrompt';
 import { applyProductImageSetRestore } from '../features/product-image-set/applyProductImageSetRestore';
 import { buildProductImageSetRequests } from '../features/product-image-set/productImageSetRequests';
 import { resizeShowProductByIndex } from '../shared/domain/productSetShowProductByIndex';
@@ -107,6 +108,9 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
     multiScene: defaultTabState('multiScene'),
   });
   const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
+  const [negativePromptRestoreReady, setNegativePromptRestoreReady] = useState(
+    () => !restoredTask?.request?.feature,
+  );
   const isSubmitPending = useRef(false);
   const restoringFeatureRef = useRef<ImageFeature | null>(null);
   const desktopClient = useDesktopClient();
@@ -126,13 +130,31 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
     }));
   };
 
+  const applyGlobalNegativePrompt = useCallback((globalNegativePrompt: string) => {
+    setTabStates((current) => {
+      let changed = false;
+      const next = { ...current };
+      (Object.keys(next) as ProductSetSubTab[]).forEach((key) => {
+        if (!next[key].negativePrompt.trim()) {
+          next[key] = { ...next[key], negativePrompt: globalNegativePrompt };
+          changed = true;
+        }
+      });
+      return changed ? next : current;
+    });
+  }, []);
+
+  usePrefillGlobalNegativePrompt(negativePromptRestoreReady, applyGlobalNegativePrompt);
+
   useEffect(() => {
     if (!restoredTask) {
+      setNegativePromptRestoreReady(true);
       return;
     }
 
     const restored = applyProductImageSetRestore(restoredTask);
     if (!restored) {
+      setNegativePromptRestoreReady(true);
       return;
     }
 
@@ -211,6 +233,7 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
 
       await Promise.all(pendingLiveTasks);
       if (!cancelled) {
+        setNegativePromptRestoreReady(true);
         onRestoreConsumed?.();
       }
     })();

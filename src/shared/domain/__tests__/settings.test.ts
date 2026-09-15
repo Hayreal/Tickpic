@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_GLOBAL_NEGATIVE_PROMPT } from '../globalNegativePrompt';
 import {
   createDefaultAppSettings,
   createRuntimeConfigFromSettings,
+  normalizeGlobalNegativePrompt,
   redactAppSettings,
   resolveModelProtocolFromSettings,
 } from '../settings';
@@ -22,7 +24,14 @@ describe('settings domain', () => {
       defaultCount: 1,
       maxCount: 3,
       maxConcurrentTasks: 1,
+      globalNegativePrompt: DEFAULT_GLOBAL_NEGATIVE_PROMPT,
     });
+  });
+
+  it('validates global negative prompt length', () => {
+    expect(() => normalizeGlobalNegativePrompt('x'.repeat(501))).toThrow(
+      'globalNegativePrompt must be at most 500 characters',
+    );
   });
 
   it('redacts the API key before settings are returned to renderer', () => {

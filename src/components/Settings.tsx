@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import type { AppSettings, RendererAppSettings } from '../shared/domain/settings';
 import { KEEP_EXISTING_API_KEY, MAX_CONCURRENT_TASKS, resolveModelProtocolFromSettings } from '../shared/domain/settings';
+import { MAX_NEGATIVE_PROMPT_LENGTH } from '../shared/domain/imageFeatureApi';
+import { DEFAULT_GLOBAL_NEGATIVE_PROMPT } from '../shared/domain/globalNegativePrompt';
 import type { ImageModelProtocol } from '../shared/domain/imageFeatureApi';
 import { MAX_IMAGE_COUNT } from '../shared/view/imageCountOptions';
 import { cn } from '@/src/lib/utils';
@@ -37,6 +39,7 @@ export default function Settings() {
   const [workspaceDir, setWorkspaceDir] = useState('');
   const [defaultCount, setDefaultCount] = useState(1);
   const [maxConcurrentTasks, setMaxConcurrentTasks] = useState(1);
+  const [globalNegativePrompt, setGlobalNegativePrompt] = useState(DEFAULT_GLOBAL_NEGATIVE_PROMPT);
 
   const [testState, setTestState] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
   const [testMessage, setTestMessage] = useState('');
@@ -54,6 +57,7 @@ export default function Settings() {
       setWorkspaceDir(settings.workspaceDir);
       setDefaultCount(settings.defaultCount);
       setMaxConcurrentTasks(Math.min(settings.maxConcurrentTasks, MAX_CONCURRENT_TASKS));
+      setGlobalNegativePrompt(settings.globalNegativePrompt ?? DEFAULT_GLOBAL_NEGATIVE_PROMPT);
     }).catch(console.error);
   }, [desktopClient]);
 
@@ -74,6 +78,7 @@ export default function Settings() {
       defaultCount,
       maxCount: MAX_IMAGE_COUNT,
       maxConcurrentTasks,
+      globalNegativePrompt,
     };
 
     try {
@@ -134,6 +139,31 @@ export default function Settings() {
         </CardHeader>
         <CardContent>
           <EyeCareToggle switchId="settings-eye-care-switch" />
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-3xl mb-6" id="settings-global-negative-prompt-card">
+        <CardHeader>
+          <CardTitle>全局反向提示词</CardTitle>
+          <CardDescription>
+            保存后会在 SKU、贴纸、套图、主图变体等模块中，自动填入尚未填写内容的反向提示词输入框。
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor="settings-global-negative-prompt">默认反向提示词</Label>
+            <span className="text-[10px] text-muted-foreground">
+              {globalNegativePrompt.length} / {MAX_NEGATIVE_PROMPT_LENGTH}
+            </span>
+          </div>
+          <textarea
+            id="settings-global-negative-prompt"
+            maxLength={MAX_NEGATIVE_PROMPT_LENGTH}
+            value={globalNegativePrompt}
+            onChange={(event) => setGlobalNegativePrompt(event.target.value)}
+            className="ui-textarea min-h-[140px] text-xs font-mono"
+            placeholder="输入各模块默认禁止项，留空则不再自动填充"
+          />
         </CardContent>
       </Card>
 

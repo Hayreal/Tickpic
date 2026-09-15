@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ImportBatch } from '../../shared/domain/images';
 import type { ImageTaskRecord, ImageTaskRequest } from '../../shared/domain/imageFeatureApi';
+import { DEFAULT_GLOBAL_NEGATIVE_PROMPT } from '../../shared/domain/globalNegativePrompt';
 import type { RendererAppSettings } from '../../shared/domain/settings';
 import type { AppLogEntry } from '../../shared/domain/appLog';
 import type { TaskRecord } from '../../shared/domain/tasks';
@@ -19,7 +20,10 @@ const copyImageToClipboard = vi.fn(() => Promise.resolve());
 let activeTasks: ImageTaskRecord[] = [];
 let appLogs: AppLogEntry[] = [];
 let taskError: string | null = null;
-let settings: Pick<RendererAppSettings, 'maxCount'> = { maxCount: 4 };
+let settings: Pick<RendererAppSettings, 'maxCount' | 'globalNegativePrompt'> = {
+  maxCount: 4,
+  globalNegativePrompt: DEFAULT_GLOBAL_NEGATIVE_PROMPT,
+};
 const desktopClient = {
   copyImageToClipboard,
   listTasks,
@@ -110,8 +114,9 @@ afterEach(() => {
   activeTasks = [];
   appLogs = [];
   taskError = null;
-  settings = { maxCount: 4 };
-  desktopClient.settings.get.mockClear();
+  settings = { maxCount: 4, globalNegativePrompt: DEFAULT_GLOBAL_NEGATIVE_PROMPT };
+  desktopClient.settings.get.mockReset();
+  desktopClient.settings.get.mockImplementation(() => Promise.resolve(settings));
 });
 
 describe('ProductImageSet', () => {
@@ -158,8 +163,11 @@ describe('ProductImageSet', () => {
   });
 
   it('submits only once while settings are loading and submits after they resolve', async () => {
-    let resolveSettings: (value: Pick<RendererAppSettings, 'maxCount'>) => void;
-    desktopClient.settings.get.mockReturnValueOnce(new Promise((resolve) => { resolveSettings = resolve; }));
+    let resolveSettings: (value: Pick<RendererAppSettings, 'maxCount' | 'globalNegativePrompt'>) => void;
+    const pendingSettings = new Promise<Pick<RendererAppSettings, 'maxCount' | 'globalNegativePrompt'>>((resolve) => {
+      resolveSettings = resolve;
+    });
+    desktopClient.settings.get.mockImplementation(() => pendingSettings);
     render(<ProductImageSet />);
 
     fireEvent.click(screen.getByRole('button', { name: 'mock upload sku' }));
@@ -167,16 +175,23 @@ describe('ProductImageSet', () => {
     fireEvent.click(submitButton);
     fireEvent.click(submitButton);
 
-    expect(desktopClient.settings.get).toHaveBeenCalledTimes(1);
+    expect(desktopClient.settings.get).toHaveBeenCalledTimes(2);
     expect(submitMany).not.toHaveBeenCalled();
 
-    resolveSettings!({ maxCount: 4 });
+    resolveSettings!({ maxCount: 4, globalNegativePrompt: DEFAULT_GLOBAL_NEGATIVE_PROMPT });
     await waitFor(() => expect(submitMany).toHaveBeenCalledTimes(1));
   });
 
   it('releases the submission guard when settings cannot be read', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
-    desktopClient.settings.get.mockRejectedValueOnce(new Error('settings unavailable'));
+    let callCount = 0;
+    desktopClient.settings.get.mockImplementation(() => {
+      callCount += 1;
+      if (callCount <= 2) {
+        return Promise.reject(new Error('settings unavailable'));
+      }
+      return Promise.resolve(settings);
+    });
     render(<ProductImageSet />);
 
     fireEvent.click(screen.getByRole('button', { name: 'mock upload sku' }));
@@ -186,7 +201,7 @@ describe('ProductImageSet', () => {
 
     fireEvent.click(submitButton);
     await waitFor(() => expect(submitMany).toHaveBeenCalledTimes(1));
-    expect(desktopClient.settings.get).toHaveBeenCalledTimes(2);
+    expect(desktopClient.settings.get).toHaveBeenCalledTimes(3);
     alertSpy.mockRestore();
   });
 
@@ -227,7 +242,9 @@ describe('ProductImageSet', () => {
 
     openAdvancedParameters();
     expect(screen.getByLabelText('提示词')).toHaveValue('');
-    expect(screen.getByLabelText('反向提示词')).toHaveValue('');
+    await waitFor(() => {
+      expect(screen.getByLabelText('反向提示词')).toHaveValue(DEFAULT_GLOBAL_NEGATIVE_PROMPT);
+    });
     expect(screen.getByLabelText('具体场景词')).toHaveValue('');
     expect(document.getElementById('product-set-main-handheld-auto')).toBeNull();
     expect(document.getElementById('product-set-main-effect-auto')).toBeNull();

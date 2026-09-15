@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   Check,
   ChevronDown,
@@ -28,6 +28,7 @@ import type { StickerProductRatioSelection } from '../shared/view/stickerProduct
 import type { TaskRecord } from '../shared/domain/tasks';
 import { getFeatureRoute } from '../shared/view/featureRoutes';
 import { applyStickerRestore } from '../features/tasks/applyStickerRestore';
+import { usePrefillGlobalNegativePrompt } from '../hooks/usePrefillGlobalNegativePrompt';
 import {
   formatTaskBatchProgress,
   getTaskBatchProgress,
@@ -275,19 +276,33 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
   const [originalColorBlockLayout, setOriginalColorBlockLayout] = useState('');
   const [originalColorScheme, setOriginalColorScheme] = useState('');
   const [originalNegativePrompt, setOriginalNegativePrompt] = useState('');
+  const [negativePromptRestoreReady, setNegativePromptRestoreReady] = useState(
+    () => !restoredTask?.request?.feature,
+  );
+
+  const applyGlobalNegativePrompt = useCallback((globalNegativePrompt: string) => {
+    setCopyNegativePrompt((current) => current.trim() || globalNegativePrompt);
+    setVariationNegativePrompt((current) => current.trim() || globalNegativePrompt);
+    setOriginalNegativePrompt((current) => current.trim() || globalNegativePrompt);
+  }, []);
+
+  usePrefillGlobalNegativePrompt(negativePromptRestoreReady, applyGlobalNegativePrompt);
 
   useEffect(() => {
     if (!restoredTask?.request?.feature) {
+      setNegativePromptRestoreReady(true);
       return;
     }
 
     const route = getFeatureRoute(restoredTask.request.feature);
     if (route.tab !== 'sticker') {
+      setNegativePromptRestoreReady(true);
       return;
     }
 
     const restored = applyStickerRestore(restoredTask);
     if (!restored) {
+      setNegativePromptRestoreReady(true);
       return;
     }
 
@@ -350,6 +365,7 @@ export default function StickerGen({ restoredTask, onRestoreConsumed }: StickerG
       });
     }
 
+    setNegativePromptRestoreReady(true);
     onRestoreConsumed?.();
   }, [restoredTask, bindTask, restoreTask, desktopClient, onRestoreConsumed]);
 

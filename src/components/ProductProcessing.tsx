@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Clock,
 } from 'lucide-react';
@@ -24,6 +24,7 @@ import type { ImageAspectRatioValue } from '../shared/view/imageAspectRatioOptio
 import type { TaskRecord } from '../shared/domain/tasks';
 import { getFeatureRoute } from '../shared/view/featureRoutes';
 import { applyProductRestore } from '../features/tasks/applyProductRestore';
+import { usePrefillGlobalNegativePrompt } from '../hooks/usePrefillGlobalNegativePrompt';
 import {
   formatTaskBatchProgress,
   getTaskBatchProgress,
@@ -194,19 +195,31 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
   const [promptAssetColorScheme, setPromptAssetColorScheme] = useState('');
   const [promptAssetAspectRatio, setPromptAssetAspectRatio] = useState<ImageAspectRatioValue>(DEFAULT_IMAGE_ASPECT_RATIO);
   const [promptAssetCount, setPromptAssetCount] = useState<number>(1);
+  const [negativePromptRestoreReady, setNegativePromptRestoreReady] = useState(
+    () => !restoredTask?.request?.feature,
+  );
+
+  const applyGlobalNegativePrompt = useCallback((globalNegativePrompt: string) => {
+    setThemeNegativePrompt((current) => current.trim() || globalNegativePrompt);
+  }, []);
+
+  usePrefillGlobalNegativePrompt(negativePromptRestoreReady, applyGlobalNegativePrompt);
 
   useEffect(() => {
     if (!restoredTask?.request?.feature) {
+      setNegativePromptRestoreReady(true);
       return;
     }
 
     const route = getFeatureRoute(restoredTask.request.feature);
     if (route.tab !== 'product') {
+      setNegativePromptRestoreReady(true);
       return;
     }
 
     const restored = applyProductRestore(restoredTask);
     if (!restored) {
+      setNegativePromptRestoreReady(true);
       return;
     }
 
@@ -327,6 +340,7 @@ export default function ProductProcessing({ restoredTask, onRestoreConsumed }: P
         }
       }
 
+      setNegativePromptRestoreReady(true);
       onRestoreConsumed?.();
     })();
 

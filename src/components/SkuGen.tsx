@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ImageFeature } from '../shared/domain/imageFeatureApi';
 import type { TaskRecord } from '../shared/domain/tasks';
 import type { SkuSubTab } from '../shared/view/ui';
@@ -14,6 +14,7 @@ import { useAppLogs } from '../hooks/useAppLogs';
 import { useDesktopClient } from '../hooks/useDesktopClient';
 import { useImageTask } from '../hooks/useImageTask';
 import { useOpenOutputDirectory } from '../hooks/useOpenOutputDirectory';
+import { usePrefillGlobalNegativePrompt } from '../hooks/usePrefillGlobalNegativePrompt';
 import { applySkuImageGenRestore, type SkuTabState } from '../features/sku-image-gen/applySkuImageGenRestore';
 import { buildSkuImageGenRequests, getSkuImageGenFeature } from '../features/sku-image-gen/skuImageGenRequests';
 import { imageTaskRecordFromTaskRecord } from '../features/tasks/taskRestoreHelpers';
@@ -207,6 +208,9 @@ export default function SkuGen({ restoredTask, onRestoreConsumed }: SkuGenProps)
     hitMain: defaultTabState('hitMain'),
   });
   const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
+  const [negativePromptRestoreReady, setNegativePromptRestoreReady] = useState(
+    () => !restoredTask?.request?.feature,
+  );
   const desktopClient = useDesktopClient();
   const { logs, isLoading: isLoadingLogs } = useAppLogs(desktopClient);
   const restoringFeatureRef = useRef<ImageFeature | null>(null);
@@ -226,18 +230,37 @@ export default function SkuGen({ restoredTask, onRestoreConsumed }: SkuGenProps)
     }));
   };
 
+  const applyGlobalNegativePrompt = useCallback((globalNegativePrompt: string) => {
+    setTabStates((current) => {
+      let changed = false;
+      const next = { ...current };
+      (Object.keys(next) as SkuSubTab[]).forEach((key) => {
+        if (!next[key].negativePrompt.trim()) {
+          next[key] = { ...next[key], negativePrompt: globalNegativePrompt };
+          changed = true;
+        }
+      });
+      return changed ? next : current;
+    });
+  }, []);
+
+  usePrefillGlobalNegativePrompt(negativePromptRestoreReady, applyGlobalNegativePrompt);
+
   useEffect(() => {
     if (!restoredTask?.request?.feature) {
+      setNegativePromptRestoreReady(true);
       return;
     }
 
     const route = getFeatureRoute(restoredTask.request.feature);
     if (route.tab !== 'sku') {
+      setNegativePromptRestoreReady(true);
       return;
     }
 
     const restored = applySkuImageGenRestore(restoredTask);
     if (!restored) {
+      setNegativePromptRestoreReady(true);
       return;
     }
 
@@ -304,6 +327,7 @@ export default function SkuGen({ restoredTask, onRestoreConsumed }: SkuGenProps)
 
       await Promise.all(pendingLiveTasks);
       if (!cancelled) {
+        setNegativePromptRestoreReady(true);
         onRestoreConsumed?.();
       }
     })();

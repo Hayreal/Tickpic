@@ -1,5 +1,7 @@
 import type { ImageModelProtocol } from './imageFeatureApi.js';
+import { MAX_NEGATIVE_PROMPT_LENGTH } from './imageFeatureApi.js';
 import type { ImageTaskRuntimeConfig } from './imageTaskPlan.js';
+import { DEFAULT_GLOBAL_NEGATIVE_PROMPT } from './globalNegativePrompt.js';
 import { MAX_IMAGE_COUNT } from '../view/imageCountOptions.js';
 
 export const KEEP_EXISTING_API_KEY = '__KEEP_EXISTING__' as const;
@@ -27,6 +29,8 @@ export interface AppSettings {
   defaultCount: number;
   maxCount: number;
   maxConcurrentTasks: number;
+  /** Default negative prompt prefilled into image feature forms when empty. */
+  globalNegativePrompt: string;
 }
 
 export type RendererAppSettings = Omit<AppSettings, 'n1nApiKey'> & {
@@ -47,7 +51,16 @@ export function createDefaultAppSettings(workspaceDir: string): AppSettings {
     defaultCount: 1,
     maxCount: MAX_IMAGE_COUNT,
     maxConcurrentTasks: DEFAULT_CONCURRENT_TASKS,
+    globalNegativePrompt: DEFAULT_GLOBAL_NEGATIVE_PROMPT,
   };
+}
+
+export function normalizeGlobalNegativePrompt(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length > MAX_NEGATIVE_PROMPT_LENGTH) {
+    throw new Error(`globalNegativePrompt must be at most ${MAX_NEGATIVE_PROMPT_LENGTH} characters`);
+  }
+  return trimmed;
 }
 
 export function resolveModelProtocolFromSettings(

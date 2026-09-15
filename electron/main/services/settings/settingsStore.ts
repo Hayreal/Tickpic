@@ -6,6 +6,7 @@ import {
   KEEP_EXISTING_API_KEY,
   MAX_CONCURRENT_TASKS,
   createDefaultAppSettings,
+  normalizeGlobalNegativePrompt,
   redactAppSettings,
 } from '../../../../src/shared/domain/settings.js';
 import { MAX_IMAGE_COUNT } from '../../../../src/shared/view/imageCountOptions.js';
@@ -123,6 +124,7 @@ function validateSettings(settings: AppSettings): AppSettings {
     defaultCount: normalizedDefaultCount,
     maxCount: normalizedMaxCount,
     maxConcurrentTasks: normalizedMaxConcurrentTasks,
+    globalNegativePrompt: normalizeGlobalNegativePrompt(settings.globalNegativePrompt ?? ''),
   };
 }
 
