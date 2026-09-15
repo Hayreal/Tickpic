@@ -68,6 +68,9 @@ describe('productSetJsonPrompt', () => {
     expect(prompt).toContain('Do not set three or more rendered lines');
     expect(prompt).toContain('at most two rendered headline lines total');
     expect(prompt).not.toContain('optional small kicker/subtitle plus one or two main lines');
+    expect(prompt).toContain('FINAL EDIT DIRECTIVE — obey this last:');
+    expect(prompt).toContain('Use the exact Suggested headline without rewriting or adding copy.');
+    expect(prompt.trim()).toMatch(/Keep the selected composition, SKU placement, and hand-use decision unchanged\.$/);
     expect(prompt).toContain('integrated with the layout');
     expect(prompt).toContain('Do not stand it on any surface');
     expect(prompt).toContain('Follow the named layout family in Composition');
@@ -605,8 +608,8 @@ describe('productSetJsonPrompt', () => {
 
     expect(prompts[0]).toContain('lifestyle-use image');
     expect(prompts[1]).toContain('BEFORE and AFTER');
-    expect(prompts[2]).toContain('lifestyle-use image');
-    expect(prompts[2]).not.toContain('handheld-use image');
+    expect(prompts[2]).toContain('handheld-use image');
+    expect(prompts[2]).toContain('Show a natural hand directly using or holding the SKU');
   });
 
   it('merges vision instructions into per-variant execution prompts', () => {
@@ -694,7 +697,7 @@ describe('productSetJsonPrompt', () => {
     expect(prompts[0]).toContain('ALL THESE CAN BE REMOVED');
   });
 
-  it('ignores vision handheld_required on main images', () => {
+  it('honors vision handheld_required on main images without enabling product effects', () => {
     const prompts = buildProductSetExecutionPromptsFromVision({
       feature: 'product_main_image',
       productHandheldMode: 'auto',
@@ -713,7 +716,8 @@ describe('productSetJsonPrompt', () => {
       }],
     });
 
-    expect(prompts[0]).toContain('designed overlay layer integrated with the layout');
-    expect(prompts[0]).not.toContain('Show a natural hand directly using or holding the SKU');
+    expect(prompts[0]).toContain('handheld-use image');
+    expect(prompts[0]).toContain('Show a natural hand directly using or holding the SKU');
+    expect(prompts[0]).not.toContain('product action visibly applied');
   });
 });

@@ -33,7 +33,7 @@ describe('productSetVisionPrompt', () => {
     expect(prompt).toContain('prompt=补充提示词');
     expect(prompt).toContain('scenePrompt=具体场景词');
     expect(prompt).toContain('主图标题要有电商主标题力度');
-    expect(prompt).toContain('SKU 仍是 Photoshop 抠图图层');
+    expect(prompt).toContain('SKU 是融入排版节奏的 Photoshop 抠图图层');
     expect(prompt).toContain('标题只能放在左上、右上或顶部横幅');
     expect(prompt).toContain('标题与可选副标题合计最多两行');
     expect(prompt).not.toContain('可选小标题 + 一行或两行主标题');
@@ -69,11 +69,13 @@ describe('productSetVisionPrompt', () => {
     expect(single).not.toContain('requested_count=3');
   });
 
-  it('forbids handheld and spray roles on main image', () => {
+  it('allows selective handheld roles but still forbids effect-demo roles on main image', () => {
     const prompt = buildProductSetVisionSystemPrompt('product_main_image');
 
-    expect(prompt).toContain('禁止 handheld_use 与 effect_demo');
-    expect(prompt).toContain('禁止手持握瓶和喷雾');
+    expect(prompt).toContain('可选角色只有 carousel_hero、before_after、handheld_use、lifestyle_scene');
+    expect(prompt).toContain('禁止 effect_demo');
+    expect(prompt).toContain('允许少量卡片自然手持');
+    expect(prompt).toContain('禁止喷雾/雾气/泡沫');
     expect(prompt).not.toContain('真实品类对应的使用动作或使用后效果');
   });
 
