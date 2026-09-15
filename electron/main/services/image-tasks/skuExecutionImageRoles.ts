@@ -31,6 +31,7 @@ export function appendSkuExecutionImageRoles(
     'Image 1 = fixed SKU source canvas. Preserve exact container geometry, crop, and every non-label pixel.',
     'The visible label on Image 1 is replace-only; its layout, palette, bands, logo zone, headline placement, icons, hero graphics, and decorative motifs are forbidden visual input.',
     'The replacement label must conform to Image 1 printable-surface curvature, wrap perspective, edge foreshortening, highlights, shadows, and gloss; never paste a flat frontal rectangle.',
+    'Keep brand, product name, and capacity axis-aligned to the label block with upright-readable type; only container wrap perspective is allowed—no decorative slanted or rotated titles.',
     referenceRole,
     'Never copy reference container shape, crop, scene, or secondary objects.',
   ].join(' ');

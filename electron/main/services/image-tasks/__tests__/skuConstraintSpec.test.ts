@@ -206,6 +206,8 @@ describe('skuConstraintSpec', () => {
     expect(prompt).toContain('conform naturally to the existing printable surface');
     expect(prompt).toContain('not pasted as a flat frontal rectangle');
     expect(prompt).toContain('perspective curve');
+    expect(prompt).toContain('axis-aligned to the label block edges');
+    expect(prompt).toContain('Never output decoratively slanted, rotated, or diagonal-baseline product titles');
   });
 
   it('locks low jar geometry when container lock is provided', () => {

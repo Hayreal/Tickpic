@@ -204,6 +204,12 @@ function buildAssemblerSystemPrompt(feature: string): string {
     'Return English narrative instructions unless the feature requires a stricter edit-instruction format; exact quoted visible copy may remain in its original language when required by the feature.',
   ];
 
+  if (feature === 'sku_replica' || feature === 'sku_variation' || feature === 'sku_original') {
+    lines.push(
+      'For SKU label edits, the execution prompt MUST require axis-aligned upright-readable brand/product/capacity type on the label block, using only Image 1 label-area wrap perspective—never decorative slanted, rotated, or diagonal-baseline titles.',
+    );
+  }
+
   if (feature === 'sku_replica') {
     lines.push(
       'For sku_replica, the execution prompt MUST state that Images 2+ are the sole visual authority for the new label.',

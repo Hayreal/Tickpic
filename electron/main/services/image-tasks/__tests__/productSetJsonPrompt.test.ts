@@ -58,8 +58,12 @@ describe('productSetJsonPrompt', () => {
     expect(prompt).toContain('Headline length is unconstrained');
     expect(prompt).toContain('outline/hollow stroke');
     expect(prompt).toContain('not plain flat text');
-    expect(prompt).toContain('Use designed lockup with outline, shadow, slab, angle, or accent shape');
-    expect(prompt).toContain('Do not set three equal-height stacked lines');
+    expect(prompt).toContain('Use designed lockup with optional kicker, one or two main lines, outline, shadow, slab, or accent shape on level horizontal baselines');
+    expect(prompt).toContain('zero rotation');
+    expect(prompt).toContain('level horizontal baseline');
+    expect(prompt).toContain('no italic slant, diagonal skew, or perspective warping');
+    expect(prompt).toContain('Do not set three or more equal-height stacked lines');
+    expect(prompt).toContain('optional small kicker/subtitle plus one or two main lines');
     expect(prompt).toContain('integrated with the layout');
     expect(prompt).toContain('Do not stand it on any surface');
     expect(prompt).toContain('Follow the named layout family in Composition');

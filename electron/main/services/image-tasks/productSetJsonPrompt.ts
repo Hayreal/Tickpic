@@ -147,6 +147,8 @@ const MAIN_NEGATIVE = [
   'no redesigned SKU packaging',
   'no triptych or multi-panel collage in one image',
   'no split-screen grid showing multiple use-case scenes in one frame',
+  'no tilted, rotated, or leaning SKU cutout',
+  'no slanted, italic, diagonal, or perspective-skewed headline text',
 ] as const;
 
 const HANDHELD_NEGATIVE = [
@@ -235,13 +237,13 @@ export const MAIN_IMAGE_TYPE_EFFECT_MENU = [
   'solid fill plus heavy drop shadow on the hero word',
   'outline or hollow stroke on one keyword, solid fill on the support word',
   'two-tone fill using SKU accent plus white or black',
-  'slight italic slant or upward angle on the lockup',
-  'color slab, underline bar, or diagonal accent behind one word',
+  'color slab or underline bar behind one word on a level horizontal baseline',
+  'small accent shape tied to the benefit word only, without rotating the text',
   'small motion lines or spark accents tied to the benefit word only',
 ] as const;
 
 export const MAIN_IMAGE_SKU_INTEGRATION_MENU = [
-  'slight perspective tilt matching the scene camera',
+  'upright vertical bottle with label facing camera and zero rotation',
   'partial bleed off one frame edge',
   'overlap with headline negative space instead of isolating in a corner',
   'scale that balances with the scene hero, not a tiny sticker',
@@ -250,8 +252,8 @@ export const MAIN_IMAGE_SKU_INTEGRATION_MENU = [
 ] as const;
 
 export const MAIN_IMAGE_SET_STYLE = {
-  type_system: 'One commercial display family sampled from the SKU label palette, reused across the set. Each card needs a designed lockup with one oversized benefit keyword and visible type effects (outline, shadow, slab, angle, or accent shape) that sell the scene — not plain flat sans-serif text',
-  sku_treatment: 'Same SKU identity as a composited overlay integrated into the layout rhythm — tilt, scale, bleed, and overlap are allowed. No standing on surfaces, no ground contact shadow, label always readable',
+  type_system: 'One commercial display family sampled from the SKU label palette, reused across the set. Each card needs a word-rich designed lockup: optional small kicker/subtitle plus one or two main lines (or one long line), with one oversized benefit keyword and visible type effects (outline, shadow, slab, or accent shape) on level horizontal baselines — not plain flat sans-serif text and never slanted or italic type',
+  sku_treatment: 'Same SKU identity as a composited overlay: upright vertical bottle, label facing camera, zero rotation. Scale, partial edge bleed, and overlap with headline space are allowed. No standing on surfaces, no ground contact shadow, label always readable',
   scene_family: 'Same product-use world; each card uses a different crop and layout family',
 } as const;
 
@@ -267,7 +269,7 @@ export const MAIN_IMAGE_LAYOUT_FAMILY_MENU = [
 export const MAIN_IMAGE_LOCKUP_IDEAS = [
   'oversized hero word with drop shadow plus smaller support line',
   'condensed caps over the problem surface with one hollow-stroke keyword',
-  'editorial kicker plus one large slanted title line',
+  'editorial kicker plus one large level title line on a horizontal baseline',
   'solid benefit word plus outlined secondary word in SKU accent colors',
   'headline sitting inside a color slab with contrasting stroke',
   'type following a leftover triangle with a diagonal accent bar',
@@ -498,7 +500,7 @@ function renderMainImageFeatureContract(spec: ProductSetJsonSpec) {
   ];
 
   if (!showProduct) {
-    statements.push('Keep only one scene and one headline. No SKU cutout, no brand logo, and no standalone product hero.');
+    statements.push('Keep only one scene and one headline lockup (optional kicker plus one or two main lines). No SKU cutout, no brand logo, and no standalone product hero.');
     if (effect?.mode !== 'show') {
       statements.push('Do not show product-emitted action effects; keep the actual target state visible.');
     }
@@ -513,7 +515,7 @@ function renderMainImageFeatureContract(spec: ProductSetJsonSpec) {
     }
     statements.push('Do not also add a free-standing second SKU on a table, floor, or any surface.');
   } else {
-    statements.push('Do not show a holding hand. Composite the SKU as one designed overlay layer integrated with the layout: allow slight perspective tilt, partial edge bleed, overlap with headline negative space, and scale that matches the scene — not a stiff upright sticker pasted in a corner. Do not stand it on any surface; do not add a ground contact shadow; a very soft graphic separation shadow is OK. Follow the named layout family in Composition for headline and SKU placement. Keep only one scene, one headline, and one SKU cutout; do not default to title top-left and product bottom-right, and do not cover the use-target evidence.');
+    statements.push('Do not show a holding hand. Composite the SKU as one designed overlay layer integrated with the layout: keep the bottle upright and vertical with the label facing camera (zero rotation), allow partial edge bleed, overlap with headline negative space, and scale that matches the scene. Do not stand it on any surface; do not add a ground contact shadow; a very soft graphic separation shadow is OK. Typeset the headline lockup on level horizontal baselines with no italic slant or diagonal skew: optional small kicker plus one or two word-rich main lines (or one long line). Follow the named layout family in Composition for headline and SKU placement. Keep only one scene, one headline lockup, and one SKU cutout; do not default to title top-left and product bottom-right, and do not cover the use-target evidence.');
   }
 
   if (effect?.mode === 'show') {
@@ -670,9 +672,9 @@ function renderMainImageSetCard(composition?: Record<string, unknown>) {
       : 'Invent a distinct layout family and type lockup for this card; do not reuse another card’s stack or corner.');
   }
   if (showProduct && skuPlacement) {
-    sections.push(`Place the SKU here: ${skuPlacement}. Integrate the cutout into the layout rhythm with natural scale, angle, and overlap — not a stiff upright sticker pasted in a corner.`);
+    sections.push(`Place the SKU here: ${skuPlacement}. Keep the cutout upright with zero rotation, label facing camera, and integrate it with natural scale and overlap — not a tiny sticker lost in a corner.`);
   } else if (showProduct) {
-    sections.push('Integrate the SKU cutout into the layout with natural scale, tilt, edge bleed, or overlap with headline space; avoid a stiff upright sticker in a corner.');
+    sections.push('Integrate the SKU cutout upright (zero rotation, label facing camera) with natural scale, edge bleed, or overlap with headline space; avoid a tiny corner sticker.');
   } else if (!showProduct) {
     sections.push('Do not render any SKU cutout, bottle, brand logo, or wordmark.');
   }
@@ -738,7 +740,7 @@ function renderProductSetCopyAndUserRequirements(spec: ProductSetJsonSpec) {
     const treatment = typeof headline?.treatment === 'string' && headline.treatment.trim()
       ? headline.treatment.trim()
       : '';
-    sections.push(`Give the headline punchy type energy as a designed lockup, not plain flat text.${treatment ? ` Use ${treatment}.` : ' Invent a distinct lockup for this card.'} Make the main benefit word visually loud: use at least one commercial type effect such as outline/hollow stroke, drop shadow, color slab, italic slant, two-tone fill, or a small accent shape tied to the selling point. Headline length is unconstrained. Share one display family and accent palette from the SKU label with the other cards, but vary the effect per card. Do not set three equal-height stacked lines, do not repeat the same white/black/yellow stack, do not use boring single-weight plain text, and do not invent garbled English. Place the headline from the planned Composition; do not lock every title to the top-left corner.`);
+    sections.push(`Give the headline punchy type energy as a designed lockup, not plain flat text.${treatment ? ` Use ${treatment}.` : ' Invent a distinct lockup for this card.'} Use enough English words to sell the benefit: one full line, two main lines, or an optional small kicker/subtitle plus one or two main lines (often 3–12+ words total). Make the main benefit word visually loud: use at least one commercial type effect such as outline/hollow stroke, drop shadow, color slab, two-tone fill, or a small accent shape tied to the selling point. Keep every headline line on a level horizontal baseline with no italic slant, diagonal skew, or perspective warping. Headline length is unconstrained. Share one display family and accent palette from the SKU label with the other cards, but vary the effect per card. Do not set three or more equal-height stacked lines, do not repeat the same white/black/yellow stack, do not use boring single-weight plain text, and do not invent garbled English. Place the headline from the planned Composition; do not lock every title to the top-left corner.`);
   }
   if (overrides?.avoid) {
     sections.push(`Avoid (higher priority than additional direction; if they conflict, obey avoid): ${String(overrides.avoid)}.`);
@@ -1048,7 +1050,8 @@ function buildMainImageFields(
         rules: [
           'SKU must not be held by a hand',
         'Composite the SKU as one overlay layer integrated with the layout rhythm',
-        'Allow slight tilt, partial edge bleed, and overlap with headline space when it improves the design',
+        'Keep the SKU cutout upright with zero rotation and the label facing camera',
+        'Allow partial edge bleed and overlap with headline space when it improves the design',
         'Do not stand, rest, or plant the SKU on any surface',
         'Do not add a ground contact shadow, shelf, or supporting pile under the SKU',
         ],
@@ -1106,14 +1109,14 @@ function buildMainImageFields(
       ],
       set_style: MAIN_IMAGE_SET_STYLE,
       note: showProduct
-        ? 'Composite the SKU as an overlay integrated with the layout rhythm; do not plant it in the scene or paste a stiff upright sticker. Never show handheld use or spray/mist effects. Follow the planner’s layout family, SKU placement, and headline lockup when provided so the batch reads as one carousel set.'
+        ? 'Composite the SKU as an upright overlay (zero rotation, label facing camera) integrated with the layout rhythm; do not plant it in the scene. Typeset headlines on a level horizontal baseline. Never show handheld use or spray/mist effects. Follow the planner’s layout family, SKU placement, and headline lockup when provided so the batch reads as one carousel set.'
         : 'Do not render any SKU cutout, bottle, brand logo, or wordmark. Follow the planner’s layout family and headline lockup when provided so the batch reads as one carousel set.',
     },
     copy: {
       headline: {
         language: 'en',
-        role: 'benefit headline designed as a lockup with visible type effects, coordinated with SKU label palette',
-        treatment: 'designed lockup with outline, shadow, slab, angle, or accent shape; not plain flat text',
+        role: 'word-rich benefit headline lockup (optional kicker + one or two main lines) with visible type effects, coordinated with SKU label palette',
+        treatment: 'designed lockup with optional kicker, one or two main lines, outline, shadow, slab, or accent shape on level horizontal baselines; not plain flat text',
       },
       forbidden: [
         'long paragraphs',
@@ -1125,7 +1128,7 @@ function buildMainImageFields(
     quality_targets: [
       ...(showProduct ? ['SKU identity locked to the reference photo'] : ['No SKU body, packaging, brand logo, or wordmark in frame']),
       'No holding hand in frame',
-      'English headline readable in 3 seconds as a designed lockup with visible type effects, not plain flat text or three equal stacked lines',
+      'English headline readable in 3 seconds as a word-rich designed lockup (kicker and/or one–two lines) with visible type effects, not plain flat text or three+ equal stacked lines',
       'No small icon selling-point UI',
     ],
     negative_prompt: [
@@ -1135,7 +1138,7 @@ function buildMainImageFields(
       'no spray',
       'no mist',
       ...(showProduct
-        ? ['stiff upright SKU sticker pasted in a corner']
+        ? ['tiny SKU sticker lost in a corner']
         : ['no product bottle', 'no packaging', 'no brand logo', 'no wordmark']),
     ],
   };

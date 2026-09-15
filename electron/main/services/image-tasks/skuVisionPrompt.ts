@@ -59,6 +59,8 @@ export function buildSkuVisionSystemPrompt(feature: ImageFeature): string {
     'Never alter the SKU container, its composition, camera angle, perspective, crop, position, silhouette, cap, nozzle, dropper, tube, proportions, material, transparency, lighting, background, or any non-label object.',
     'Preserve every source-image measurement annotation, including dimension lines, arrows, numerals, and units, exactly as visible. Never delete, move, crop, cover, translate, or redraw those annotations.',
     'Make the new label conform naturally to the existing label surface, curvature, highlights, reflections, and shadows.',
+    'Label typography must stay axis-aligned to the label block: brand, product name, and capacity stay upright-readable with only the container wrap/perspective—never plan decorative italic skew, rotated headline blocks, or diagonal product-title baselines.',
+    'Diagonal layout axes mean diagonal color bands or graphic panels, not slanted type.',
     'Translate Chinese user product names, categories, selling points, and supplemental requests into concise natural US ecommerce English. Preserve brands, capacities, and model numbers literally.',
     'If structured_parameters include both prompt and negativePrompt, negativePrompt outranks prompt on conflict and must appear as forbidden elements in every plan.',
     'Use exactly one brand identity and one brand logo or wordmark on the label. Never merge or duplicate brand marks from multiple images.',
@@ -115,7 +117,7 @@ const SKU_BATCH_DIVERSITY_DIRECTIVES: Record<
   ],
   sku_variation: [
     'Layout axis A: vertical split bands with logo top, product name center, capacity bottom; use a different hero graphic placement from every other output.',
-    'Layout axis B: diagonal color block with hero graphic anchored lower-left and headline upper-right; change band structure and typography hierarchy.',
+    'Layout axis B: diagonal color-band split with hero graphic lower-left and headline upper-right on level baselines; change band structure and hierarchy without slanting the product title.',
     'Layout axis C: centered medallion frame with circular hero window and stacked typography below; avoid repeating the same hero motif as other outputs.',
     'Layout axis D: horizontal wraparound bands with asymmetric logo lockup and side hero panel; use a clearly different composition rhythm.',
   ],

@@ -22,6 +22,12 @@ const SKU_LABEL_SURFACE_RULES = [
   'Label top and bottom edges must follow the container perspective curve; text and graphics must share the same perspective distortion as the source label area.',
 ] as const;
 
+const SKU_LABEL_TYPOGRAPHY_RULES = [
+  'Brand, product name, and capacity must stay axis-aligned to the label block edges and remain upright-readable; never add decorative italic skew, extra rotation, or diagonal baselines that make the title look crooked.',
+  'Apply only the Image 1 label-area wrap/perspective; do not rotate the whole label artwork or headline block relative to the container.',
+  'Diagonal layout means diagonal color bands or graphic panels, not slanted product-title typography.',
+] as const;
+
 export interface SkuLockedCopy {
   brand: string;
   productName: string;
@@ -189,6 +195,7 @@ function buildSourceLockLines(request: ImageTaskRequest, containerLock?: SkuCont
     ...(containerLock ? buildContainerLockLines(containerLock) : []),
     ...SKU_LABEL_ONLY_EDIT_RULES,
     ...SKU_LABEL_SURFACE_RULES,
+    ...SKU_LABEL_TYPOGRAPHY_RULES,
     'If Image 1 is a dimension diagram, preserve all dimension lines, arrows, numbers, and units exactly; never move, cover, translate, or redraw them.',
     'If Image 1 is a blank package render, add the label only inside its front printable area without changing the blank container geometry.',
   ];
@@ -198,7 +205,7 @@ function buildReferencePolicyLines(request: ImageTaskRequest): string[] {
   if (request.feature === 'sku_replica') {
     return [
       'Images 2+ are the sole visual authority for the new label design.',
-      'Reproduce the reference label layout, hierarchy, palette, typography proportions, band structure, logo placement, hero graphic, decorative language, and supporting graphics at the highest practical fidelity on Image 1 printable area.',
+      'Reproduce the reference label layout, hierarchy, palette, typography proportions, band structure, logo placement, hero graphic, decorative language, and supporting graphics at the highest practical fidelity on Image 1 printable area, including the reference title orientation (no extra slant or rotation beyond the reference).',
       'Map the reference label structure onto the source bottle printable area without keeping any source-label palette, bands, icons, or category imagery.',
       'locked_copy overrides only matching reference text fields (brand, product name, capacity); it never preserves source-label visuals.',
       'Never copy reference container shape, crop, scene, or secondary objects.',
@@ -281,6 +288,8 @@ function buildForbiddenLines(request: ImageTaskRequest, containerLock?: SkuConta
     'Never omit locked capacity when locked_copy.capacity is set.',
     'Never merge or duplicate brand marks from multiple images.',
     ...SKU_ANTI_AI_LABEL_TEMPLATE_FORBIDDEN,
+    'Never output decoratively slanted, rotated, or diagonal-baseline product titles on the label.',
+    'Never rotate the whole label graphic crooked relative to the container.',
   ];
   if (containerLock?.form === 'jar' && containerLock.heightTier === 'low') {
     lines.push('Never elongate, stretch, or slim the squat jar; never convert a low jar into a medium or tall jar.');
