@@ -149,7 +149,7 @@ describe('ProductImageSet', () => {
 
   it('rejects a product image set count above the system maximum without submitting', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
-    settings = { maxCount: 1 };
+    settings = { maxCount: 1, globalNegativePrompt: DEFAULT_GLOBAL_NEGATIVE_PROMPT };
     render(<ProductImageSet />);
 
     fireEvent.click(screen.getByRole('button', { name: 'mock upload sku' }));

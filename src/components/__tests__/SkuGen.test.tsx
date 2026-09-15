@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_GLOBAL_NEGATIVE_PROMPT } from '../../shared/domain/globalNegativePrompt';
 import type { TaskRecord } from '../../shared/domain/tasks';
 import SkuGen from '../SkuGen';
 
@@ -15,6 +16,9 @@ const openActiveTaskDirectory = vi.fn(() => Promise.resolve());
 const desktopClient = {
   listTasks,
   imageTask: { get: imageTaskGet },
+  settings: {
+    get: vi.fn(() => Promise.resolve({ globalNegativePrompt: DEFAULT_GLOBAL_NEGATIVE_PROMPT })),
+  },
 };
 
 vi.mock('../../hooks/useImageTask', () => ({

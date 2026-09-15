@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_GLOBAL_NEGATIVE_PROMPT } from '../../shared/domain/globalNegativePrompt';
 import type { ImageTaskRequest } from '../../shared/domain/imageFeatureApi';
 import StickerGen from '../StickerGen';
 
@@ -11,6 +12,9 @@ const desktopClient = {
   copyImageToClipboard: vi.fn(),
   imageTask: {
     get: imageTaskGet,
+  },
+  settings: {
+    get: vi.fn(() => Promise.resolve({ globalNegativePrompt: DEFAULT_GLOBAL_NEGATIVE_PROMPT })),
   },
 };
 
