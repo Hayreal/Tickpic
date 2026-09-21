@@ -15,7 +15,7 @@ const baseMainInput = {
   comparisonIntensity: 'medium' as const,
   showProduct: true,
   showProductByIndex: [true],
-  mainImageExtraContentByIndex: [{ preset: 'auto' as const, toggles: [] as const }],
+  mainImageExtraContentByIndex: [{ preset: 'auto' as const, toggles: [] }],
   multiSceneLayout: 'single' as const,
 };
 

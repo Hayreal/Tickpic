@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import type { ImportBatch } from '../shared/domain/images';
 import type {
@@ -449,8 +449,8 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
                       )[index];
                       const tags = mainImageDisplayTagsFromFields(showProduct, extra);
                       return (
+                        <Fragment key={`main-display-tags-${index + 1}`}>
                         <MainImageDisplayTagsSelect
-                          key={`main-display-tags-${index + 1}`}
                           id={`product-set-main-display-tags-${index + 1}`}
                           imageLabel={`图 ${index + 1}`}
                           tags={tags}
@@ -470,6 +470,7 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
                             updateActiveState({ showProductByIndex, mainImageExtraContentByIndex });
                           }}
                         />
+                        </Fragment>
                       );
                     })}
                     </div>

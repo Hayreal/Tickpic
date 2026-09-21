@@ -17,7 +17,7 @@ export type MainImageExtraContentToggle = typeof MAIN_IMAGE_EXTRA_CONTENT_TOGGLE
 
 export interface MainImageExtraContentSelection {
   preset: 'auto' | 'none' | 'custom';
-  toggles: MainImageExtraContentToggle[];
+  toggles: readonly MainImageExtraContentToggle[];
 }
 
 export interface ResolvedMainImageExtraContentFlags {
