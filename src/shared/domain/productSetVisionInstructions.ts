@@ -25,6 +25,8 @@ export interface ProductSetVisionInstructionItem {
   headline_treatment?: string;
   composition_directive?: string;
   headline_suggestion?: string;
+  extra_content?: 'none' | 'selling_points' | 'mini_comparison' | Array<'selling_points' | 'mini_comparison'>;
+  selling_point_hints?: string[];
   variant_directive?: string;
   panel_guidance?: string;
   scope_headline?: string;

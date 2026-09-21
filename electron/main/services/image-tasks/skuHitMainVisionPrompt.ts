@@ -5,6 +5,10 @@ import {
   buildSkuHitMainConstraintSpec,
   renderSkuHitMainExecutionPrompt,
 } from './skuHitMainConstraintSpec.js';
+import {
+  productMainImageHeadlineRulesText,
+  productMainImageSkuOverlayRulesText,
+} from '../../../../src/shared/domain/productSetMainImageLayoutRules.js';
 import { isSkuHitMainImageFeature, orderHitMainExecutionImages } from './skuHitMainImagePrompt.js';
 
 const HAN_CHARACTER_PATTERN = /\p{Script=Han}/u;
@@ -44,7 +48,9 @@ export function buildSkuHitMainVisionSystemPrompt(): string {
     'If a hand appears, require five complete fingers, a visible thumb, and a natural wrist; the hand may only gesture or press toward the Image 2 target object.',
     'Never plan only recoloring, mirroring, swapping left/right, or moving the title slightly. Do not expand Image 2’s crop into a fuller environment.',
     'Every plan must include one simple Before/After of the same cropped surface. If Image 2 already shows a comparison, keep that logic but restyle it; if it does not, add a tight comparison of that same surface only. BEFORE problem must be obvious and AFTER improvement clear without fake material changes.',
-    'Do not add extra scene objects or modules to look more designed. The headline itself must stay punchy: inherit Image 2 type energy (contrast, stack, color split, weight), not a flat single-color title.',
+    'Do not add extra scene objects or modules to look more designed. The headline itself must stay punchy: inherit Image 2 type energy (contrast, stack, color split, weight), not a flat single-color title, and never tilt, italicize, skew, or perspective-warp the type.',
+    `Follow product_main_image headline layout: ${productMainImageHeadlineRulesText()}`,
+    `When structured_parameters.showProduct is not false, follow product_main_image SKU overlay layout: ${productMainImageSkuOverlayRulesText()}`,
     'Keep the frame simple: one scene, one headline, one Before/After, and at most one SKU layer when showProduct is true. When showProduct is false, plan no SKU layer and no Image 1 brand or logo. Never plan a separate brand logo or wordmark outside the SKU cutout. Do not plan extra info blocks, icon rows, callout stacks, or collage modules.',
     'If structured_parameters.headline is present, that is the only on-image title; translate it to correctly spelled English if needed and ignore Image 2 headline wording. Otherwise use only Image 2 reference wording or explicitly supplied user copy, rendered in correctly spelled English. Match Image 2 headline energy with size, line breaks, hierarchy, weight, and color contrast; never invent Chinese headlines, extra claims, or fake English.',
     'When showProduct is true, every visible capacity must use the exact prefix "NET:". When showProduct is false, do not render capacity, brand, or logo.',

@@ -1,4 +1,5 @@
-import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Check, ChevronDown } from 'lucide-react';
 import type { ImportBatch } from '../shared/domain/images';
 import type {
   ComparisonIntensity,
@@ -18,9 +19,21 @@ import { useOpenOutputDirectory } from '../hooks/useOpenOutputDirectory';
 import { usePrefillGlobalNegativePrompt } from '../hooks/usePrefillGlobalNegativePrompt';
 import { applyProductImageSetRestore } from '../features/product-image-set/applyProductImageSetRestore';
 import { buildProductImageSetRequests } from '../features/product-image-set/productImageSetRequests';
+import {
+  applyMainImageDisplayTags,
+  formatMainImageDisplayTags,
+  MAIN_IMAGE_DISPLAY_TAGS,
+  MAIN_IMAGE_DISPLAY_TAG_LABELS,
+  mainImageDisplayTagsFromFields,
+  resizeMainImageExtraContentByIndex,
+  toggleMainImageDisplayTag,
+  type MainImageDisplayTag,
+  type MainImageExtraContentSelection,
+} from '../shared/domain/productSetMainImageExtraContent';
 import { resizeShowProductByIndex } from '../shared/domain/productSetShowProductByIndex';
 import { imageTaskRecordFromTaskRecord } from '../features/tasks/taskRestoreHelpers';
 import { filterLogsForTasks } from '../lib/taskLogs';
+import { cn } from '@/src/lib/utils';
 import {
   formatTaskBatchProgress,
   getTaskBatchProgress,
@@ -54,6 +67,7 @@ interface TabState {
   comparisonIntensity: ComparisonIntensity;
   showProduct: boolean;
   showProductByIndex: boolean[];
+  mainImageExtraContentByIndex: MainImageExtraContentSelection[];
   multiSceneLayout: MultiSceneLayout;
 }
 
@@ -96,6 +110,11 @@ function defaultTabState(subTab: ProductSetSubTab): TabState {
     comparisonIntensity: 'medium',
     showProduct: true,
     showProductByIndex: resizeShowProductByIndex(undefined, DEFAULT_COUNT_BY_SUBTAB[subTab]),
+    mainImageExtraContentByIndex: resizeMainImageExtraContentByIndex(
+      undefined,
+      DEFAULT_COUNT_BY_SUBTAB[subTab],
+      { preset: 'none', toggles: [] },
+    ),
     multiSceneLayout: 'auto',
   };
 }
@@ -175,6 +194,7 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
           comparisonIntensity: restored.comparisonIntensity,
           showProduct: restored.showProduct,
           showProductByIndex: restored.showProductByIndex,
+          mainImageExtraContentByIndex: restored.mainImageExtraContentByIndex,
           multiSceneLayout: restored.multiSceneLayout,
       },
     }));
@@ -282,6 +302,7 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
         comparisonIntensity: activeState.comparisonIntensity,
         showProduct: activeState.showProduct,
         showProductByIndex: activeState.showProductByIndex,
+        mainImageExtraContentByIndex: activeState.mainImageExtraContentByIndex,
         multiSceneLayout: activeState.multiSceneLayout,
       });
       reset(currentFeature);
@@ -374,7 +395,14 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
                   onChange={(count) => updateActiveState({
                     count,
                     ...(subTab === 'main'
-                      ? { showProductByIndex: resizeShowProductByIndex(activeState.showProductByIndex, count) }
+                      ? {
+                        showProductByIndex: resizeShowProductByIndex(activeState.showProductByIndex, count),
+                        mainImageExtraContentByIndex: resizeMainImageExtraContentByIndex(
+                          activeState.mainImageExtraContentByIndex,
+                          count,
+                          { preset: 'none', toggles: [] },
+                        ),
+                      }
                       : {}),
                   })}
                 />
@@ -406,23 +434,45 @@ export default function ProductImageSet({ restoredTask, onRestoreConsumed }: Pro
                   />
                 ) : null}
                 {subTab === 'main' ? (
-                  <div className="space-y-3">
-                    <p className="ui-label">产品展示</p>
-                    {resizeShowProductByIndex(activeState.showProductByIndex, activeState.count).map((showProduct, index) => (
-                      <Fragment key={`main-show-product-${index + 1}`}>
-                        <SegmentedControl
-                          id={`product-set-main-show-product-${index + 1}`}
-                          label={`图 ${index + 1}`}
-                          value={String(showProduct)}
-                          options={[['true', '展示'], ['false', '不展示']] as const}
-                          onChange={(value) => {
-                            const next = resizeShowProductByIndex(activeState.showProductByIndex, activeState.count);
-                            next[index] = value === 'true';
-                            updateActiveState({ showProductByIndex: next });
+                  <div className="space-y-2 sm:col-span-2">
+                    <p className="ui-label">展示内容</p>
+                    <div className="space-y-2">
+                    {Array.from({ length: activeState.count }, (_, index) => {
+                      const showProduct = resizeShowProductByIndex(
+                        activeState.showProductByIndex,
+                        activeState.count,
+                      )[index];
+                      const extra = resizeMainImageExtraContentByIndex(
+                        activeState.mainImageExtraContentByIndex,
+                        activeState.count,
+                        { preset: 'none', toggles: [] },
+                      )[index];
+                      const tags = mainImageDisplayTagsFromFields(showProduct, extra);
+                      return (
+                        <MainImageDisplayTagsSelect
+                          key={`main-display-tags-${index + 1}`}
+                          id={`product-set-main-display-tags-${index + 1}`}
+                          imageLabel={`图 ${index + 1}`}
+                          tags={tags}
+                          onChange={(nextTags) => {
+                            const applied = applyMainImageDisplayTags(nextTags);
+                            const showProductByIndex = resizeShowProductByIndex(
+                              activeState.showProductByIndex,
+                              activeState.count,
+                            );
+                            const mainImageExtraContentByIndex = resizeMainImageExtraContentByIndex(
+                              activeState.mainImageExtraContentByIndex,
+                              activeState.count,
+                              { preset: 'none', toggles: [] },
+                            );
+                            showProductByIndex[index] = applied.showProduct;
+                            mainImageExtraContentByIndex[index] = applied.extra;
+                            updateActiveState({ showProductByIndex, mainImageExtraContentByIndex });
                           }}
                         />
-                      </Fragment>
-                    ))}
+                      );
+                    })}
+                    </div>
                   </div>
                 ) : null}
                 {subTab === 'comparison' ? (
@@ -527,6 +577,105 @@ function TextAreaField({
         placeholder={placeholder}
         className="ui-textarea h-20 text-xs"
       />
+    </div>
+  );
+}
+
+function MainImageDisplayTagsSelect({
+  id,
+  imageLabel,
+  tags,
+  onChange,
+}: {
+  id: string;
+  imageLabel: string;
+  tags: readonly MainImageDisplayTag[];
+  onChange: (tags: MainImageDisplayTag[]) => void;
+}) {
+  const listboxId = useId();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const summary = tags.length > 0 ? formatMainImageDisplayTags(tags) : '请选择';
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div
+      className={cn('flex min-w-0 items-center gap-3', open && 'relative z-20')}
+      ref={containerRef}
+    >
+      <span className="ui-label w-10 shrink-0">{imageLabel}</span>
+      <div className="relative min-w-0 flex-1">
+        <button
+          type="button"
+          id={id}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          onClick={() => setOpen((current) => !current)}
+          className={cn(
+            'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-xs shadow-sm transition-colors',
+            'hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            open && 'border-primary/40 ring-2 ring-ring/30',
+          )}
+        >
+          <span className={cn('truncate font-medium', tags.length === 0 && 'text-muted-foreground')}>
+            {summary}
+          </span>
+          <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
+        </button>
+        {open ? (
+          <ul
+            id={listboxId}
+            role="listbox"
+            aria-label={`${imageLabel}展示内容`}
+            aria-multiselectable="true"
+            className="absolute z-30 mt-1 w-full overflow-hidden rounded-lg border border-border bg-popover p-1.5 text-popover-foreground shadow-lg"
+          >
+            {MAIN_IMAGE_DISPLAY_TAGS.map((tag) => {
+              const selected = tags.includes(tag);
+              return (
+                <li key={tag} role="presentation">
+                  <button
+                    type="button"
+                    role="option"
+                    id={`${id}-${tag}`}
+                    aria-selected={selected}
+                    onClick={() => onChange(toggleMainImageDisplayTag(tags, tag))}
+                    className={cn(
+                      'flex w-full cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors',
+                      selected ? 'bg-accent text-accent-foreground' : 'text-foreground hover:bg-accent/60',
+                    )}
+                  >
+                    <span>{MAIN_IMAGE_DISPLAY_TAG_LABELS[tag]}</span>
+                    {selected ? <Check className="size-3.5 shrink-0 text-primary" /> : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+      </div>
     </div>
   );
 }

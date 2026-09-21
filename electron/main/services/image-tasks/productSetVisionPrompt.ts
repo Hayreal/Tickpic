@@ -12,6 +12,7 @@ import {
   resolveComparisonLayout,
   resolveMultiScenePresentationLayout,
 } from './productSetJsonPrompt.js';
+import { resizeMainImageExtraContentByIndex } from '../../../../src/shared/domain/productSetMainImageExtraContent.js';
 import { resizeShowProductByIndex } from '../../../../src/shared/domain/productSetShowProductByIndex.js';
 import { sanitizeRequestForInstruction } from './instructionPrompt.js';
 
@@ -44,7 +45,7 @@ export function buildProductSetVisionSystemPrompt(feature: ImageFeature): string
         '5f. 按 main_image_planning_brief.show_product_by_index 中对应 index 的 show_product 决定是否规划 SKU 图层。false 时不得规划 sku_placement、包装、品牌 logo 或 wordmark。true 且 presentation_mode 不是 handheld_use 时，SKU 是融入排版节奏的 Photoshop 抠图图层，SKU 只能放在左下或右下，禁止放在中部或上部；瓶身必须竖直、标签正向可读、旋转角度为 0；可写清 scale、edge bleed，但不得与标题区域重叠。presentation_mode=handheld_use 时允许一只自然手在真实使用场景中持握 SKU，手持位置服从动作与画面自然性，不再强制左下/右下；两种模式都不要把 SKU 立在表面上或加地面接触阴影。禁止喷雾、雾气或产品喷射效果。before_after 的对比内容可以位于画面中间，但标题与 SKU 仍必须遵守各自区域。',
         '5h. handheld_required 仅在少量 handheld_use 卡片中为 true；show_effect 必须始终为 false。',
         '5g. 你必须自己生成 set_style，以及每张 instruction 的 set_role、layout_family、sku_placement、headline_placement、headline_treatment，条数必须等于 requested_count。composition_directive 必须点名这五项。requested_count > 1 时共用一套字体家族/强调色/SKU 抠图气质，像一组轮播套图，且不得重复同一种构图或同一种堆字。排版家族和 lockup 可从菜单选，也可以发明新名字。',
-        '5g1. showProduct=true 时画面只保留：一张使用场景、一组主标题排版（标题与可选小标题合计最多两行：无小标题时主标题一到两行；有小标题时小标题一行且主标题一行）、一层 SKU 抠图；before_after 才加一组对比。showProduct=false 时只保留场景与主标题组，不要 SKU 抠图。不要图标行、卖点卡、信息块、角标墙。',
+        '5g1. 按 main_image_planning_brief.extra_content_by_index 对应 index 的 preset/includes 规划留白：preset=none → extra_content=none，不要图标行/卖点卡/信息块/角标墙；preset=custom 且 includes 含 selling_points → 加 1–3 条紧凑英文卖点（圆 icon+短词，最多 3 条），includes 含 mini_comparison → 加紧凑 before/after（优先 presentation_mode=before_after），英文 BEFORE/AFTER；includes 可同时含 selling_points 与 mini_comparison，此时 extra_content 输出为数组如 ["selling_points","mini_comparison"]；preset=auto → 在 none、单模块或双模块组合中择一/组合填留白，写 extra_content 或数组，同批可混合，仍禁角标墙与超过 3 条卖点。showProduct=false 时不要 SKU 抠图。',
         '5g2. showProduct=true 时，overlay 卡片的 sku_placement 必须明确写左下或右下位置、比例、竖直摆放（0° 旋转、标签朝镜头）和与标题/场景的关系；handheld_use 卡片改为明确写自然手持位置、真实比例和标签朝镜头。两种方式都要让 SKU 够读，禁止倾斜/侧倒瓶身、放在中部或上部或缩成不可读的小贴纸。',
         '5g3. 可选排版家族：product-anchor=SKU 占约三分之一当锚点；type-over-action=大标题压痛点，SKU 在对侧；magazine-offset=标题和 SKU 同一侧栏；bleed-overlap=场景满幅，SKU 切边；type-slab=标题色块切图；diagonal-mass=对角大面，标题和 SKU 在对角留白。也可以发明新家族，只要同批不重复。',
         '5g4. 禁止整批都落成「左上标题、右下产品、其余铺场景」。',
@@ -98,6 +99,15 @@ export function buildProductSetVisionUserText(
             ).map((showProduct, index) => ({
               index: index + 1,
               show_product: showProduct,
+            })),
+            extra_content_by_index: resizeMainImageExtraContentByIndex(
+              request.mainImageExtraContentByIndex,
+              count,
+              { preset: 'none', toggles: [] },
+            ).map((selection, index) => ({
+              index: index + 1,
+              preset: selection.preset,
+              includes: selection.preset === 'custom' ? selection.toggles : [],
             })),
             user_direction: {
               prompt: request.prompt?.trim() || null,
@@ -163,7 +173,9 @@ function createVisionBatchTemplate(feature: ImageFeature): ProductSetVisionBatch
         headline_placement: 'upper-left, upper-right, or top-banner zone on a level horizontal baseline; no middle placement; at most two lines',
         headline_treatment: 'how this card’s type lockup is designed with visible effects (outline, shadow, slab, accent) without slant or italic; must differ from other cards',
         headline_suggestion: 'English benefit copy for this scene: either a one- or two-line main title, or a one-line kicker/subtitle plus a one-line main title; subtitle and title together must be at most two rendered lines',
-        composition_directive: 'Name the invented set_role, layout_family, sku_placement, headline_placement, and headline_treatment',
+        extra_content: 'none',
+        selling_point_hints: ['optional 1-3 short English benefit phrases when extra_content is selling_points'],
+        composition_directive: 'Name the invented set_role, layout_family, sku_placement, headline_placement, headline_treatment, and extra_content plan',
       }],
     };
   }

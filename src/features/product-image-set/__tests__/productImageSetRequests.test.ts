@@ -1,24 +1,38 @@
 import { describe, expect, it } from 'vitest';
 import { buildProductImageSetRequests } from '../productImageSetRequests';
 
+const baseMainInput = {
+  subTab: 'main' as const,
+  skuPaths: ['/tmp/front.png'],
+  aspectRatio: '1:1' as const,
+  prompt: '',
+  negativePrompt: '',
+  scenePrompt: '',
+  productHandheldMode: 'not_handheld' as const,
+  productEffectMode: 'auto' as const,
+  handheldReferencePath: null,
+  comparisonLayout: 'auto' as const,
+  comparisonIntensity: 'medium' as const,
+  showProduct: true,
+  showProductByIndex: [true],
+  mainImageExtraContentByIndex: [{ preset: 'auto' as const, toggles: [] as const }],
+  multiSceneLayout: 'single' as const,
+};
+
 describe('buildProductImageSetRequests', () => {
   it('builds a single main-image request without handheld or spray controls', () => {
     const requests = buildProductImageSetRequests({
-      subTab: 'main',
+      ...baseMainInput,
       skuPaths: ['/tmp/front.png', '/tmp/back.png'],
-      aspectRatio: '1:1',
       count: 2,
       prompt: '  bright premium composition  ',
       negativePrompt: '  no extra props  ',
       scenePrompt: '  kitchen counter  ',
-      productHandheldMode: 'handheld',
-      productEffectMode: 'show',
-      handheldReferencePath: '/resources/product/handheld-pump-foam.png',
-      comparisonLayout: 'auto',
-      comparisonIntensity: 'medium',
-      showProduct: true,
       showProductByIndex: [true, false],
-      multiSceneLayout: 'single',
+      mainImageExtraContentByIndex: [
+        { preset: 'auto', toggles: [] },
+        { preset: 'custom', toggles: ['selling_points'] },
+      ],
     });
 
     expect(requests).toEqual([
@@ -34,29 +48,32 @@ describe('buildProductImageSetRequests', () => {
         negativePrompt: 'no extra props',
         scenePrompt: 'kitchen counter',
         showProductByIndex: [true, false],
+        mainImageExtraContentByIndex: [
+          { preset: 'auto', toggles: [] },
+          { preset: 'custom', toggles: ['selling_points'] },
+        ],
       },
     ]);
   });
 
   it('passes per-image showProductByIndex on main-image requests', () => {
     const [request] = buildProductImageSetRequests({
-      subTab: 'main',
-      skuPaths: ['/tmp/product.png'],
-      aspectRatio: '1:1',
+      ...baseMainInput,
       count: 3,
-      prompt: '',
-      negativePrompt: '',
-      scenePrompt: '',
-      productHandheldMode: 'not_handheld',
-      productEffectMode: 'auto',
-      comparisonLayout: 'auto',
-      comparisonIntensity: 'medium',
-      showProduct: true,
       showProductByIndex: [true, false, true],
-      multiSceneLayout: 'single',
+      mainImageExtraContentByIndex: [
+        { preset: 'none', toggles: [] },
+        { preset: 'custom', toggles: ['mini_comparison'] },
+        { preset: 'auto', toggles: [] },
+      ],
     });
 
     expect(request.showProductByIndex).toEqual([true, false, true]);
+    expect(request.mainImageExtraContentByIndex).toEqual([
+      { preset: 'none', toggles: [] },
+      { preset: 'custom', toggles: ['mini_comparison'] },
+      { preset: 'auto', toggles: [] },
+    ]);
     expect(request).not.toHaveProperty('showProduct');
   });
 
@@ -75,6 +92,7 @@ describe('buildProductImageSetRequests', () => {
       comparisonIntensity: 'heavy',
       showProduct: false,
       showProductByIndex: [],
+      mainImageExtraContentByIndex: [],
       multiSceneLayout: 'grid',
     });
 
@@ -108,6 +126,7 @@ describe('buildProductImageSetRequests', () => {
       comparisonIntensity: 'light',
       showProduct: true,
       showProductByIndex: [true, true, true],
+      mainImageExtraContentByIndex: [],
       multiSceneLayout: 'collage',
     });
 
@@ -126,20 +145,9 @@ describe('buildProductImageSetRequests', () => {
 
   it('rejects requests without SKU product images', () => {
     expect(() => buildProductImageSetRequests({
-      subTab: 'main',
+      ...baseMainInput,
       skuPaths: [],
-      aspectRatio: 'auto',
       count: 1,
-      prompt: '',
-      negativePrompt: '',
-      scenePrompt: '',
-      productHandheldMode: 'not_handheld',
-      productEffectMode: 'auto',
-      comparisonLayout: 'auto',
-      comparisonIntensity: 'medium',
-      showProduct: true,
-      showProductByIndex: [true],
-      multiSceneLayout: 'single',
     })).toThrow('请上传 SKU 产品图');
   });
 
@@ -158,6 +166,7 @@ describe('buildProductImageSetRequests', () => {
       comparisonIntensity: 'medium',
       showProduct: true,
       showProductByIndex: [true],
+      mainImageExtraContentByIndex: [{ preset: 'auto', toggles: [] }],
       multiSceneLayout: 'single',
     })[0]).toEqual(expect.not.objectContaining({ prompt: expect.anything(), negativePrompt: expect.anything() }));
   });
@@ -166,20 +175,8 @@ describe('buildProductImageSetRequests', () => {
     'rejects an invalid generation count of %s',
     (count) => {
       expect(() => buildProductImageSetRequests({
-        subTab: 'main',
-        skuPaths: ['/tmp/product.png'],
-        aspectRatio: 'auto',
+        ...baseMainInput,
         count,
-        prompt: '',
-        negativePrompt: '',
-        scenePrompt: '',
-        productHandheldMode: 'not_handheld',
-        productEffectMode: 'auto',
-        comparisonLayout: 'auto',
-        comparisonIntensity: 'medium',
-        showProduct: true,
-        showProductByIndex: [true],
-        multiSceneLayout: 'single',
       })).toThrow('生成数量必须是正整数');
     },
   );

@@ -43,12 +43,15 @@ describe('productSetVisionPrompt', () => {
     expect(prompt).toContain('你必须自己生成 set_style');
     expect(prompt).toContain('sku_placement');
     expect(prompt).toContain('headline_treatment');
-    expect(prompt).toContain('不要图标行、卖点卡、信息块');
+    expect(prompt).toContain('extra_content_by_index');
+    expect(prompt).toContain('selling_points');
+    expect(prompt).toContain('mini_comparison');
     expect(prompt).toContain('禁止套用固定的图1 opener / 图2 problem / 图3 result');
     expect(text).toContain('一组电商套图');
     expect(text).toContain('requested_count=3');
     expect(text).toContain('"requested_count": 3');
     expect(text).toContain('"show_product_by_index"');
+    expect(text).toContain('"extra_content_by_index"');
     expect(text).toContain('"user_direction"');
     expect(text).toContain('"prompt": "premium studio lighting"');
     expect(text).toContain('"negative_prompt": "no extra bottles"');

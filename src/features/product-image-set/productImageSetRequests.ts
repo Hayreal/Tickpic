@@ -8,6 +8,10 @@ import type {
 } from '../../shared/domain/imageFeatureApi';
 import type { ImageAspectRatioValue } from '../../shared/view/imageAspectRatioOptions';
 import type { ProductSetSubTab } from '../../shared/view/ui';
+import {
+  resizeMainImageExtraContentByIndex,
+  type MainImageExtraContentSelection,
+} from '../../shared/domain/productSetMainImageExtraContent';
 import { resizeShowProductByIndex } from '../../shared/domain/productSetShowProductByIndex';
 
 export interface ProductImageSetRequestInput {
@@ -24,6 +28,7 @@ export interface ProductImageSetRequestInput {
   comparisonIntensity: ComparisonIntensity;
   showProduct: boolean;
   showProductByIndex: boolean[];
+  mainImageExtraContentByIndex: MainImageExtraContentSelection[];
   multiSceneLayout: MultiSceneLayout;
   handheldReferencePath?: string | null;
 }
@@ -55,10 +60,15 @@ export function buildProductImageSetRequests(
     ...optionalString('negativePrompt', input.negativePrompt),
   };
   const showProductByIndex = resizeShowProductByIndex(input.showProductByIndex, input.count);
+  const mainImageExtraContentByIndex = resizeMainImageExtraContentByIndex(
+    input.mainImageExtraContentByIndex,
+    input.count,
+  );
   const featureFields = input.subTab === 'main'
     ? {
       ...optionalString('scenePrompt', input.scenePrompt),
       showProductByIndex,
+      mainImageExtraContentByIndex,
     }
     : input.subTab === 'comparison'
       ? {

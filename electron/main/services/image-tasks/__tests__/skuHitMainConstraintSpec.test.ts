@@ -60,6 +60,8 @@ describe('skuHitMainConstraintSpec', () => {
     expect(spec.final_check.join(' ')).not.toContain('exactly one Image 2 SKU instance');
     expect(spec.copy_overrides.join(' ')).not.toContain('rewrite the headline into natural English aligned with Image 2');
     expect(spec.copy_overrides.join(' ')).toContain('marketing wording actually visible in Image 2');
+    expect(spec.copy_overrides.join(' ')).toContain('level horizontal baseline');
+    expect(spec.forbidden.join(' ')).toContain('Never tilt, italicize, skew');
   });
 
   it('locks the SKU dispensing mechanism, source copy, and same-area comparison', () => {

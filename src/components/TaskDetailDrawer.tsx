@@ -1,7 +1,11 @@
 import { useCallback, useEffect } from 'react';
 import { X, FolderOpen, RotateCcw, Copy } from 'lucide-react';
 import type { ImageRole, ImageTaskRequest, RegionInput } from '../shared/domain/imageFeatureApi';
-import { formatShowProductByIndex } from '../shared/domain/productSetShowProductByIndex';
+import {
+  formatMainImageDisplayTagsByIndex,
+  resizeMainImageExtraContentByIndex,
+} from '../shared/domain/productSetMainImageExtraContent';
+import { resizeShowProductByIndex } from '../shared/domain/productSetShowProductByIndex';
 import type { TaskRecord } from '../shared/domain/tasks';
 import type { StoredImageRecord } from '../shared/domain/images';
 import { aggregateTaskStatuses } from '../features/tasks/taskBatchGrouping';
@@ -125,13 +129,25 @@ function buildRequestParams(request: ImageTaskRequest) {
       <ParamRow label="配色方案" value={request.colorScheme} />
       <ParamRow label="宽高比" value={request.aspectRatio} />
       <ParamRow
-        label={request.feature === 'product_comparison_image' ? 'After 产品展示' : '产品展示'}
+        label={request.feature === 'product_main_image' ? '展示内容' : 'After 产品展示'}
         value={
           request.feature === 'product_main_image' && request.showProductByIndex?.length
-            ? formatShowProductByIndex(request.showProductByIndex)
-            : request.showProduct === undefined
-              ? undefined
-              : request.showProduct
+            ? formatMainImageDisplayTagsByIndex(
+              request.showProductByIndex,
+              resizeMainImageExtraContentByIndex(
+                request.mainImageExtraContentByIndex,
+                request.showProductByIndex.length,
+                { preset: 'none', toggles: [] },
+              ),
+              request.showProductByIndex.length,
+            )
+            : request.feature === 'product_comparison_image'
+              ? request.showProduct === undefined
+                ? undefined
+                : request.showProduct
+              : request.showProduct === undefined
+                ? undefined
+                : request.showProduct
         }
       />
       <ParamRow label="模型覆盖" value={modelSummary} />

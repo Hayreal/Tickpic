@@ -8,7 +8,9 @@ import type {
 import type { ImportBatch, StoredImageRecord } from '../../shared/domain/images';
 import type { TaskRecord } from '../../shared/domain/tasks';
 import type { ImageAspectRatioValue } from '../../shared/view/imageAspectRatioOptions';
+import { restoreMainImageExtraContentByIndex } from '../../shared/domain/productSetMainImageExtraContent';
 import { restoreMainShowProductByIndex } from '../../shared/domain/productSetShowProductByIndex';
+import type { MainImageExtraContentSelection } from '../../shared/domain/productSetMainImageExtraContent';
 import { resolveImageCount } from '../../shared/view/imageCountOptions';
 import { getFeatureRoute } from '../../shared/view/featureRoutes';
 import type { ProductSetSubTab } from '../../shared/view/ui';
@@ -28,6 +30,7 @@ export interface ProductImageSetRestoreState {
   comparisonIntensity: ComparisonIntensity;
   showProduct: boolean;
   showProductByIndex: boolean[];
+  mainImageExtraContentByIndex: MainImageExtraContentSelection[];
   multiSceneLayout: MultiSceneLayout;
   aspectRatio: ImageAspectRatioValue;
   count: number;
@@ -82,6 +85,12 @@ export function applyProductImageSetRestore(task: TaskRecord): ProductImageSetRe
         resolveImageCount(request.variantTotal ?? request.count ?? 1),
         request.showProductByIndex,
         request.showProduct,
+      )
+      : [],
+    mainImageExtraContentByIndex: subTab === 'main'
+      ? restoreMainImageExtraContentByIndex(
+        resolveImageCount(request.variantTotal ?? request.count ?? 1),
+        request.mainImageExtraContentByIndex,
       )
       : [],
     multiSceneLayout: resolveEnum(request.multiSceneLayout, ['single', 'collage', 'grid'], 'grid'),

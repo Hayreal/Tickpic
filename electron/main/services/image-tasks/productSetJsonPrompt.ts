@@ -13,6 +13,11 @@ import type {
   ProductSetVisionSetStyle,
 } from '../../../../src/shared/domain/productSetVisionInstructions.js';
 import { findProductHandheldReferenceByPath } from '../../../../src/shared/domain/productHandheldReferences.js';
+import {
+  resolveEffectiveMainImageExtraContentFlags,
+  resolveMainImageExtraContentSelection,
+  type ResolvedMainImageExtraContentFlags,
+} from '../../../../src/shared/domain/productSetMainImageExtraContent.js';
 
 export type ProductSetJsonSpec = Record<string, unknown> & {
   task: ImageFeature;
@@ -252,15 +257,44 @@ export const MAIN_IMAGE_SKU_INTEGRATION_MENU = [
   'soft graphic separation shadow only, never a ground contact shadow',
 ] as const;
 
-const MAIN_IMAGE_FINAL_EDIT_DIRECTIVE = [
-  'FINAL EDIT DIRECTIVE — obey this last:',
-  'Create one clean US ecommerce image in a realistic product-use scene.',
-  'Use the exact Suggested headline without rewriting or adding copy.',
-  'The entire headline block must contain at most 2 horizontal text rows total.',
-  'A subtitle/kicker counts as one row; if used, the main title must be one row.',
-  'Never add a third text row, extra slogan, icon row, badge, or information panel.',
-  'Keep the selected composition, SKU placement, and hand-use decision unchanged.',
-].join('\n');
+function readMainImageExtraContentFlags(composition?: Record<string, unknown>): ResolvedMainImageExtraContentFlags {
+  const modules = asRecord(composition?.extra_content_modules);
+  if (modules) {
+    return {
+      sellingPoints: modules.selling_points === true,
+      miniComparison: modules.mini_comparison === true,
+    };
+  }
+  const legacy = String(composition?.extra_content ?? '');
+  return {
+    sellingPoints: legacy === 'selling_points',
+    miniComparison: legacy === 'mini_comparison',
+  };
+}
+
+function buildMainImageFinalEditDirective(spec: ProductSetJsonSpec): string {
+  const extraFlags = readMainImageExtraContentFlags(asRecord(spec.composition));
+  const lines = [
+    'FINAL EDIT DIRECTIVE — obey this last:',
+    'Create one clean US ecommerce image in a realistic product-use scene.',
+    'Use the exact Suggested headline without rewriting or adding copy.',
+    'The entire headline block must contain at most 2 horizontal text rows total.',
+    'A subtitle/kicker counts as one row; if used, the main title must be one row.',
+  ];
+  if (extraFlags.sellingPoints) {
+    lines.push('You may add 1–3 compact round-icon selling points in unused margin only; never exceed 3 rows or build a badge wall.');
+  }
+  if (extraFlags.miniComparison) {
+    lines.push('You may add one compact BEFORE/AFTER comparison module with readable English BEFORE/AFTER labels.');
+  }
+  if (!extraFlags.sellingPoints && !extraFlags.miniComparison) {
+    lines.push('Never add a third text row, extra slogan, icon row, badge, or information panel.');
+  } else {
+    lines.push('Do not add a third headline row, extra slogan lines, or other information panels beyond the allowed modules.');
+  }
+  lines.push('Keep the selected composition, SKU placement, and hand-use decision unchanged.');
+  return lines.join('\n');
+}
 
 export const MAIN_IMAGE_SET_STYLE = {
   type_system: 'One commercial display family sampled from the SKU label palette, reused across the set. Each card needs a word-rich designed lockup with at most two rendered headline lines total: either one or two main-title lines, or one kicker/subtitle line plus one main-title line. Include one oversized benefit keyword and visible type effects (outline, shadow, slab, or accent shape) on level horizontal baselines — not plain flat sans-serif text and never slanted or italic type',
@@ -436,7 +470,7 @@ export function formatProductSetExecutionPromptFromSpec(
     renderProductSetCopyAndUserRequirements(spec),
   ].filter((section): section is string => Boolean(section)).join('\n\n');
   return request.feature === 'product_main_image'
-    ? `${prompt}\n\n${MAIN_IMAGE_FINAL_EDIT_DIRECTIVE}`
+    ? `${prompt}\n\n${buildMainImageFinalEditDirective(spec)}`
     : prompt;
 }
 
@@ -661,6 +695,17 @@ function multiSceneLayoutDescription(layout: string) {
   }
 }
 
+function renderMainImageExtraContentInstructions(flags: ResolvedMainImageExtraContentFlags) {
+  const sections: string[] = [];
+  if (flags.sellingPoints) {
+    sections.push('Fill unused blank area with 1–3 compact English selling points (simple round icon + short phrase each). Keep them in the margin below the headline or beside the scene; never more than 3 rows and never a dense badge wall.');
+  }
+  if (flags.miniComparison) {
+    sections.push('Fill unused blank area with a compact BEFORE/AFTER comparison on the same object and matched region, with readable English BEFORE/AFTER labels. The comparison may sit in the middle or as small side tiles, but must not cover the headline zone or the SKU cutout zone.');
+  }
+  return sections.join(' ');
+}
+
 function renderMainImageSetCard(composition?: Record<string, unknown>) {
   const showProduct = composition?.show_product !== false;
   const handheldRequired = composition?.hand_required === true;
@@ -726,6 +771,12 @@ function renderProductSetScene(spec: ProductSetJsonSpec, request: ImageTaskReque
   }
   if (request.feature === 'product_main_image') {
     sections.push(renderMainImageSetCard(composition));
+    const extraInstruction = renderMainImageExtraContentInstructions(
+      readMainImageExtraContentFlags(composition),
+    );
+    if (extraInstruction) {
+      sections.push(extraInstruction);
+    }
   }
   if (composition?.vision_directive) {
     sections.push(`Composition: ${String(composition.vision_directive)}.`);
@@ -752,7 +803,18 @@ function renderProductSetCopyAndUserRequirements(spec: ProductSetJsonSpec) {
     : spec.task === 'product_main_image' && !mainShowProduct
       ? ''
       : ' Every visible capacity must start with the exact prefix "NET:".';
-  const sections = [`Use only concise, readable English visible copy. Do not render any Chinese, Han, or other CJK characters anywhere; omit optional copy rather than use non-English text.${capacityRule} Do not add icon rows, price, discount, watermark, or long explanatory text.`];
+  const extraFlags = spec.task === 'product_main_image'
+    ? readMainImageExtraContentFlags(asRecord(spec.composition))
+    : { sellingPoints: false, miniComparison: false };
+  const iconRowRule = extraFlags.sellingPoints
+    ? ' You may add one compact row of 1–3 round-icon selling points in unused margin; do not exceed 3 lines or build a badge wall.'
+    : extraFlags.miniComparison
+      ? ' You may add compact BEFORE/AFTER labels on the mini comparison module only.'
+      : ' Do not add icon rows, price, discount, watermark, or long explanatory text.';
+  const comparisonCopyRule = extraFlags.sellingPoints && extraFlags.miniComparison
+    ? ' Keep selling-point rows separate from the mini comparison module.'
+    : '';
+  const sections = [`Use only concise, readable English visible copy. Do not render any Chinese, Han, or other CJK characters anywhere; omit optional copy rather than use non-English text.${capacityRule}${iconRowRule}${comparisonCopyRule}`];
 
   if (headline?.suggested_text) {
     sections.push(`Suggested headline (use exactly, do not rewrite or add copy): ${String(headline.suggested_text)}.`);
@@ -965,7 +1027,14 @@ function applyVisionMainImageHandheldEffect(
 ) {
   const plannedMode = lockMainImagePresentation(vision.presentation_mode);
   const handheldRequired = vision.handheld_required === true || plannedMode === 'handheld_use';
-  const presentationMode = handheldRequired ? 'handheld_use' : plannedMode;
+  const userSelection = resolveMainImageExtraContentSelection(request);
+  const effectiveExtra = resolveEffectiveMainImageExtraContentFlags(userSelection, vision.extra_content);
+  let presentationMode: MainImagePresentationMode | undefined = handheldRequired
+    ? 'handheld_use'
+    : plannedMode;
+  if (effectiveExtra.miniComparison && !handheldRequired) {
+    presentationMode = 'before_after';
+  }
   const effectRequired = false;
   const patch = buildMainImageFields(request, { handheldRequired, effectRequired });
 
@@ -1000,6 +1069,67 @@ function applyVisionMainImageHandheldEffect(
   };
   merged.quality_targets = patch.quality_targets;
   merged.negative_prompt = patch.negative_prompt;
+  applyMainImageExtraContentPatch(merged, effectiveExtra, vision.selling_point_hints);
+}
+
+function applyMainImageExtraContentPatch(
+  merged: ProductSetJsonSpec,
+  extraContent: ResolvedMainImageExtraContentFlags,
+  sellingPointHints?: string[],
+) {
+  if (!extraContent.sellingPoints && !extraContent.miniComparison) {
+    return;
+  }
+
+  merged.composition = {
+    ...(merged.composition as Record<string, unknown>),
+    extra_content_modules: {
+      selling_points: extraContent.sellingPoints,
+      mini_comparison: extraContent.miniComparison,
+    },
+  };
+
+  const copy = asRecord(merged.copy);
+  const headline = asRecord(copy?.headline);
+  const forbidden = Array.isArray(copy?.forbidden) ? [...copy!.forbidden as string[]] : [];
+  const filteredForbidden = forbidden.filter((item) => !/selling-point|icon row/i.test(item));
+  if (copy) {
+    merged.copy = {
+      ...copy,
+      forbidden: filteredForbidden,
+      ...(headline ? { headline } : {}),
+    };
+  }
+
+  const qualityTargets = [...(merged.quality_targets ?? [])];
+  const negativePrompt = [...(merged.negative_prompt ?? [])].filter(
+    (item) => typeof item !== 'string' || !/icon selling-point|small icon selling/i.test(item),
+  );
+
+  if (extraContent.sellingPoints) {
+    const hints = (sellingPointHints ?? [])
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    qualityTargets.push(
+      hints.length
+        ? `Include 1–3 compact English selling points with simple round icons in unused margin (use or adapt: ${hints.join('; ')}); never more than 3 lines`
+        : 'Include 1–3 compact English selling points with simple round icons in unused margin below the headline or beside the scene; never more than 3 lines',
+    );
+    merged.selling_points = {
+      max_count: 3,
+      style: 'compact round icon + short English phrase per row',
+      ...(hints.length ? { suggested: hints } : {}),
+    };
+  }
+  if (extraContent.miniComparison) {
+    qualityTargets.push(
+      'Include a compact BEFORE/AFTER comparison (side-by-side tiles or a small inset) with readable English BEFORE/AFTER labels on the same object and matched region; use it to fill blank area without covering the headline or SKU zones',
+    );
+  }
+
+  merged.quality_targets = qualityTargets;
+  merged.negative_prompt = negativePrompt;
 }
 
 export function buildProductSetSpec(request: ImageTaskRequest): ProductSetJsonSpec {

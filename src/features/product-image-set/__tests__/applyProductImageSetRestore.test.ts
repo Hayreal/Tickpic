@@ -97,7 +97,7 @@ describe('applyProductImageSetRestore', () => {
       subTab: 'main', prompt: '', negativePrompt: '', scenePrompt: '',
       productHandheldMode: 'auto', productEffectMode: 'auto',
       comparisonLayout: 'auto', comparisonIntensity: 'medium', showProduct: true,
-      showProductByIndex: [true], multiSceneLayout: 'grid',
+      showProductByIndex: [true], mainImageExtraContentByIndex: [{ preset: 'none', toggles: [] }], multiSceneLayout: 'grid',
     });
     expect(applyProductImageSetRestore(createTask(createRequest('product_comparison_image')))).toMatchObject({
       subTab: 'comparison', prompt: '', negativePrompt: '', scenePrompt: '',

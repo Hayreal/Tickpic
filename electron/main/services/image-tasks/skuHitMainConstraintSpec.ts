@@ -1,4 +1,5 @@
 import type { ImageTaskRequest } from '../../../../src/shared/domain/imageFeatureApi.js';
+import { productMainImageLayoutRulesForHitMain } from '../../../../src/shared/domain/productSetMainImageLayoutRules.js';
 
 const SKU_HIT_MAIN_ANTI_TEMPLATE_FORBIDDEN = [
   'Never use the generic AI ecommerce template: a horizontal row of three hexagonal or circular icon badges, each with a short benefit slogan underneath.',
@@ -81,7 +82,7 @@ export function buildSkuHitMainConstraintSpec(request: ImageTaskRequest): SkuHit
     ],
     physics_realism: buildHandRules(showProduct),
     differentiation: buildDifferentiationLines(request, showProduct),
-    copy_overrides: buildCopyOverrideLines({ brand, productName, capacity, headline }),
+    copy_overrides: buildCopyOverrideLines({ brand, productName, capacity, headline, showProduct }),
     forbidden: [
       'Never copy Image 2 composition or paste Image 1 onto the reference layout.',
       ...(showProduct
@@ -97,6 +98,10 @@ export function buildSkuHitMainConstraintSpec(request: ImageTaskRequest): SkuHit
       'Never rewrite Image 2 reference headline or use case merely because Image 1 SKU label uses a different category name.',
       'Never add a standalone brand logo or wordmark outside the Image 1 SKU cutout.',
       'Never add many new selling points, garbled text, fake English, repeated copy, meaningless small type, extra info blocks, or a grid of feature icons.',
+      'Never tilt, italicize, skew, perspective-warp, or diagonally stack headline type.',
+      ...(showProduct
+        ? ['Never place the Image 1 SKU cutout in the middle or upper headline zone.']
+        : []),
       'Never over-design the layout with stacked modules, multiple comparison strips, or collage-like decoration.',
       ...SKU_HIT_MAIN_ANTI_TEMPLATE_FORBIDDEN,
     ],
@@ -149,9 +154,10 @@ function buildExecutionLockClauses(spec: SkuHitMainConstraintSpec): string[] {
     spec.show_product
       ? 'Always show one simple Before/After of the same cropped surface; do not copy Image 2’s comparison layout, and do not cover the comparison evidence with the SKU layer.'
       : 'Always show one simple Before/After of the same cropped surface; do not copy Image 2’s comparison layout, and do not place any SKU, logo, or brand mark on the comparison evidence.',
+    ...productMainImageLayoutRulesForHitMain(spec.show_product),
     spec.show_product
-      ? 'Keep the frame simple: one scene, one headline, one Before/After, and at most one SKU layer. No extra info blocks, icon rows, callout stacks, or collage modules. Give the headline Image 2’s type energy: stacked hierarchy plus more than one weight or color; do not set a flat single-style title.'
-      : 'Keep the frame simple: one scene, one headline, and one Before/After. No SKU layer, brand logo, info blocks, icon rows, or collage modules. Give the headline Image 2’s type energy: stacked hierarchy plus more than one weight or color; do not set a flat single-style title.',
+      ? 'Keep the frame simple: one scene, one headline lockup, one Before/After, and at most one SKU layer. No extra info blocks, icon rows, callout stacks, or collage modules. Give the headline Image 2’s type energy with designed effects, not a flat single-style title.'
+      : 'Keep the frame simple: one scene, one headline lockup, and one Before/After. No SKU layer, brand logo, info blocks, icon rows, or collage modules. Give the headline Image 2’s type energy with designed effects, not a flat single-style title.',
     spec.user_fields.headline
       ? `On-image headline: ${quoted(spec.user_fields.headline)}. Use this user title as the only main headline; translate to correctly spelled natural English if needed. Do not use Image 2 headline wording.`
       : '',
@@ -178,7 +184,7 @@ function buildShowProductReplacement(): string[] {
     'The Image 1 cap, pump, trigger, nozzle, collar, opening, and dispensing mechanism are immutable: copy their exact type and geometry from Image 1 (a pump stays a pump and a trigger stays a trigger).',
     'Never borrow, merge, transplant, or retain any product part, cap, pump, trigger, nozzle, collar, bottle piece, label, or accessory from the Image 2 reference product.',
     'Never add a second SKU instance, handheld bottle, or background bottle.',
-    'Place the layer in unused foreground space; do not cover the headline, demo target, or before/after evidence.',
+    'Place the layer only in the lower-left or lower-right foreground; do not cover the headline zone, demo target, or before/after evidence.',
     'Never stretch, compress, slim, widen, or redesign Image 1.',
     'Derive overall ad palette primarily from Image 1 label colors.',
   ];
@@ -211,7 +217,7 @@ function buildDifferentiationLines(request: ImageTaskRequest, showProduct: boole
     'The first glance must read as a newly designed ad, not a recolored or product-swapped copy of Image 2.',
     'Keep Image 2’s visible cropped surface; do not complete it into a larger host object inferred from Image 1.',
     showProduct
-      ? 'Keep the Image 1 SKU layer large enough to read in unused foreground space; never cover the demo target or before/after evidence.'
+      ? 'Keep the Image 1 SKU layer large enough to read in the lower-left or lower-right; never cover the headline zone or before/after evidence.'
       : 'Keep the frame focused on the usage scene, headline, and before/after evidence with no product layer.',
   ];
 
@@ -227,6 +233,7 @@ function buildCopyOverrideLines(fields: {
   productName?: string;
   capacity?: string;
   headline?: string;
+  showProduct: boolean;
 }): string[] {
   const lines: string[] = [];
   if (fields.brand) {
@@ -249,7 +256,8 @@ function buildCopyOverrideLines(fields: {
     lines.push('Use only marketing wording actually visible in Image 2 or explicitly supplied by the user. Render it in English on the image; translate Chinese source copy to natural English. If Image 2 has no readable headline, do not invent or promote Image 1 SKU label copy into a new ad headline unless the user explicitly requests new copy.');
   }
   lines.push('Every visible capacity must start with the exact prefix "NET:".');
-  lines.push('Give the headline Image 2’s type energy: stacked hierarchy plus more than one weight or color. Never use a flat single-style title, rewrite the core headline, add many new selling points, or add fake English, garbled text, repeated copy, or meaningless icon clutter.');
+  lines.push('Give the headline Image 2’s type energy with designed effects and more than one weight or color, but keep type on level horizontal baselines without italic slant, diagonal skew, or perspective warping.');
+  lines.push(...productMainImageLayoutRulesForHitMain(fields.showProduct));
   return lines;
 }
 
@@ -265,8 +273,9 @@ function resolveBatchSlotDirective(request: ImageTaskRequest): string | undefine
 function buildFinalCheckLines(showProduct: boolean): string[] {
   return [
     showProduct
-      ? 'The final image must contain exactly one Image 1 SKU foreground layer with readable packaging; never a handheld second bottle.'
+      ? 'The final image must contain exactly one Image 1 SKU foreground layer with readable packaging in the lower-left or lower-right; never a handheld second bottle and never a middle/upper SKU placement.'
       : 'The final image must contain no SKU, bottle, packaging, or handheld product.',
+    'Headline type must stay on level horizontal baselines with no italic slant, diagonal skew, or perspective warping.',
     'Image 2 reference headline, subheadline, advertised use case, target object, and before/after promise must remain recognizable after the redesign.',
     'If a hand appears, it must have five complete fingers and a visible thumb, and must not hold a bottle.',
     'No floating tools, mismatched lighting, or Image 2 product parts transplanted onto Image 1.',

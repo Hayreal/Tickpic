@@ -28,6 +28,9 @@ describe('skuHitMainImagePrompt', () => {
     expect(prompt).toContain('Image 1 is the new SKU product photo only');
     expect(prompt).toContain('Keep the frame simple');
     expect(prompt).toContain('Give the headline Image 2’s type energy');
+    expect(prompt).toContain('level horizontal baseline');
+    expect(prompt).toContain('lower-left or lower-right');
+    expect(prompt).toContain('no italic slant');
     expect(prompt).not.toContain('IMAGE ROLES:');
     expect(prompt).not.toContain('输出一张完整的 SKU 产品图');
     expect(prompt).toContain('All visible text must be English');

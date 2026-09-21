@@ -612,6 +612,50 @@ describe('productSetJsonPrompt', () => {
     expect(prompts[2]).toContain('Show a natural hand directly using or holding the SKU');
   });
 
+  it('allows compact selling points when the user selects that extra content mode', () => {
+    const [prompt] = buildProductSetExecutionPromptsFromVision({
+      feature: 'product_main_image',
+      count: 1,
+      mainImageExtraContentByIndex: [{ preset: 'custom', toggles: ['selling_points'] }],
+    }, {
+      instructions: [{
+        index: 1,
+        presentation_mode: 'carousel_hero',
+        handheld_required: false,
+        show_effect: false,
+        extra_content: 'selling_points',
+        selling_point_hints: ['No Rinse', 'Restores Shine'],
+      }],
+    });
+
+    expect(prompt).toContain('1–3 compact English selling points');
+    expect(prompt).toContain('You may add 1–3 compact round-icon selling points');
+    expect(prompt).not.toMatch(/Never add a third text row, extra slogan, icon row/);
+  });
+
+  it('allows selling points and mini comparison together when both are selected', () => {
+    const [prompt] = buildProductSetExecutionPromptsFromVision({
+      feature: 'product_main_image',
+      count: 1,
+      mainImageExtraContentByIndex: [{
+        preset: 'custom',
+        toggles: ['selling_points', 'mini_comparison'],
+      }],
+    }, {
+      instructions: [{
+        index: 1,
+        presentation_mode: 'before_after',
+        handheld_required: false,
+        show_effect: false,
+        extra_content: ['selling_points', 'mini_comparison'],
+      }],
+    });
+
+    expect(prompt).toContain('1–3 compact English selling points');
+    expect(prompt).toContain('compact BEFORE/AFTER comparison');
+    expect(prompt).toContain('Keep selling-point rows separate from the mini comparison module');
+  });
+
   it('merges vision instructions into per-variant execution prompts', () => {
     const prompts = buildProductSetExecutionPromptsFromVision({
       feature: 'product_main_image',

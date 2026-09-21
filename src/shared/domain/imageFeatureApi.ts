@@ -1,4 +1,8 @@
 import type { StickerVariationDirection } from './stickerPrompts.js';
+import {
+  isMainImageExtraContentSelection,
+  type MainImageExtraContentSelection,
+} from './productSetMainImageExtraContent.js';
 
 export const IMAGE_FEATURES = [
   'sticker_replica',
@@ -103,6 +107,8 @@ export interface ImageTaskRequest {
   showProduct?: boolean;
   /** Per-output SKU visibility for product_main_image; length must match count when set. */
   showProductByIndex?: boolean[];
+  /** Per-output optional fill content for product_main_image; length must match count when set. */
+  mainImageExtraContentByIndex?: MainImageExtraContentSelection[];
   headline?: string;
   productHandheldMode?: ProductHandheldMode;
   productEffectMode?: ProductEffectMode;
@@ -298,11 +304,12 @@ const FEATURE_DEFINITIONS: Record<ImageFeature, ImageFeatureDefinition> = {
   },
   sku_hit_main_image: {
     feature: 'sku_hit_main_image',
-    mainPrompt: '基于爆款主图参考的营销主题与文案，把新 SKU 完整替换进去，重新创作一张大差异化欧美电商主图。继承卖点，不继承原画面。',
+    mainPrompt: '基于爆款主图参考的营销主题与文案，把新 SKU 以套图主图同款浮动抠图方式展示（默认展示 SKU），标题不倾斜，重新创作一张大差异化欧美电商主图。继承卖点，不继承原画面。',
     acceptedImageRoles: ['source', 'reference'],
     requiredImageRoles: ['source', 'reference'],
     executionModel: 'edit',
     executionImageRoles: ['source', 'reference'],
+    defaultShowProduct: true,
   },
 };
 
@@ -417,6 +424,7 @@ function validateProductSetControls(input: ImageTaskRequest) {
   validateControlOwnership(input, 'scenePrompt', ['product_main_image', 'product_comparison_image']);
   validateControlOwnership(input, 'headline', ['sku_hit_main_image']);
   validateControlOwnership(input, 'showProductByIndex', ['product_main_image']);
+  validateControlOwnership(input, 'mainImageExtraContentByIndex', ['product_main_image']);
 
   if (input.headline !== undefined && typeof input.headline !== 'string') {
     throw new Error('headline must be a string');
@@ -431,6 +439,18 @@ function validateProductSetControls(input: ImageTaskRequest) {
     }
     if (input.count !== undefined && input.showProductByIndex.length !== input.count) {
       throw new Error('showProductByIndex length must match count');
+    }
+  }
+
+  if (input.mainImageExtraContentByIndex !== undefined) {
+    if (!Array.isArray(input.mainImageExtraContentByIndex)) {
+      throw new Error('mainImageExtraContentByIndex must be an array');
+    }
+    if (!input.mainImageExtraContentByIndex.every((value) => isMainImageExtraContentSelection(value))) {
+      throw new Error('mainImageExtraContentByIndex must be an array of { preset, toggles } selections');
+    }
+    if (input.count !== undefined && input.mainImageExtraContentByIndex.length !== input.count) {
+      throw new Error('mainImageExtraContentByIndex length must match count');
     }
   }
 

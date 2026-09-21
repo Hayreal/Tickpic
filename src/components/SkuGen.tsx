@@ -128,16 +128,8 @@ function renderParameterPanels(
           />
           {subTab === 'hitMain' ? (
             <div className="space-y-2">
-              <label className="ui-label">SKU</label>
+              <label className="ui-label">展示 SKU 产品</label>
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  id={`${subTab}-sku-hide`}
-                  onClick={() => onChange({ showProduct: false })}
-                  className={`cursor-pointer py-2 rounded-lg text-xs font-bold transition-all border ${!state.showProduct ? 'ui-segment-active' : 'ui-segment-inactive'}`}
-                >
-                  不展示
-                </button>
                 <button
                   type="button"
                   id={`${subTab}-sku-show`}
@@ -145,6 +137,14 @@ function renderParameterPanels(
                   className={`cursor-pointer py-2 rounded-lg text-xs font-bold transition-all border ${state.showProduct ? 'ui-segment-active' : 'ui-segment-inactive'}`}
                 >
                   展示
+                </button>
+                <button
+                  type="button"
+                  id={`${subTab}-sku-hide`}
+                  onClick={() => onChange({ showProduct: false })}
+                  className={`cursor-pointer py-2 rounded-lg text-xs font-bold transition-all border ${!state.showProduct ? 'ui-segment-active' : 'ui-segment-inactive'}`}
+                >
+                  不展示
                 </button>
               </div>
             </div>
