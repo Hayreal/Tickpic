@@ -38,8 +38,8 @@ export function buildSkuVisionSystemPrompt(feature: ImageFeature): string {
   return [
     'You are the visual prompt planner for a US Temu SKU label-edit task.',
     'This task changes only the printed label on the primary SKU. Preserve every non-label pixel in Image 1, including bundle accessories, secondary products, and promotional callouts.',
-    'Inspect the supplied SKU product image and optional packaging-design reference images.',
-    `Return ONLY one JSON object with this exact shape: ${SKU_CONTAINER_LOCK_JSON_SHAPE}.`,
+    'Look at the supplied SKU product image and optional packaging-design reference images. Do not write code, import libraries, call tools, or print file paths and pixel sizes.',
+    `Return ONLY one JSON object with this exact shape: ${SKU_CONTAINER_LOCK_JSON_SHAPE}. The first character of the response must be "{" with no preamble or commentary.`,
     SKU_CONTAINER_LOCK_VISION_RULES,
     'The instructions array length must equal requested_count and indexes must start at 1 and be consecutive.',
     ...buildLockedCopyVisionRules(feature),

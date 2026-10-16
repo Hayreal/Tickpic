@@ -157,7 +157,73 @@ export function formatReplaceProductExecutionPrompt(prompt: ReplaceProductExecut
 export function stripJsonFence(raw: string): string {
   const trimmed = raw.trim();
   const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)```$/i);
-  return fenced ? fenced[1]!.trim() : trimmed;
+  return extractJsonText(fenced ? fenced[1]!.trim() : trimmed);
+}
+
+function extractJsonText(raw: string): string {
+  const trimmed = raw.trim();
+  return findLastParseableJson(trimmed) ?? trimmed;
+}
+
+function findLastParseableJson(raw: string): string | undefined {
+  let last: string | undefined;
+  for (let index = 0; index < raw.length; index += 1) {
+    const char = raw[index];
+    if (char !== '{' && char !== '[') {
+      continue;
+    }
+    const slice = balancedJsonSlice(raw, index);
+    if (!slice) {
+      continue;
+    }
+    try {
+      JSON.parse(slice);
+      last = slice;
+      index += slice.length - 1;
+    } catch {
+      // A brace in code or prose is not the payload; keep scanning.
+    }
+  }
+  return last;
+}
+
+function balancedJsonSlice(raw: string, start: number): string | undefined {
+  const stack: string[] = [];
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < raw.length; index += 1) {
+    const char = raw[index]!;
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === '{' || char === '[') {
+      stack.push(char);
+      continue;
+    }
+    if (char === '}' || char === ']') {
+      const expected = char === '}' ? '{' : '[';
+      if (stack.pop() !== expected) {
+        return undefined;
+      }
+      if (stack.length === 0) {
+        return raw.slice(start, index + 1);
+      }
+    }
+  }
+
+  return undefined;
 }
 
 export function mergeReplaceProductExecutionPrompt(

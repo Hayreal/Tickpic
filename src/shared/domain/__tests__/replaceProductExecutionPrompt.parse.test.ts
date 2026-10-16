@@ -52,4 +52,20 @@ describe('replaceProductExecutionPrompt parsing', () => {
   it('strips markdown fences', () => {
     expect(stripJsonFence('```json\n{"a":1}\n```')).toBe('{"a":1}');
   });
+
+  it('extracts the last JSON object when a code preamble precedes it', () => {
+    const raw = [
+      'from PIL import Image',
+      'for p in ["/mnt/data/image_1.png"]:',
+      '    print(p, im.size)',
+      '{"size":[1,2]}',
+      '{"locked_copy":{"brand":"wkau","note":"keep } brace"},"ok":true}',
+    ].join('\n');
+
+    expect(JSON.parse(stripJsonFence(raw))).toEqual({
+      locked_copy: { brand: 'wkau', note: 'keep } brace' },
+      ok: true,
+    });
+    expect(JSON.parse(stripJsonFence('```python\nprint({"w":1})\n```\n{"a":1}'))).toEqual({ a: 1 });
+  });
 });

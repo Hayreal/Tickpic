@@ -15,6 +15,8 @@ describe('skuVisionPrompt', () => {
       expect(prompt).toContain('Return every creative plan in English only.');
       expect(prompt).toContain('Never alter the SKU container');
       expect(prompt).toContain('only edit the printed label area');
+      expect(prompt).toContain('Do not write code, import libraries, call tools');
+      expect(prompt).not.toContain('Inspect the supplied');
     },
   );
 
@@ -380,6 +382,34 @@ describe('skuVisionPrompt', () => {
     expect(executionPrompt).toContain("The user's product name is the sole semantic authority");
     expect(executionPrompt).toContain('Any source-derived category or usage direction in the creative plan is invalid');
     expect(executionPrompt).toContain('do not show cars, vehicles, headlights, engines, dashboards, wheels, or other automotive imagery');
+  });
+
+  it('parses a SKU vision batch when the model prints code before the JSON', () => {
+    const raw = [
+      'from PIL import Image',
+      'for p in ["/mnt/data/image_1.png","/mnt/data/image_2.png"]:',
+      '    im=Image.open(p)',
+      '    print(p, im.size)',
+      JSON.stringify({
+        locked_copy: { brand: 'wkau', product_name: 'Contact Deoxidation', capacity: 'NET: 100ml' },
+        container_lock: {
+          form: 'other',
+          height_tier: 'high',
+          shape_description: 'Closed resealable stand-up pouch, 19.5 cm high by 13.8 cm wide.',
+        },
+        instructions: [{ index: 1, prompt: 'Use the reference label palette and keep NET: 100ml visible.' }],
+      }),
+    ].join('\n');
+
+    const batch = parseSkuVisionBatch(raw, 1);
+
+    expect(batch.lockedCopy).toEqual({
+      brand: 'wkau',
+      productName: 'Contact Deoxidation',
+      capacity: 'NET: 100ml',
+    });
+    expect(batch.containerLock.form).toBe('other');
+    expect(batch.instructions).toHaveLength(1);
   });
 
   it('rejects a vision batch missing container_lock', () => {
