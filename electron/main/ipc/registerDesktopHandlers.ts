@@ -13,7 +13,7 @@ import { reconcileOrphanedProfileTasks } from '../services/tasks/reconcileOrphan
 import { registerTaskService } from '../services/tasks/taskService.js';
 import { registerSettingsService } from '../services/settings/settingsService.js';
 import { createFileSettingsStore } from '../services/settings/settingsStore.js';
-import { DEFAULT_CONCURRENT_TASKS, MAX_CONCURRENT_TASKS } from '../../../src/shared/domain/settings.js';
+import { clampMaxConcurrentTasks, DEFAULT_CONCURRENT_TASKS } from '../../../src/shared/domain/settings.js';
 import { resolveWorkspacePaths } from '../services/storage/workspacePaths.js';
 import { registerAppLogIpc } from '../services/logger/appLogIpc.js';
 import { getAppLogger } from '../services/logger/appLogger.js';
@@ -36,7 +36,7 @@ function readInitialSettingsFile(
     };
     const workspaceDir = payload.workspaceDir?.trim() || defaultWorkspaceDir;
     const maxConcurrentTasks = Number.isInteger(payload.maxConcurrentTasks) && (payload.maxConcurrentTasks ?? 0) > 0
-      ? Math.min(payload.maxConcurrentTasks as number, MAX_CONCURRENT_TASKS)
+      ? clampMaxConcurrentTasks(payload.maxConcurrentTasks as number)
       : DEFAULT_CONCURRENT_TASKS;
     return { workspaceDir, maxConcurrentTasks };
   } catch {

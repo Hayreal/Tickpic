@@ -6,8 +6,13 @@ import { MAX_IMAGE_COUNT } from '../view/imageCountOptions.js';
 
 export const KEEP_EXISTING_API_KEY = '__KEEP_EXISTING__' as const;
 
-/** Simultaneous image-task limit; the provider quota is the ceiling. */
-export const MAX_CONCURRENT_TASKS = 3;
+/** Simultaneous image-task limit the user can set. */
+export const MAX_CONCURRENT_TASKS = 10;
+
+export function clampMaxConcurrentTasks(value: number): number {
+  if (!Number.isInteger(value) || value < 1) return DEFAULT_CONCURRENT_TASKS;
+  return Math.min(value, MAX_CONCURRENT_TASKS);
+}
 
 export const DEFAULT_CONCURRENT_TASKS = 1;
 

@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { AppSettings, RendererAppSettings } from '../../../../src/shared/domain/settings.js';
 import {
   KEEP_EXISTING_API_KEY,
-  MAX_CONCURRENT_TASKS,
+  clampMaxConcurrentTasks,
   createDefaultAppSettings,
   normalizeGlobalNegativePrompt,
   redactAppSettings,
@@ -109,7 +109,7 @@ function validateSettings(settings: AppSettings): AppSettings {
   if (!Number.isInteger(settings.maxConcurrentTasks) || settings.maxConcurrentTasks <= 0) {
     throw new Error('maxConcurrentTasks must be a positive integer');
   }
-  const normalizedMaxConcurrentTasks = Math.min(settings.maxConcurrentTasks, MAX_CONCURRENT_TASKS);
+  const normalizedMaxConcurrentTasks = clampMaxConcurrentTasks(settings.maxConcurrentTasks);
 
   if (
     settings.modelProtocol !== undefined

@@ -11,7 +11,7 @@ import {
   FolderOpen,
 } from 'lucide-react';
 import type { AppSettings, RendererAppSettings } from '../shared/domain/settings';
-import { KEEP_EXISTING_API_KEY, MAX_CONCURRENT_TASKS, resolveModelProtocolFromSettings } from '../shared/domain/settings';
+import { clampMaxConcurrentTasks, KEEP_EXISTING_API_KEY, MAX_CONCURRENT_TASKS, resolveModelProtocolFromSettings } from '../shared/domain/settings';
 import { MAX_NEGATIVE_PROMPT_LENGTH } from '../shared/domain/imageFeatureApi';
 import { DEFAULT_GLOBAL_NEGATIVE_PROMPT } from '../shared/domain/globalNegativePrompt';
 import type { ImageModelProtocol } from '../shared/domain/imageFeatureApi';
@@ -56,7 +56,7 @@ export default function Settings() {
       setVisionModel(settings.defaultModels.vision);
       setWorkspaceDir(settings.workspaceDir);
       setDefaultCount(settings.defaultCount);
-      setMaxConcurrentTasks(Math.min(settings.maxConcurrentTasks, MAX_CONCURRENT_TASKS));
+      setMaxConcurrentTasks(clampMaxConcurrentTasks(settings.maxConcurrentTasks));
       setGlobalNegativePrompt(settings.globalNegativePrompt ?? DEFAULT_GLOBAL_NEGATIVE_PROMPT);
     }).catch(console.error);
   }, [desktopClient]);
@@ -77,7 +77,7 @@ export default function Settings() {
       },
       defaultCount,
       maxCount: MAX_IMAGE_COUNT,
-      maxConcurrentTasks,
+      maxConcurrentTasks: clampMaxConcurrentTasks(maxConcurrentTasks),
       globalNegativePrompt,
     };
 
@@ -302,29 +302,23 @@ export default function Settings() {
           </div>
 
           <div className="space-y-2">
-            <Label id="settings-max-concurrent-label">任务并发数</Label>
-            <p className="text-xs text-muted-foreground">同时运行的出图任务上限，最大 {MAX_CONCURRENT_TASKS}。</p>
-            <div
+            <Label htmlFor="settings-max-concurrent">任务并发数</Label>
+            <p className="text-xs text-muted-foreground">同时运行的出图任务上限，可填 1 到 {MAX_CONCURRENT_TASKS}。</p>
+            <Input
               id="settings-max-concurrent"
-              role="group"
-              aria-labelledby="settings-max-concurrent-label"
-              className="grid grid-cols-3 gap-2"
-            >
-              {Array.from({ length: MAX_CONCURRENT_TASKS }, (_, index) => index + 1).map((value) => (
-                <button
-                  id={`settings-max-concurrent-${value}`}
-                  key={value}
-                  type="button"
-                  onClick={() => setMaxConcurrentTasks(value)}
-                  className={cn(
-                    'cursor-pointer rounded-lg border px-3 py-2 text-center text-sm font-semibold transition-all',
-                    maxConcurrentTasks === value ? 'ui-segment-active' : 'ui-segment-inactive',
-                  )}
-                >
-                  {value}
-                </button>
-              ))}
-            </div>
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={MAX_CONCURRENT_TASKS}
+              step={1}
+              value={maxConcurrentTasks}
+              onChange={(event) => {
+                const parsed = Number.parseInt(event.target.value, 10);
+                if (!Number.isInteger(parsed)) return;
+                setMaxConcurrentTasks(clampMaxConcurrentTasks(parsed));
+              }}
+              className="w-28 tabular-nums"
+            />
           </div>
 
           {saveMessage === 'success' && (
