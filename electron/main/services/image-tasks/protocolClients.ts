@@ -82,7 +82,7 @@ export function createOpenAIProtocolClient(
           signal: input.abortSignal,
         });
 
-      const images = await extractOpenAIImages(response);
+      const images = await extractOpenAIImages(response, input.abortSignal);
       logModelResponse('execution', {
         protocol: 'openai',
         url: input.images.length > 0
@@ -212,7 +212,7 @@ function resolveImageMimeType(image: ImageInput) {
   return inferMimeType(image.path);
 }
 
-async function extractOpenAIImages(response: unknown): Promise<GeneratedImageOutput[]> {
+async function extractOpenAIImages(response: unknown, signal: AbortSignal): Promise<GeneratedImageOutput[]> {
   const data = isRecord(response) && Array.isArray(response.data) ? response.data : [];
   const images: GeneratedImageOutput[] = [];
 
@@ -227,7 +227,7 @@ async function extractOpenAIImages(response: unknown): Promise<GeneratedImageOut
     } else if (item.url) {
       images.push({
         fileName: `result-${index + 1}.png`,
-        buffer: await downloadImage(item.url),
+        buffer: await downloadImage(item.url, signal),
         mimeType: 'image/png',
       });
     }
@@ -285,8 +285,8 @@ function extractGeminiParts(response: unknown): unknown[] {
   });
 }
 
-async function downloadImage(url: string): Promise<Buffer> {
-  const response = await fetch(url);
+async function downloadImage(url: string, signal: AbortSignal): Promise<Buffer> {
+  const response = await fetch(url, { signal });
   if (!response.ok) {
     throw new Error(`image URL download failed: ${response.status} ${response.statusText}`);
   }

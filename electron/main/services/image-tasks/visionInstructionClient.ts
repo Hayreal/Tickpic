@@ -11,6 +11,7 @@ import {
 import { isImageGenerationModel } from './instructionPrompt.js';
 import { logModelRequest, logModelResponse } from './modelRequestLogger.js';
 import { buildOpenAIChatCompletionsUrl } from './modelRequestUrls.js';
+import { MODEL_REQUEST_TIMEOUT_MS } from './imageTaskController.js';
 import { normalizeOpenAIBaseUrl } from './modelGatewayFactory.js';
 import {
   buildProductSetExecutionVariantsFromVision,
@@ -109,6 +110,8 @@ export function createVisionInstructionClient(
   const openai = new OpenAI({
     apiKey: options.apiKey,
     baseURL: normalizeOpenAIBaseUrl(options.baseUrl),
+    timeout: MODEL_REQUEST_TIMEOUT_MS,
+    maxRetries: 1,
   });
 
   return {

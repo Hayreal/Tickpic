@@ -22,6 +22,15 @@ export function normalizeImageTaskError(error: unknown): NormalizedImageTaskErro
     };
   }
 
+  if (/timed? ?out|超时/i.test(rawMessage)) {
+    return {
+      code: 'image_task_timeout',
+      message: rawMessage.includes('出图超过')
+        ? rawMessage
+        : '模型请求超时，任务已终止。请检查网络或模型服务后重试。',
+    };
+  }
+
   if (status === 403) {
     return {
       code: 'image_provider_forbidden',

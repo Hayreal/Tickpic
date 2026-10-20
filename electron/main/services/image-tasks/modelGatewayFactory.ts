@@ -6,6 +6,7 @@ import {
   createGeminiProtocolClient,
   createOpenAIProtocolClient,
 } from './protocolClients.js';
+import { MODEL_REQUEST_TIMEOUT_MS } from './imageTaskController.js';
 
 export function createModelGatewayFromSettings(settings: AppSettings) {
   const apiKey = settings.n1nApiKey.trim();
@@ -22,11 +23,15 @@ export function createModelGatewayFromSettings(settings: AppSettings) {
     openai: createOpenAIProtocolClient(new OpenAI({
       apiKey,
       baseURL: normalizeOpenAIBaseUrl(settings.baseUrl),
+      timeout: MODEL_REQUEST_TIMEOUT_MS,
+      maxRetries: 1,
     }), clientOptions),
     gemini: createGeminiProtocolClient(new GoogleGenAI({
       apiKey,
       httpOptions: {
         baseUrl: normalizeGeminiBaseUrl(settings.baseUrl),
+        timeout: MODEL_REQUEST_TIMEOUT_MS,
+        retryOptions: { attempts: 2 },
       },
     }), clientOptions),
   });

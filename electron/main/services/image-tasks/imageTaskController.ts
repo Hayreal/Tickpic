@@ -8,6 +8,17 @@ import { validateImageTaskRequest } from '../../../../src/shared/domain/imageFea
 import { getAppLogger } from '../logger/appLogger.js';
 import { normalizeImageTaskError } from './providerError.js';
 
+/** One model call. The SDK default is 10 minutes and then retries. */
+export const MODEL_REQUEST_TIMEOUT_MS = 3 * 60 * 1000;
+
+/**
+ * Whole task, including vision, prompt assembly, and every output image.
+ * A hung request must leave "running" instead of sitting there past this.
+ */
+export const IMAGE_TASK_DEADLINE_MS = 8 * 60 * 1000;
+
+const IMAGE_TASK_DEADLINE_MESSAGE = '出图超过 8 分钟仍未完成，任务已终止。请检查网络或模型服务后重试。';
+
 export type ImageTaskStatusListener = (task: ImageTaskRecord) => void;
 
 export type ImageTaskProgressUpdate = Partial<
@@ -128,12 +139,25 @@ export function createImageTaskController(options: ImageTaskControllerOptions = 
     });
     updateTask(runningTask);
 
+    let timedOut = false;
+    let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
+    const execution = options.execute!(
+      runningTask,
+      abortSignal,
+      (update) => reportProgress(task.taskId, update),
+    );
+    execution.catch(() => undefined);
+    const deadline = new Promise<never>((_, reject) => {
+      deadlineTimer = setTimeout(() => {
+        timedOut = true;
+        abortControllers.get(task.taskId)?.abort();
+        reject(new Error(IMAGE_TASK_DEADLINE_MESSAGE));
+      }, IMAGE_TASK_DEADLINE_MS);
+      deadlineTimer.unref?.();
+    });
+
     try {
-      const result = await options.execute!(
-        runningTask,
-        abortSignal,
-        (update) => reportProgress(task.taskId, update),
-      );
+      const result = await Promise.race([execution, deadline]);
       const current = tasks.get(task.taskId);
       if (!current || current.status !== 'running') return;
 
@@ -153,7 +177,7 @@ export function createImageTaskController(options: ImageTaskControllerOptions = 
       const current = tasks.get(task.taskId);
       if (!current || current.status !== 'running') return;
 
-       const normalizedError = normalizeImageTaskError(error);
+       const normalizedError = normalizeImageTaskError(timedOut ? new Error(IMAGE_TASK_DEADLINE_MESSAGE) : error);
        logger.error('image-task', '任务执行失败', {
          taskId: task.taskId,
          feature: task.feature,
@@ -170,6 +194,7 @@ export function createImageTaskController(options: ImageTaskControllerOptions = 
         updatedAt: new Date().toISOString(),
       });
     } finally {
+      if (deadlineTimer) clearTimeout(deadlineTimer);
       abortControllers.delete(task.taskId);
       runningCount -= 1;
       pumpQueue();
